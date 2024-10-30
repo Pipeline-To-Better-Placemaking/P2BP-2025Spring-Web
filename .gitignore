@@ -1,0 +1,14 @@
+node_modules
+.env
+frontend_2/.DS_Store
+frontend_2/screens/.DS_Store
+frontend_2/screens/components/.DS_Store
+frontend_2/.expo/settings.json
+frontend_2/.expo/README.md
+frontend_2/.expo/packager-info.json
+.DS_Store
+package-lock.json
+frontend_web/src/api
+.vscode/
+frontend_web/src/routes/firebase_config.js
+firebase-tools-instant-win.exe

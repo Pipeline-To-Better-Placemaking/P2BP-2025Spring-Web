@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'Register.dart' as register; // Alias for RegisterPage
-import 'Login.dart' as login; // Alias for LoginPage
+import 'register.dart' as register; // Alias for RegisterPage
+import 'login.dart' as login; // Alias for LoginPage
 
 void main() {
   runApp(MyApp());

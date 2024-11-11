@@ -16,12 +16,11 @@ jobs:
       # Checkout the code from the repository
       - uses: actions/checkout@v4
 
-      # Set up Flutter (installing flutter if not installed)
-      - name: Install Flutter
-        run: |
-          git clone https://github.com/flutter/flutter.git /home/runner/flutter
-          export PATH="$PATH:/home/runner/flutter/bin"
-          flutter --version  # Verify Flutter installation
+      # Set up Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'  # Use the stable version of Flutter
 
       # Verify Flutter installation
       - name: Verify Flutter installation

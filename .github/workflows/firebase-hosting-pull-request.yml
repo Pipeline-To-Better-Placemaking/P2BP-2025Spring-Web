@@ -16,18 +16,18 @@ jobs:
       # Checkout the code from the repository
       - uses: actions/checkout@v4
 
-      # Set up Flutter
+      # Set up Flutter (with an explicit version)
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'  # You can specify a version if needed, or use 'stable'
+          flutter-version: 'stable'  # Ensure this points to the correct version of Flutter
 
-      # Check if Flutter is installed
+      # Verify Flutter installation
       - name: Verify Flutter installation
         run: |
           echo "Checking Flutter version"
-          flutter --version
-          which flutter  # This should show the path of the flutter command
+          flutter --version  # This will confirm the Flutter version
+          which flutter  # This will confirm the path where Flutter is installed
 
       # Build the web app using Flutter
       - run: flutter build web

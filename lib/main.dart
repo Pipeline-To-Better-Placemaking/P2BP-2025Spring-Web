@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'register.dart' as register; // Alias for RegisterPage
-import 'login.dart' as login; // Alias for LoginPage
+import 'package:firebase_core/firebase_core.dart';
+import 'register.dart' as register;
+import 'login.dart' as login;
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();  // Initialize Firebase
   runApp(MyApp());
 }
 
@@ -17,8 +20,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false, // Disable the debug banner
       initialRoute: '/',
       routes: {
-        '/': (context) => login.LoginPage(), // Use alias for LoginPage
-        '/register': (context) => register.RegisterPage(), // Use alias for RegisterPage
+        '/': (context) => login.LoginPage(),
+        '/register': (context) => register.RegisterPage(),
       },
     );
   }

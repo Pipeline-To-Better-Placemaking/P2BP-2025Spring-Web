@@ -22,8 +22,12 @@ jobs:
         with:
           flutter-version: 'stable'  # You can specify a version if needed, or use 'stable'
 
-      # Verify Flutter installation
-      - run: flutter --version  # To ensure Flutter is installed correctly
+      # Check if Flutter is installed
+      - name: Verify Flutter installation
+        run: |
+          echo "Checking Flutter version"
+          flutter --version
+          which flutter  # This should show the path of the flutter command
 
       # Build the web app using Flutter
       - run: flutter build web

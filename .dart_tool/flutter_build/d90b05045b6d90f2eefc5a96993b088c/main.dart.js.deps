@@ -163,6 +163,13 @@ file:///Users/andrewz/.pub-cache/hosted/pub.dev/collection-1.18.0/lib/src/unmodi
 file:///Users/andrewz/.pub-cache/hosted/pub.dev/collection-1.18.0/lib/src/utils.dart
 file:///Users/andrewz/.pub-cache/hosted/pub.dev/collection-1.18.0/lib/src/wrappers.dart
 file:///Users/andrewz/.pub-cache/hosted/pub.dev/fake_async-1.3.1/lib/fake_async.dart
+file:///Users/andrewz/.pub-cache/hosted/pub.dev/firebase_auth-5.3.2/lib/firebase_auth.dart
+file:///Users/andrewz/.pub-cache/hosted/pub.dev/firebase_auth-5.3.2/lib/src/confirmation_result.dart
+file:///Users/andrewz/.pub-cache/hosted/pub.dev/firebase_auth-5.3.2/lib/src/firebase_auth.dart
+file:///Users/andrewz/.pub-cache/hosted/pub.dev/firebase_auth-5.3.2/lib/src/multi_factor.dart
+file:///Users/andrewz/.pub-cache/hosted/pub.dev/firebase_auth-5.3.2/lib/src/recaptcha_verifier.dart
+file:///Users/andrewz/.pub-cache/hosted/pub.dev/firebase_auth-5.3.2/lib/src/user.dart
+file:///Users/andrewz/.pub-cache/hosted/pub.dev/firebase_auth-5.3.2/lib/src/user_credential.dart
 file:///Users/andrewz/.pub-cache/hosted/pub.dev/firebase_auth_platform_interface-7.4.8/lib/firebase_auth_platform_interface.dart
 file:///Users/andrewz/.pub-cache/hosted/pub.dev/firebase_auth_platform_interface-7.4.8/lib/src/action_code_info.dart
 file:///Users/andrewz/.pub-cache/hosted/pub.dev/firebase_auth_platform_interface-7.4.8/lib/src/action_code_settings.dart
@@ -1402,6 +1409,8 @@ file:///Users/andrewz/Documents/Flutter/flutter/packages/flutter_web_plugins/lib
 file:///Users/andrewz/Documents/GitHub/P2BP-2025Spring-Web/.dart_tool/flutter_build/d90b05045b6d90f2eefc5a96993b088c/app.dill
 file:///Users/andrewz/Documents/GitHub/P2BP-2025Spring-Web/.dart_tool/flutter_build/d90b05045b6d90f2eefc5a96993b088c/main.dart
 file:///Users/andrewz/Documents/GitHub/P2BP-2025Spring-Web/.dart_tool/flutter_build/d90b05045b6d90f2eefc5a96993b088c/web_plugin_registrant.dart
+file:///Users/andrewz/Documents/GitHub/P2BP-2025Spring-Web/lib/firebase_options.dart
+file:///Users/andrewz/Documents/GitHub/P2BP-2025Spring-Web/lib/homepage.dart
 file:///Users/andrewz/Documents/GitHub/P2BP-2025Spring-Web/lib/login.dart
 file:///Users/andrewz/Documents/GitHub/P2BP-2025Spring-Web/lib/main.dart
 file:///Users/andrewz/Documents/GitHub/P2BP-2025Spring-Web/lib/register.dart

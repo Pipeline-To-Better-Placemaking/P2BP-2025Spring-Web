@@ -3,7 +3,7 @@ name: Deploy to Firebase Hosting on PR
 on:
   pull_request:
     branches:
-      - main  # or specify the branch you want to track
+      - main  # Or the branch you want to deploy from
 
 permissions:
   checks: write
@@ -24,22 +24,32 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'  # Use the stable version of Flutter
+          flutter-version: 'stable'  # Ensure we use the stable version
+
+      # Cache Flutter dependencies (optional, speeds up builds)
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.dart-server/.pub-cache
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
 
       # Verify Flutter installation
       - name: Verify Flutter installation
         run: |
-          flutter --version  # This checks if flutter is installed correctly
-          which flutter      # This confirms the location of the flutter command
+          flutter --version  # Check if Flutter is installed
+          which flutter      # Check if the flutter command is in PATH
 
-      # Install dependencies (if needed)
+      # Install dependencies
       - name: Install dependencies
-        run: |
-          flutter pub get   # This installs the necessary dependencies
+        run: flutter pub get
 
       # Build the web app using Flutter
       - name: Build web app
-        run: flutter build web
+        run: flutter build web --release
 
       # Deploy to Firebase Hosting
       - name: Deploy to Firebase Hosting

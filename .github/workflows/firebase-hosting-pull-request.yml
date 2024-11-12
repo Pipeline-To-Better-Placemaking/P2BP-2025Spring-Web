@@ -1,6 +1,9 @@
 name: Deploy to Firebase Hosting on PR
 
-on: pull_request
+on:
+  pull_request:
+    branches:
+      - main  # or specify the branch you want to track
 
 permissions:
   checks: write
@@ -14,7 +17,8 @@ jobs:
 
     steps:
       # Checkout the code from the repository
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       # Set up Flutter
       - name: Set up Flutter
@@ -25,14 +29,21 @@ jobs:
       # Verify Flutter installation
       - name: Verify Flutter installation
         run: |
-          flutter --version
-          which flutter
+          flutter --version  # This checks if flutter is installed correctly
+          which flutter      # This confirms the location of the flutter command
+
+      # Install dependencies (if needed)
+      - name: Install dependencies
+        run: |
+          flutter pub get   # This installs the necessary dependencies
 
       # Build the web app using Flutter
-      - run: flutter build web
+      - name: Build web app
+        run: flutter build web
 
       # Deploy to Firebase Hosting
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BETTER_PLACEMAKING }}

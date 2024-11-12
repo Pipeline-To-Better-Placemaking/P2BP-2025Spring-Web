@@ -1,60 +1,36 @@
-name: Deploy to Firebase Hosting on PR
-
+name: Deploy to Firebase Hosting on merge
 on:
-  pull_request:
+  push:
     branches:
-      - main  # Or the branch you want to deploy from
-
-permissions:
-  checks: write
-  contents: read
-  pull-requests: write
+      - main
 
 jobs:
-  build_and_preview:
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+  build_and_deploy:
     runs-on: ubuntu-latest
 
     steps:
       # Checkout the code from the repository
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       # Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'  # Ensure we use the stable version
-
-      # Cache Flutter dependencies (optional, speeds up builds)
-      - name: Cache Flutter dependencies
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.pub-cache
-            ~/.dart-server/.pub-cache
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-
+          flutter-version: 'stable'  # You can specify a different version if needed
 
       # Verify Flutter installation
       - name: Verify Flutter installation
         run: |
-          flutter --version  # Check if Flutter is installed
-          which flutter      # Check if the flutter command is in PATH
-
-      # Install dependencies
-      - name: Install dependencies
-        run: flutter pub get
+          flutter --version
+          which flutter
 
       # Build the web app using Flutter
-      - name: Build web app
-        run: flutter build web --release
+      - run: flutter build web
 
       # Deploy to Firebase Hosting
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BETTER_PLACEMAKING }}
+          channelId: live
           projectId: better-placemaking

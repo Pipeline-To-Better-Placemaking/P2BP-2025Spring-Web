@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'register.dart' as register;
 import 'login.dart' as login;
+import 'ForgotPassword.dart' as forgotpassword;
 import 'homepage.dart'; // Import the HomePage
 import 'firebase_options.dart';  // Import the firebase_options.dart file
 
@@ -33,6 +34,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => login.LoginPage(),
         '/register': (context) => register.RegisterPage(),
         '/home': (context) => HomePage(), // Add HomePage route
+        '/password_reset': (context) => forgotpassword.ForgotPassword(),
       },
     );
   }

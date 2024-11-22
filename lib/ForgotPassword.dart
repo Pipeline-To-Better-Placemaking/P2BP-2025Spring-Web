@@ -45,7 +45,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
   }
 
   void handleSubmit() {
-    final email = _emailController.text;
+    final email = _emailController.text; // TODO: Also needs updating for email thingy
 
     if (email.length < 7) {
       setState(() {
@@ -120,6 +120,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                         SizedBox(height: 10),
                         Container( 
                           alignment: Alignment.center,
+                          width: 500,
                           child: TextField(
                             controller: _emailController,
                             decoration: InputDecoration(

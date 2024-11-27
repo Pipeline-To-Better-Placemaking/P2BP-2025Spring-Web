@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class HomePage extends StatelessWidget {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   @override
   Widget build(BuildContext context) {
+    User? user = _auth.currentUser;  // Get the current logged-in user
+    String displayName = user?.displayName ?? 'User';  // Use display name, fallback to email if no display name
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Home'),
@@ -12,7 +17,7 @@ class HomePage extends StatelessWidget {
             icon: Icon(Icons.exit_to_app),
             onPressed: () async {
               // Log out the user
-              await FirebaseAuth.instance.signOut();
+              await _auth.signOut();
               // Navigate back to login page
               Navigator.pushReplacementNamed(context, '/');
             },
@@ -29,7 +34,7 @@ class HomePage extends StatelessWidget {
             ),
             SizedBox(height: 20),
             Text(
-              'You are logged in.',
+              'Hello, $displayName',  // Display the user's full name or email
               style: TextStyle(fontSize: 18),
             ),
           ],

@@ -5,7 +5,7 @@ class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
       return const FirebaseOptions(
-        apiKey: "AIzaSyCtrVdJD9W4IpXCJ1KSrHGqZKYG9HUrhgs",
+        apiKey: "AIzaSyDDGViCn0hRT65s__fK3V_OsxYJTtMinsk",
         authDomain: "better-placemaking.firebaseapp.com",
         databaseURL: "https://better-placemaking-default-rtdb.firebaseio.com",
         projectId: "better-placemaking",

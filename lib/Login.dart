@@ -15,6 +15,8 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   bool _obscureText = true; // Toggle for password visibility
 
+  String _fullName = '';  // Variable to store full name
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -28,29 +30,58 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  // Firebase login method
   Future<void> _loginUser() async {
     try {
       // Sign in using Firebase Auth
       UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text,
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
-      // Successfully logged in, navigate to the next screen
+      // Retrieve full name from user (fallback to email if no display name)
+      String displayName = userCredential.user?.displayName ?? userCredential.user?.email ?? 'User';
+      setState(() {
+        _fullName = displayName;
+      });
+
+      // Successfully logged in, navigate to the home screen
+      ScaffoldMessenger.of(context).clearSnackBars(); // Clear any existing snackbars
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Welcome ${userCredential.user?.email}')),
+        SnackBar(content: Text('Welcome, $_fullName!')),
       );
 
-      // Navigate to HomePage (you can replace HomePage with your actual home screen)
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => HomePage()), // Replace with your actual home page
+        MaterialPageRoute(builder: (context) => HomePage()), // Replace with your home page
+      );
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+
+      // Provide user-friendly error messages
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'No user found with this email.';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Incorrect password. Please try again.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Invalid email address.';
+          break;
+        default:
+          errorMessage = 'Login failed. Please try again.';
+      }
+
+      // Clear any existing snackbars and show new one
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
       );
     } catch (e) {
-      // Handle login errors
+      // General error handling
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login failed: $e')),
+        SnackBar(content: Text('An error occurred: $e')),
       );
     }
   }
@@ -58,7 +89,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF1A237E),
+      backgroundColor: Color(0xFF1C48A6),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -101,22 +132,28 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  // Email field with limited width
                   Center(
                     child: Container(
-                      width: 300, // Set desired width here
+                      width: 300,
                       child: TextFormField(
                         controller: _emailController,
                         decoration: InputDecoration(
                           labelText: 'Email',
                           labelStyle: TextStyle(color: Colors.white),
-                          enabledBorder: OutlineInputBorder(
+                          enabledBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: Colors.white),
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.lightBlue, width: 2.0),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white, width: 2.0),
+                          ),
+                          errorBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
+                          ),
+                          focusedErrorBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
                           ),
                           prefixIcon: Icon(Icons.email, color: Colors.white),
+                          errorStyle: TextStyle(color: const Color.fromARGB(255, 255, 255, 255), fontSize: 18),
                         ),
                         keyboardType: TextInputType.emailAddress,
                         style: TextStyle(color: Colors.white),
@@ -133,22 +170,28 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   SizedBox(height: 16),
-                  // Password field with limited width
                   Center(
                     child: Container(
-                      width: 300, // Set desired width here
+                      width: 300,
                       child: TextFormField(
                         controller: _passwordController,
                         decoration: InputDecoration(
                           labelText: 'Password',
                           labelStyle: TextStyle(color: Colors.white),
-                          enabledBorder: OutlineInputBorder(
+                          enabledBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: Colors.white),
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.lightBlue, width: 2.0),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white, width: 2.0),
+                          ),
+                          errorBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
+                          ),
+                          focusedErrorBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
                           ),
                           prefixIcon: Icon(Icons.lock, color: Colors.white),
+                          errorStyle: TextStyle(color: const Color.fromARGB(255, 255, 255, 255), fontSize: 18),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscureText ? Icons.visibility : Icons.visibility_off,
@@ -190,8 +233,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   SizedBox(height: 18),
-
-                  // Forgot Password Link
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -201,16 +242,15 @@ class _LoginPageState extends State<LoginPage> {
                     },
                     child: Text(
                       'Forgot Password?',
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ),
                   SizedBox(height: 6),
-                  // Register New Account Link
                   Column(
                     children: [
                       Text(
                         'New here?',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: Colors.white, fontSize: 16),
                       ),
                       SizedBox(height: 6),
                       TextButton(
@@ -222,7 +262,7 @@ class _LoginPageState extends State<LoginPage> {
                         },
                         child: Text(
                           'Create an account',
-                          style: TextStyle(color: Colors.white),
+                          style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                       ),
                     ],
@@ -230,6 +270,16 @@ class _LoginPageState extends State<LoginPage> {
                 ],
               ),
             ),
+            SizedBox(height: 16),
+            _fullName.isNotEmpty
+                ? Text(
+                    'Logged in as $_fullName',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                    ),
+                  )
+                : Container(),
           ],
         ),
       ),

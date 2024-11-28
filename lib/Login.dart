@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore package
 import 'package:p2b/ForgotPassword.dart';
 import 'register.dart';
 import 'homepage.dart';
@@ -13,6 +14,8 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   bool _obscureText = true; // Toggle for password visibility
 
   String _fullName = '';  // Variable to store full name
@@ -38,22 +41,40 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
-      // Retrieve full name from user (fallback to email if no display name)
-      String displayName = userCredential.user?.displayName ?? userCredential.user?.email ?? 'User';
-      setState(() {
-        _fullName = displayName;
-      });
+      // Add/Update last login time in Firestore
+      await _firestore.collection('users').doc(userCredential.user?.uid).set({
+        'lastLogin': FieldValue.serverTimestamp(), // Add last login timestamp
+      }, SetOptions(merge: true)); // Merge data to avoid overwriting
 
-      // Successfully logged in, navigate to the home screen
-      ScaffoldMessenger.of(context).clearSnackBars(); // Clear any existing snackbars
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Welcome, $_fullName!')),
-      );
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomePage()), // Replace with your home page
-      );
+      // Fetch the user's full name from Firestore
+      String userId = userCredential.user!.uid;
+      var userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+
+      if (userDoc.exists) {
+        // Retrieve full name from Firestore if available
+        String fullName = userDoc['fullName'] ?? 'User';
+        setState(() {
+          _fullName = fullName;
+        });
+
+        // Successfully logged in, navigate to the home screen
+        ScaffoldMessenger.of(context).clearSnackBars(); // Clear any existing snackbars
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Welcome, $_fullName!')),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()), // Replace with your home page
+        );
+      } else {
+        // Handle case where user data does not exist in Firestore (shouldn't happen if user data is properly saved)
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User data not found in Firestore')),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
 

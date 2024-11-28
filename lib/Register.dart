@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterPage extends StatefulWidget {
   @override
@@ -17,6 +18,7 @@ class _RegisterPageState extends State<RegisterPage> {
   double _scale = 1.0;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance; // Firestore instance
 
   // Validation feedback variables
   bool _hasUpperCase = false;
@@ -59,6 +61,13 @@ class _RegisterPageState extends State<RegisterPage> {
 
         // Update the user's displayName with the full name entered during registration
         await userCredential.user?.updateProfile(displayName: _fullNameController.text.trim());
+ 	
+        // Add user data to Firestore
+        await _firestore.collection('users').doc(userCredential.user?.uid).set({
+          'fullName': _fullNameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
 
         // If registration is successful, show a message and navigate
         ScaffoldMessenger.of(context).showSnackBar(

@@ -6,6 +6,7 @@ import 'ForgotPassword.dart' as forgotpassword;
 import 'homepage.dart'; // Import the HomePage
 import 'firebase_options.dart';  // Import the firebase_options.dart file
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -70,3 +71,36 @@ class MyApp extends StatelessWidget {
     return FirebaseAuth.instance.currentUser;
   }
 }
+
+Future<void> addUserToFirestore(String uid, String name) async {
+  try {
+    // Reference to the 'users' collection
+    var usersCollection = FirebaseFirestore.instance.collection('users');
+
+    // Add a new document with a user ID
+    await usersCollection.doc(uid).set({
+      'name': name,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    print('User added successfully');
+  } catch (e) {
+    print('Error adding user: $e');
+  }
+}
+
+Future<void> getUserFromFirestore(String uid) async {
+  try {
+    var usersCollection = FirebaseFirestore.instance.collection('users');
+    var userDoc = await usersCollection.doc(uid).get();
+
+    if (userDoc.exists) {
+      print('User Data: ${userDoc.data()}');
+    } else {
+      print('User not found');
+    }
+  } catch (e) {
+    print('Error fetching user data: $e');
+  }
+}
+

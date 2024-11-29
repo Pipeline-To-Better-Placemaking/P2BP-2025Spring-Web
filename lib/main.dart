@@ -4,9 +4,10 @@ import 'register.dart' as register;
 import 'login.dart' as login;
 import 'ForgotPassword.dart' as forgotpassword;
 import 'homepage.dart'; // Import the HomePage
-import 'firebase_options.dart';  // Import the firebase_options.dart file
+import 'firebase_options.dart'; // Import the firebase_options.dart file
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +16,9 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // Set Firebase persistence to SESSION to log out on tab/browser close
+    await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
   } catch (e) {
     print("Firebase initialization failed: $e");
     // Handle the error here, maybe show an error screen or fallback UI
@@ -72,6 +76,59 @@ class MyApp extends StatelessWidget {
   }
 }
 
+class HomePage extends StatefulWidget {
+  @override
+  _HomePageState createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  Timer? _sessionTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startSessionTimer();
+  }
+
+  void _startSessionTimer() {
+    const sessionTimeout = Duration(minutes: 30); // Set inactivity timeout
+    _sessionTimer?.cancel();
+    _sessionTimer = Timer(sessionTimeout, _signOutUser);
+  }
+
+  void _signOutUser() async {
+    await FirebaseAuth.instance.signOut();
+    // Redirect to login page after sign-out
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => login.LoginPage()),
+    );
+  }
+
+  void _resetTimer() {
+    _startSessionTimer(); // Reset the session timer
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _resetTimer, // Reset timer on user interaction
+      onPanUpdate: (_) => _resetTimer(), // Track gestures
+      child: Scaffold(
+        appBar: AppBar(title: Text("Home Page")),
+        body: Center(child: Text("Welcome to the Home Page!")),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _sessionTimer?.cancel();
+    super.dispose();
+  }
+}
+
+// Functions for Firestore interaction
 Future<void> addUserToFirestore(String uid, String name) async {
   try {
     // Reference to the 'users' collection
@@ -103,4 +160,3 @@ Future<void> getUserFromFirestore(String uid) async {
     print('Error fetching user data: $e');
   }
 }
-

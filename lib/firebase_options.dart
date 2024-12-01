@@ -4,15 +4,15 @@ import 'package:flutter/foundation.dart'; // Import foundation for kIsWeb
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return const FirebaseOptions(
-        apiKey: "AIzaSyDDGViCn0hRT65s__fK3V_OsxYJTtMinsk",
-        authDomain: "better-placemaking.firebaseapp.com",
-        databaseURL: "https://better-placemaking-default-rtdb.firebaseio.com",
-        projectId: "better-placemaking",
-        storageBucket: "better-placemaking.appspot.com",
-        messagingSenderId: "15566872110",
-        appId: "1:15566872110:web:b9df66810a6c87df0509bf",
-        measurementId: "G-GF659M1GPV",
+      return FirebaseOptions(
+        apiKey: const String.fromEnvironment('FIREBASE_API_KEY'),
+        authDomain: const String.fromEnvironment('FIREBASE_AUTH_DOMAIN'),
+        databaseURL: const String.fromEnvironment('FIREBASE_DATABASE_URL'),
+        projectId: const String.fromEnvironment('FIREBASE_PROJECT_ID'),
+        storageBucket: const String.fromEnvironment('FIREBASE_STORAGE_BUCKET'),
+        messagingSenderId: const String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID'),
+        appId: const String.fromEnvironment('FIREBASE_APP_ID'),
+        measurementId: const String.fromEnvironment('FIREBASE_MEASUREMENT_ID'),
       );
     } else {
       throw UnsupportedError('Current platform is not supported.');

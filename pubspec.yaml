@@ -31,6 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_svg: ^2.0.14  # Check for the latest version
+  flutter_dotenv: ^5.0.2
 
   # Firebase dependencies
   firebase_core: ^3.7.0       # Core SDK required for all Firebase services

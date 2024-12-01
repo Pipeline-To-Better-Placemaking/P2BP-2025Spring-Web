@@ -15,7 +15,14 @@ jobs:
     steps:
       # Checkout the repository
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: Pipeline-To-Better-Placemaking/actions/checkout@v2 # Forked version of actions/checkout
+
+      - name: Set up Flutter
+        uses: Pipeline-To-Better-Placemaking/flutter-action@v2 # Forked version of subosito/flutter-action
+
+      - name: Deploy to Firebase Hosting
+        uses: Pipeline-To-Better-Placemaking/firebase-hosting-action@v0.2.0 # Forked version of wzieba/firebase-hosting-action
+
 
       # Set up Flutter
       - name: Set up Flutter

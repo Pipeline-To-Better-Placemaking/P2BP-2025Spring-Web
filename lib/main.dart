@@ -23,7 +23,7 @@ void main() async {
     print("Firebase initialization failed: $e");
     // Handle the error here, maybe show an error screen or fallback UI
   }
-  runApp(MyApp());
+  runApp(MyApp()); 
 }
 
 class MyApp extends StatelessWidget {

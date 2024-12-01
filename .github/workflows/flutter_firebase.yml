@@ -11,18 +11,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v2  # GitHub's official checkout action
 
-      # Set up Flutter
+      # Set up Flutter (Use Flutter Action)
       - name: Set up Flutter
-        run: |
-          git clone https://github.com/flutter/flutter.git
-          export PATH="$PATH:`pwd`/flutter/bin"
-          flutter doctor
+        uses: subosito/flutter-action@v2  # This will install Flutter
+        with:
+          flutter-version: 'stable'  # Specify the Flutter version you want to use
 
       # Install dependencies
       - name: Install dependencies

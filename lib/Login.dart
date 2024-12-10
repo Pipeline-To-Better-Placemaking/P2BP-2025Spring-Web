@@ -41,6 +41,24 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
+      // Check if the email is verified
+      User? user = userCredential.user;
+      if (user != null && !user.emailVerified) {
+        // Log the user out immediately
+        await FirebaseAuth.instance.signOut();
+
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Please verify your email before logging in.',
+            ),
+          ),
+        );
+
+        return;
+      }
+
       // Add/Update last login time in Firestore
       await _firestore.collection('users').doc(userCredential.user?.uid).set({
         'lastLogin': FieldValue.serverTimestamp(), // Add last login timestamp

@@ -69,6 +69,18 @@ class _RegisterPageState extends State<RegisterPage> {
           'createdAt': FieldValue.serverTimestamp(),
         });
 
+        // Send email verification
+        if (userCredential.user != null) {
+          await userCredential.user!.sendEmailVerification();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Registration successful! A verification email has been sent to ${_emailController.text.trim()}. Please verify your email before logging in.',
+              ),
+            ),
+          );
+        }
+
         // If registration is successful, show a message and navigate
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('User Registered Successfully!')),

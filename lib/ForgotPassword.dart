@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 class ForgotPassword extends StatefulWidget {
   @override
@@ -14,43 +12,30 @@ class _ForgotPasswordState extends State<ForgotPassword> {
   bool _isEmailValid = true;
   bool _isRequestSent = false;
 
-  // The URL to send the POST request
-  final String resetURL = '/password_reset';
-
-  // TODO: Will need amending
   Future<void> sendForgotEmail() async {
-    final email = _emailController.text;
+    final email = _emailController.text.trim(); // Trim to avoid trailing spaces
 
     try {
-      final response = await http.post(
-        Uri.parse(resetURL),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': email}),
-      );
-
-      if (response.statusCode == 200) {
-        setState(() {
-          _isRequestSent = true;
-        });
-      } else {
-        setState(() {
-          _message = 'Failed to send email. Please try again.';
-        });
-      }
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      setState(() {
+        _isRequestSent = true;
+        _message = 'A reset email has been sent to $email.';
+      });
     } catch (error) {
       setState(() {
-        _message = 'Error sending email: $error';
+        _isRequestSent = false;
+        _message = error.toString(); // Provide error details
       });
     }
   }
 
   void handleSubmit() {
-    final email = _emailController.text; // TODO: Also needs updating for email thingy
+    final email = _emailController.text.trim();
 
-    if (email.length < 7) {
+    if (!RegExp(r"^[^@]+@[^@]+\.[^@]+").hasMatch(email)) {
       setState(() {
         _isEmailValid = false;
-        _message = 'Please provide a valid email (minimum length 7)';
+        _message = 'Please provide a valid email address.';
       });
     } else {
       setState(() {
@@ -78,13 +63,13 @@ class _ForgotPasswordState extends State<ForgotPassword> {
         child: Padding(
           padding: const EdgeInsets.all(50.0),
           child: Card(
-            color: Color(0xFF1A237E),
+            color: Color(0xFF1C48A6),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,                
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // TODO: Placeholder image needs changing when we get to it
                   Center(
                     child: Image.asset(
                       'assets/icons/PTBP.png',
@@ -99,57 +84,62 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                     textAlign: TextAlign.center,
                   ),
-
                   SizedBox(height: 10),
                   if (!_isRequestSent)
                     Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          'It happens! Just enter the email associated with your account, and we will send you a link to help.',
+                          'Enter the email associated with your account, and we will send you a reset link.',
                           style: TextStyle(color: Colors.white),
                           textAlign: TextAlign.center,
                         ),
                         SizedBox(height: 10),
-                        if (!_isEmailValid)
+                        if (_message.isNotEmpty)
                           Text(
                             _message,
-                            style: TextStyle(color: Colors.red),
+                            style: TextStyle(
+                                color: !_isEmailValid ? Colors.red : Colors.green,
+                                fontWeight: FontWeight.bold),
                           ),
-
                         SizedBox(height: 10),
-                        Container( 
-                          alignment: Alignment.center,
-                          width: 500,
-                          child: TextField(
-                            controller: _emailController,
-                            decoration: InputDecoration(
-                              labelText: 'Enter your Email Address',
-                              labelStyle: TextStyle(color: Colors.white),
-                              errorText: _isEmailValid ? null : 'Please provide a valid email',
+                        TextField(
+                          controller: _emailController,
+                          decoration: InputDecoration(
+                            labelText: 'Email Address',
+                            labelStyle: TextStyle(color: Colors.black),
+                            errorText: _isEmailValid ? null : 'Invalid email format',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.white, width: 1),
                             ),
-                            keyboardType: TextInputType.emailAddress,
-                            style: TextStyle(color: Colors.white),
-                            textAlign: TextAlign.center,
-                            
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Color(0xFFFFB300), width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
                           ),
+                          keyboardType: TextInputType.emailAddress,
+                          style: TextStyle(color: Colors.black), // Set text color to black
                         ),
                         SizedBox(height: 20),
                         ElevatedButton(
                           onPressed: handleSubmit,
                           style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFFB300)),
-                          child: Text('Send Reset Email', style: TextStyle(color: Colors.black),), 
+                          child: Text(
+                            'Send Reset Email',
+                            style: TextStyle(color: Colors.black),
                           ),
+                        ),
                       ],
                     ),
-
-                  // TODO: Update emailController
                   if (_isRequestSent)
                     Container(
                       color: Color(0xFFB6D7A8),
                       padding: EdgeInsets.all(10),
                       child: Text(
-                        'An email containing a link to reset your password has been sent to ${_emailController.text}, it may take a few minutes to appear. In case you do not see an email in your inbox, check your Spam or Junk Folders.',
+                        'An email has been sent to ${_emailController.text}. Please check your inbox or spam folder.',
                         style: TextStyle(fontSize: 16),
                       ),
                     ),

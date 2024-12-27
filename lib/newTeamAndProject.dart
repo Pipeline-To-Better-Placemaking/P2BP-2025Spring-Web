@@ -27,59 +27,62 @@ class _CreateProjectAndTeamsPageState extends State<CreateProjectAndTeamsPage> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
+        backgroundColor: Color(0xFF1C48A6),
         // Top switch between Projects/Teams
         appBar: AppBar(
-          title: const Text('Placeholder'),
+          title: const Text('Create a New Team, or a New Project'),
         ),
         // Creation screens
         body: SingleChildScrollView(
           child: Center(
-            child: Column(
-              children: <Widget>[
-                // Switch at top to switch between create project and team pages.
-                SegmentedButton(
-                  selectedIcon: const Icon(Icons.check_circle),
-                  style: SegmentedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3664B3),
-                    foregroundColor: Colors.white70,
-                    selectedForegroundColor: Colors.white,
-                    selectedBackgroundColor: const Color(0xFF2E5598),
-                    side: const BorderSide(
-                      width: 0,
-                      color: Color(0xFF2180EA),
+            child: Card(
+              child: Column(
+                children: <Widget>[
+                  // Switch at top to switch between create project and team pages.
+                  SegmentedButton(
+                    selectedIcon: const Icon(Icons.check_circle),
+                    style: SegmentedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3664B3),
+                      foregroundColor: Colors.white70,
+                      selectedForegroundColor: Colors.white,
+                      selectedBackgroundColor: const Color(0xFF2E5598),
+                      side: const BorderSide(
+                        width: 0,
+                        color: Color(0xFF2180EA),
+                      ),
+                      elevation: 100,
+                      visualDensity:
+                          const VisualDensity(vertical: 1, horizontal: 1),
                     ),
-                    elevation: 100,
-                    visualDensity:
-                        const VisualDensity(vertical: 1, horizontal: 1),
+                    segments: const <ButtonSegment>[
+                      ButtonSegment(
+                          value: PageView.project,
+                          label: Text('Project'),
+                          icon: Icon(Icons.developer_board)),
+                      ButtonSegment(
+                          value: PageView.team,
+                          label: Text('Team'),
+                          icon: Icon(Icons.people)),
+                    ],
+                    selected: {pageSelection},
+                    onSelectionChanged: (Set newSelection) {
+                      setState(() {
+                        // By default there is only a single segment that can be
+                        // selected at one time, so its value is always the first
+                        // item in the selected set.
+                        pageSelection = newSelection.first;
+                      });
+                    },
                   ),
-                  segments: const <ButtonSegment>[
-                    ButtonSegment(
-                        value: PageView.project,
-                        label: Text('Project'),
-                        icon: Icon(Icons.developer_board)),
-                    ButtonSegment(
-                        value: PageView.team,
-                        label: Text('Team'),
-                        icon: Icon(Icons.people)),
-                  ],
-                  selected: {pageSelection},
-                  onSelectionChanged: (Set newSelection) {
-                    setState(() {
-                      // By default there is only a single segment that can be
-                      // selected at one time, so its value is always the first
-                      // item in the selected set.
-                      pageSelection = newSelection.first;
-                    });
-                  },
-                ),
 
-                // Spacing between button and container w/ pages.
-                const SizedBox(height: 100),
+                  // Spacing between button and container w/ pages.
+                  const SizedBox(height: 100),
 
-                // Changes page between two widgets: The CreateProjectWidget and CreateTeamWidget.
-                // These widgets display their respective screens to create either a project or team.
-                pages[pageSelection.index],
-              ],
+                  // Changes page between two widgets: The CreateProjectWidget and CreateTeamWidget.
+                  // These widgets display their respective screens to create either a project or team.
+                  pages[pageSelection.index],
+                ],
+              ),
             ),
           ),
         ),

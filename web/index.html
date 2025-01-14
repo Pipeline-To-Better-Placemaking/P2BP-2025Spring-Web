@@ -19,10 +19,7 @@
 
   <!-- Google Maps JavaScript API -->
   <script
-    type="text/javascript"
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDwn6wqGymn4bYA_PB8TorQDelDuHZvyOc&libraries=places&callback=initMap&v=weekly"
-    async
-    defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDwn6wqGymn4bYA_PB8TorQDelDuHZvyOc"
   ></script>
 
   <link rel="manifest" href="manifest.json">
@@ -30,38 +27,5 @@
 <body>
   <!-- Your Flutter app will be rendered here -->
   <script src="flutter_bootstrap.js" async></script>
-
-  <script>
-    // Define the initMap function for the Google Maps API callback
-    function initMap() {
-      // Check if geolocation is available
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-
-          const mapOptions = {
-            center: { lat: lat, lng: lng }, // Use current coordinates
-            zoom: 12,
-          };
-
-          // Create the map with the user's current location
-          const map = new google.maps.Map(document.getElementById('map'), mapOptions);
-
-          // Optional: Add a marker at the user's location
-          const marker = new google.maps.Marker({
-            position: { lat: lat, lng: lng },
-            map: map,
-            title: 'You are here!',
-          });
-        }, function(error) {
-          // Handle error if geolocation fails
-          alert('Error: ' + error.message);
-        });
-      } else {
-        alert('Geolocation is not supported by this browser.');
-      }
-    }
-  </script>
 </body>
 </html>

@@ -1,21 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Pipeline to Better Placemakin</title>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <base href="$FLUTTER_BASE_HREF">
+  <title>Pipeline to Better Placemaking</title>
+  <base href="/">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -30,10 +17,51 @@
   <!-- Tab Icon -->
   <link rel="icon" type="image/png" href="assets/icons/PTBP.png" />
 
-  <title>Pipeline to Better Placemaking</title>
+  <!-- Google Maps JavaScript API -->
+  <script
+    type="text/javascript"
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDwn6wqGymn4bYA_PB8TorQDelDuHZvyOc&libraries=places&callback=initMap&v=weekly"
+    async
+    defer
+  ></script>
+
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <!-- Your Flutter app will be rendered here -->
   <script src="flutter_bootstrap.js" async></script>
+
+  <script>
+    // Define the initMap function for the Google Maps API callback
+    function initMap() {
+      // Check if geolocation is available
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+
+          const mapOptions = {
+            center: { lat: lat, lng: lng }, // Use current coordinates
+            zoom: 12,
+          };
+
+          // Create the map with the user's current location
+          const map = new google.maps.Map(document.getElementById('map'), mapOptions);
+
+          // Optional: Add a marker at the user's location
+          const marker = new google.maps.Marker({
+            position: { lat: lat, lng: lng },
+            map: map,
+            title: 'You are here!',
+          });
+        }, function(error) {
+          // Handle error if geolocation fails
+          alert('Error: ' + error.message);
+        });
+      } else {
+        alert('Geolocation is not supported by this browser.');
+      }
+    }
+  </script>
 </body>
 </html>

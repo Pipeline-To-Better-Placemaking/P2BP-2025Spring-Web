@@ -19,3 +19,8 @@ class DefaultFirebaseOptions {
     }
   }
 }
+
+// Separate configuration for Google Maps API Key
+class GoogleMapsConfig {
+  static const mapsApiKey = "AIzaSyDwn6wqGymn4bYA_PB8TorQDelDuHZvyOc";
+}

@@ -29,6 +29,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _resetTimer() {
+    _sessionTimer?.cancel();
     _startSessionTimer();
   }
 
@@ -38,9 +39,9 @@ class _HomePageState extends State<HomePage> {
       if (user != null) {
         final DocumentSnapshot userDoc =
             await _firestore.collection('users').doc(user.uid).get();
-        if (userDoc.exists) {
+        if (userDoc.exists && userDoc.data() != null) {
           setState(() {
-            displayName = userDoc['fullName'];
+            displayName = userDoc['fullName'] ?? 'User';
           });
         } else {
           print('User data not found in Firestore.');
@@ -54,8 +55,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _signOutUser() async {
-    await _auth.signOut();
-    Navigator.pushReplacementNamed(context, '/');
+    try {
+      await _auth.signOut();
+      Navigator.pushReplacementNamed(context, '/');
+    } catch (e) {
+      print('Error signing out: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign out failed. Try again.')),
+      );
+    }
   }
 
   @override

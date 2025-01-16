@@ -15,10 +15,9 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _confirmPasswordController = TextEditingController();
   bool _obscureText = true;
   bool _obscureConfirmText = true;
-  double _scale = 1.0;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance; // Firestore instance
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Validation feedback variables
   bool _hasUpperCase = false;
@@ -26,7 +25,9 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _hasDigits = false;
   bool _hasSpecialCharacter = false;
   bool _isLengthValid = false;
-  bool _isTypingPassword = false;  // Flag to track if user has started typing
+  bool _isTypingPassword = false;
+
+  bool _isHovering = false;
 
   @override
   void dispose() {
@@ -61,7 +62,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
         // Update the user's displayName with the full name entered during registration
         await userCredential.user?.updateProfile(displayName: _fullNameController.text.trim());
- 	
+    
         // Add user data to Firestore
         await _firestore.collection('users').doc(userCredential.user?.uid).set({
           'fullName': _fullNameController.text.trim(),
@@ -81,15 +82,12 @@ class _RegisterPageState extends State<RegisterPage> {
           );
         }
 
-        // If registration is successful, show a message and navigate
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('User Registered Successfully!')),
         );
 
-        // Optionally, navigate to the login page (or another page)
-        Navigator.pop(context); // This will return to the login page, for example.
+        Navigator.pop(context);
       } catch (e) {
-        // Handle errors
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to register: $e')),
         );
@@ -112,11 +110,11 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Color(0xFF1C48A6),
-      body: SingleChildScrollView(  // Wrap the entire body in a scroll view
+      body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min,  // Ensure the column doesn't take too much vertical space
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Center(
@@ -130,7 +128,7 @@ class _RegisterPageState extends State<RegisterPage> {
               SizedBox(height: 16),
               Text(
                 'Create an Account',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: const Color.fromARGB(255, 254, 254, 254)),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 24),
@@ -146,23 +144,21 @@ class _RegisterPageState extends State<RegisterPage> {
                           controller: _fullNameController,
                           decoration: InputDecoration(
                             labelText: 'Full Name',
-                            labelStyle: TextStyle(color: Colors.white),
+                            labelStyle: TextStyle(color: const Color.fromARGB(255, 255, 255, 255)),
                             enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white),
+                              borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255)),
                             ),
                             focusedBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white, width: 2.0),
-                            ),
-                            errorBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
                             ),
-                            focusedErrorBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
+                            prefixIcon: Image.asset(
+                              'assets/icons/user.png',
+                              width: 24,
+                              height: 24,
+                              color: const Color.fromARGB(255, 255, 255, 255),
                             ),
-                            prefixIcon: Icon(Icons.person, color: Colors.white),
-                            errorStyle: TextStyle(color: Colors.white, fontSize: 18),
                           ),
-                          style: TextStyle(color: Colors.white),
+                          style: TextStyle(color: const Color.fromARGB(255, 255, 255, 255)),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please enter your full name';
@@ -180,24 +176,22 @@ class _RegisterPageState extends State<RegisterPage> {
                           controller: _emailController,
                           decoration: InputDecoration(
                             labelText: 'Email',
-                            labelStyle: TextStyle(color: Colors.white),
+                            labelStyle: TextStyle(color: const Color.fromARGB(255, 255, 255, 255)),
                             enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white),
+                              borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255)),
                             ),
                             focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: Colors.white, width: 2.0),
                             ),
-                            errorBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
+                            prefixIcon: Image.asset(
+                              'assets/icons/email.png',
+                              width: 24,
+                              height: 24,
+                              color: Colors.white,
                             ),
-                            focusedErrorBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
-                            ),
-                            prefixIcon: Icon(Icons.email, color: Colors.white),
-                            errorStyle: TextStyle(color: Colors.white, fontSize: 18),
                           ),
                           keyboardType: TextInputType.emailAddress,
-                          style: TextStyle(color: Colors.white),
+                          style: TextStyle(color: const Color.fromARGB(255, 255, 255, 255)),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please enter your email';
@@ -219,25 +213,24 @@ class _RegisterPageState extends State<RegisterPage> {
                           onChanged: _checkPasswordConditions,
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            labelStyle: TextStyle(color: Colors.white),
+                            labelStyle: TextStyle(color: const Color.fromARGB(255, 255, 255, 255)),
                             enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white),
+                              borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255)),
                             ),
                             focusedBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white, width: 2.0),
-                            ),
-                            errorBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
                             ),
-                            focusedErrorBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
+                            prefixIcon: Image.asset(
+                              'assets/icons/padlock.png',
+                              width: 24,
+                              height: 24,
+                              color: const Color.fromARGB(255, 255, 255, 255),
                             ),
-                            prefixIcon: Icon(Icons.lock, color: Colors.white),
-                            errorStyle: TextStyle(color: Colors.white, fontSize: 18),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscureText ? Icons.visibility : Icons.visibility_off,
                                 color: Colors.white,
+                                size: 24,
                               ),
                               onPressed: _togglePasswordVisibility,
                             ),
@@ -254,7 +247,6 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                     ),
                     SizedBox(height: 8),
-                    // Show password condition feedback only when the user starts typing
                     if (_isTypingPassword)
                       Center(
                         child: Container(
@@ -262,7 +254,6 @@ class _RegisterPageState extends State<RegisterPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              // Only show the "Password must contain:" line if any condition is unmet
                               if (!_hasUpperCase || !_hasLowerCase || !_hasDigits || !_hasSpecialCharacter || !_isLengthValid)
                                 Text(
                                   'Password must contain:',
@@ -271,27 +262,27 @@ class _RegisterPageState extends State<RegisterPage> {
                               if (!_hasUpperCase)
                                 Text(
                                   '✘ Uppercase letter',
-                                  style: TextStyle(color: const Color(0xFFFFFFFF)),
+                                  style: TextStyle(color: Colors.white),
                                 ),
                               if (!_hasLowerCase)
                                 Text(
                                   '✘ Lowercase letter',
-                                  style: TextStyle(color: const Color(0xFFFFFFFF)),
+                                  style: TextStyle(color: Colors.white),
                                 ),
                               if (!_hasDigits)
                                 Text(
                                   '✘ Number',
-                                  style: TextStyle(color: const Color(0xFFFFFFFF)),
+                                  style: TextStyle(color: Colors.white),
                                 ),
                               if (!_hasSpecialCharacter)
                                 Text(
                                   '✘ Special character',
-                                  style: TextStyle(color: const Color(0xFFFFFFFF)),
+                                  style: TextStyle(color: Colors.white),
                                 ),
                               if (!_isLengthValid)
                                 Text(
                                   '✘ Minimum length of 12 characters',
-                                  style: TextStyle(color: const Color(0xFFFFFFFF)),
+                                  style: TextStyle(color: Colors.white),
                                 ),
                             ],
                           ),
@@ -312,18 +303,17 @@ class _RegisterPageState extends State<RegisterPage> {
                             focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: Colors.white, width: 2.0),
                             ),
-                            errorBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
+                            prefixIcon: Image.asset(
+                              'assets/icons/padlock.png',
+                              width: 24,
+                              height: 24,
+                              color: Colors.white,
                             ),
-                            focusedErrorBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
-                            ),
-                            prefixIcon: Icon(Icons.lock, color: Colors.white),
-                            errorStyle: TextStyle(color: Colors.white, fontSize: 18),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscureConfirmText ? Icons.visibility : Icons.visibility_off,
                                 color: Colors.white,
+                                size: 24,
                               ),
                               onPressed: _toggleConfirmPasswordVisibility,
                             ),
@@ -331,9 +321,6 @@ class _RegisterPageState extends State<RegisterPage> {
                           obscureText: _obscureConfirmText,
                           style: TextStyle(color: Colors.white),
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please confirm your password';
-                            }
                             if (value != _passwordController.text) {
                               return 'Passwords do not match';
                             }
@@ -343,45 +330,50 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                     ),
                     SizedBox(height: 24),
-                  Align(
-                    alignment: Alignment.center,
-                    child: Container(
-                      width: 150,
+                    Center(
                       child: ElevatedButton(
                         onPressed: _registerUser,
-                        child: Text(
-                          'Register',
-                          style: TextStyle(color: Colors.black),
-                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Color(0xFFFFB300),
+                          minimumSize: Size(200, 50),
                         ),
+                        child: Text('Create an Account', style: TextStyle(color: Colors.black)),
                       ),
                     ),
-                  ),
-                    SizedBox(height: 24),
-                    Center(
-                      child: Column(
-                        children: [
-                          Text(
-                            'Already have an account?',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                          ),
-                          SizedBox(height: 8),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context); // Navigate back to the login page
+                    SizedBox(height: 16),
+                    Column(
+                      children: <Widget>[
+                        Text(
+                          'Already have an account?',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        SizedBox(height: 8),
+                        MouseRegion(
+                          onEnter: (_) {
+                            setState(() {
+                              _isHovering = true;  // When the mouse enters the area
+                            });
+                          },
+                          onExit: (_) {
+                            setState(() {
+                              _isHovering = false;  // When the mouse exits the area
+                            });
+                          },
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);  // Navigate back to the login page
                             },
                             child: Text(
                               'Login here',
                               style: TextStyle(
-                                color: Color.fromARGB(255, 255, 255, 255), // Yellow color text
-                                fontSize: 16,
+                                color: _isHovering ? Color(0xFFFFB300) : Colors.white,  // Change color on hover
+                                fontWeight: FontWeight.bold,
+                                decoration: _isHovering ? TextDecoration.underline : null,  // Underline text on hover
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

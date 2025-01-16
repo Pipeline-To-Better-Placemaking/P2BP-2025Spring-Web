@@ -12,44 +12,68 @@ class GoogleMapsPage extends StatefulWidget {
 class _GoogleMapsPageState extends State<GoogleMapsPage> {
   late GoogleMapController mapController;
   LatLng _currentPosition = const LatLng(45.521563, -122.677433); // Default location
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
+    _checkAndFetchLocation();
   }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
-    // Optionally move the camera to the current location after map is created
     _moveToCurrentLocation();
   }
 
-  Future<void> _getCurrentLocation() async {
+  Future<void> _checkAndFetchLocation() async {
     try {
-      // Check for location permissions
       LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied || 
-          permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied || 
-            permission == LocationPermission.deniedForever) {
-          // Permissions are denied
+        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Location permission is required to use this feature.')),
+          );
+          setState(() {
+            _isLoading = false;
+          });
           return;
         }
       }
 
-      // Get the current position
+      // Fetch initial location
+      await _getCurrentLocation();
+
+      // Start listening for location changes
+      Geolocator.getPositionStream(locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10, // Minimum distance change (in meters) to trigger an update
+      )).listen((Position position) {
+        setState(() {
+          _currentPosition = LatLng(position.latitude, position.longitude);
+        });
+        _moveToCurrentLocation();
+      });
+    } catch (e) {
+      print('Error checking location permissions: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to retrieve location. Please check your GPS settings.')),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-
       setState(() {
         _currentPosition = LatLng(position.latitude, position.longitude);
+        _isLoading = false;
       });
-
-      // Move the camera to the current position
-      _moveToCurrentLocation();
     } catch (e) {
       print('Error getting location: $e');
     }
@@ -68,15 +92,33 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GoogleMap(
-        onMapCreated: _onMapCreated,
-        initialCameraPosition: CameraPosition(
-          target: _currentPosition,
-          zoom: 11.0,
-        ),
-        myLocationEnabled: true, // Show the current location marker on the map
-        myLocationButtonEnabled: true, // Enable the button to move to the user's location
+      body: Stack(
+        children: [
+          GoogleMap(
+            onMapCreated: _onMapCreated,
+            initialCameraPosition: CameraPosition(
+              target: _currentPosition,
+              zoom: 11.0,
+            ),
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+          ),
+          if (_isLoading)
+            Center(
+              child: CircularProgressIndicator(),
+            ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _moveToCurrentLocation,
+        child: Icon(Icons.my_location),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    mapController.dispose();
+    super.dispose();
   }
 }

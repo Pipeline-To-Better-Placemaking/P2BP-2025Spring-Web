@@ -189,7 +189,7 @@
     },
     {
       "name": "geolocator",
-      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/geolocator-10.1.1",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/geolocator-13.0.2",
       "packageUri": "lib/",
       "languageVersion": "2.15"
     },
@@ -213,9 +213,9 @@
     },
     {
       "name": "geolocator_web",
-      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/geolocator_web-2.2.1",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/geolocator_web-4.1.1",
       "packageUri": "lib/",
-      "languageVersion": "2.15"
+      "languageVersion": "3.4"
     },
     {
       "name": "geolocator_windows",
@@ -464,7 +464,7 @@
       "languageVersion": "3.5"
     }
   ],
-  "generated": "2025-01-14T04:25:46.051196Z",
+  "generated": "2025-01-15T23:20:28.131498Z",
   "generator": "pub",
   "generatorVersion": "3.5.4",
   "flutterRoot": "file:///Users/andrewz/Documents/Flutter/flutter",

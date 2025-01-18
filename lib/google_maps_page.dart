@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:math';
 
 class GoogleMapsPage extends StatefulWidget {
   const GoogleMapsPage({super.key});
@@ -19,8 +20,11 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
   Set<Marker> _markers = {}; // Set of markers for points
 
   String? _selectedPolygonId; // The ID of the selected polygon
-  bool _isAddingPoint = false; // Flag to track if the user is in "add point" mode
-  bool _isRemovingPoint = false; // Flag to track if the user is in "remove point" mode
+
+  bool _addPointsMode = true; // Flag to add points mode
+  bool _polygonMode = false; // Flag for polygon creation mode
+  bool _deleteMode = false; // Flag to enable polygon deletion
+  bool _isHoveringOverButton = false; // Track if the mouse is hovering over a button
 
   @override
   void initState() {
@@ -96,50 +100,42 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
     }
   }
 
-  void _addPoint(LatLng point) {
-    if (_isAddingPoint) {
-      setState(() {
-        // If the point already exists in the markers, remove it
-        final markerId = MarkerId(point.toString());
-        if (_markers.any((marker) => marker.markerId == markerId)) {
-          _markers.removeWhere((marker) => marker.markerId == markerId);
-          _polygonPoints.remove(point);
-        } else {
-          // Otherwise, add the point
-          _polygonPoints.add(point);
-          _markers.add(
-            Marker(
-              markerId: markerId,
-              position: point,
-              onTap: () {
-                // If the marker is tapped, remove it
-                _removePoint(point);
-              },
-            ),
-          );
-        }
-      });
-    }
-  }
+  void _togglePoint(LatLng point) {
+    if (_deleteMode || _isHoveringOverButton) return; // Prevent adding points when hovering over buttons or in delete mode
 
-  void _removePoint(LatLng point) {
-    if (_isRemovingPoint) {
-      setState(() {
+    setState(() {
+      final markerId = MarkerId(point.toString());
+      if (_markers.any((marker) => marker.markerId == markerId)) {
+        _markers.removeWhere((marker) => marker.markerId == markerId);
         _polygonPoints.remove(point);
-        _markers.removeWhere((marker) => marker.position == point);
-      });
-    }
+      } else {
+        _polygonPoints.add(point);
+        _markers.add(
+          Marker(
+            markerId: markerId,
+            position: point,
+            onTap: () {
+              // If the marker is tapped again, it will be removed
+              _togglePoint(point);
+            },
+          ),
+        );
+      }
+    });
   }
 
   void _finalizePolygon() {
     if (_polygonPoints.isEmpty) return;
+
+    // Sort points in clockwise order
+    List<LatLng> sortedPoints = _sortPointsClockwise(_polygonPoints);
 
     final String polygonId = DateTime.now().millisecondsSinceEpoch.toString();
     setState(() {
       _polygons.add(
         Polygon(
           polygonId: PolygonId(polygonId),
-          points: _polygonPoints,
+          points: sortedPoints,
           strokeColor: Colors.blue,
           strokeWidth: 2,
           fillColor: Colors.blue.withOpacity(0.2),
@@ -152,6 +148,8 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
       );
       _polygonPoints = [];
       _markers.clear();
+      _addPointsMode = true; // Enable adding points again after finalizing the polygon
+      _polygonMode = false; // Disable polygon mode
     });
   }
 
@@ -161,104 +159,101 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
     setState(() {
       _polygons.removeWhere((polygon) => polygon.polygonId.value == _selectedPolygonId);
       _selectedPolygonId = null; // Clear the selection
+      _addPointsMode = true; // Enable adding points again after deleting a polygon
     });
   }
 
-  void _startAddingPoint() {
-    setState(() {
-      _isAddingPoint = true;
-      _isRemovingPoint = false;
+  // Function to sort points in clockwise order
+  List<LatLng> _sortPointsClockwise(List<LatLng> points) {
+    // Calculate the centroid of the points
+    double centerX = points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length;
+    double centerY = points.map((p) => p.longitude).reduce((a, b) => a + b) / points.length;
+
+    // Sort the points based on the angle from the centroid
+    points.sort((a, b) {
+      double angleA = _calculateAngle(centerX, centerY, a.latitude, a.longitude);
+      double angleB = _calculateAngle(centerX, centerY, b.latitude, b.longitude);
+      return angleA.compareTo(angleB);
     });
+
+    return points;
   }
 
-  void _startRemovingPoint() {
-    setState(() {
-      _isAddingPoint = false;
-      _isRemovingPoint = true;
-    });
+  // Calculate the angle of the point relative to the centroid
+  double _calculateAngle(double centerX, double centerY, double x, double y) {
+    return atan2(y - centerY, x - centerX);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          GoogleMap(
-            onMapCreated: _onMapCreated,
-            initialCameraPosition: CameraPosition(
-              target: _currentPosition,
-              zoom: 14.0, // Keep the zoom level consistent
-            ),
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            polygons: _polygons,
-            markers: _markers,
-            onTap: (point) {
-              if (_isAddingPoint && !_isButtonArea(point)) {
-                _addPoint(point);
-              } else if (_isRemovingPoint && !_isButtonArea(point)) {
-                _removePoint(point);
-              }
-            },
-          ),
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
-            ),
-          Positioned(
-            bottom: 20,
-            right: 10,
-            child: Column(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
               children: [
-                FloatingActionButton(
-                  onPressed: _startAddingPoint,
-                  heroTag: 'add',
-                  child: const Icon(Icons.add_location),
+                GoogleMap(
+                  onMapCreated: _onMapCreated,
+                  initialCameraPosition: CameraPosition(target: _currentPosition, zoom: 14.0),
+                  polygons: _polygons,
+                  markers: _markers,
+                  onTap: _addPointsMode ? _togglePoint : null,
                 ),
-                const SizedBox(height: 10),
-                FloatingActionButton(
-                  onPressed: _startRemovingPoint,
-                  heroTag: 'remove',
-                  backgroundColor: Colors.red,
-                  child: const Icon(Icons.remove),
+                Positioned(
+                  bottom: 90,
+                  right: 55,
+                  child: MouseRegion(
+                    onEnter: (_) {
+                      setState(() {
+                        _addPointsMode = false;
+                        _isHoveringOverButton = true;
+                      });
+                    },
+                    onExit: (_) {
+                      setState(() {
+                        _addPointsMode = true;
+                        _isHoveringOverButton = false;
+                      });
+                    },
+                    child: FloatingActionButton(
+                      onPressed: () {
+                        setState(() {
+                          if (_polygonPoints.isEmpty) {
+                            _polygonMode = true;
+                          } else {
+                            _finalizePolygon();
+                          }
+                        });
+                      },
+                      backgroundColor: Colors.blue,
+                      child: const Icon(Icons.add),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 10),
-                FloatingActionButton(
-                  onPressed: _finalizePolygon,
-                  heroTag: 'finalize',
-                  child: const Icon(Icons.done),
-                ),
-                const SizedBox(height: 10),
-                FloatingActionButton(
-                  onPressed: _removeSelectedPolygon,
-                  heroTag: 'remove_polygon',
-                  backgroundColor: Colors.red,
-                  child: const Icon(Icons.delete),
+                Positioned(
+                  bottom: 20,
+                  right: 55,
+                  child: MouseRegion(
+                    onEnter: (_) {
+                      setState(() {
+                        _addPointsMode = false;
+                        _isHoveringOverButton = true;
+                      });
+                    },
+                    onExit: (_) {
+                      setState(() {
+                        _addPointsMode = true;
+                        _isHoveringOverButton = false;
+                      });
+                    },
+                    child: FloatingActionButton(
+                      onPressed: _removeSelectedPolygon,
+                      backgroundColor: Colors.red,
+                      child: const Icon(Icons.delete),
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
     );
-  }
-
-  bool _isButtonArea(LatLng point) {
-    // Check if the tapped point is near the bottom-right corner of the screen
-    // You can adjust the threshold based on your layout
-    const double buttonAreaMargin = 0.01;  // Adjust this based on your layout
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    // Example condition to consider taps near the bottom right as the "button area"
-    return point.latitude < _currentPosition.latitude + buttonAreaMargin &&
-           point.longitude > _currentPosition.longitude + buttonAreaMargin;
-  }
-
-  @override
-  void dispose() {
-    mapController.dispose();
-    super.dispose();
   }
 }

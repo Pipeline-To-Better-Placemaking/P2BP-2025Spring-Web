@@ -26,6 +26,8 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
   bool _deleteMode = false; // Flag to enable polygon deletion
   bool _isHoveringOverButton = false; // Track if the mouse is hovering over a button
 
+  MapType _currentMapType = MapType.satellite; // Default map type
+
   @override
   void initState() {
     super.initState();
@@ -184,6 +186,12 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
     return atan2(y - centerY, x - centerX);
   }
 
+  void _toggleMapType() {
+    setState(() {
+      _currentMapType = _currentMapType == MapType.normal ? MapType.satellite : MapType.normal;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -197,9 +205,19 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
                   polygons: _polygons,
                   markers: _markers,
                   onTap: _addPointsMode ? _togglePoint : null,
+                  mapType: _currentMapType, // Use current map type
                 ),
                 Positioned(
-                  bottom: 90,
+                  bottom: 150,
+                  right: 55,
+                  child: FloatingActionButton(
+                    onPressed: _toggleMapType,
+                    backgroundColor: Colors.green,
+                    child: const Icon(Icons.map),
+                  ),
+                ),
+                Positioned(
+                  bottom: 85,
                   right: 55,
                   child: MouseRegion(
                     onEnter: (_) {

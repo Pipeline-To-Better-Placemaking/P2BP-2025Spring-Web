@@ -80,9 +80,14 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
 
   Future<void> _getCurrentLocation() async {
     try {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+      LocationSettings locationSettings = const LocationSettings(
+        accuracy: LocationAccuracy.high, // Specify the desired accuracy
       );
+
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: locationSettings,
+      );
+
       setState(() {
         _currentPosition = LatLng(position.latitude, position.longitude);
         _isLoading = false;

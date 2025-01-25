@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:p2b/login.dart';
 import 'themes.dart';
+import 'Login.dart';
+import 'homepage.dart';
 
 class SignUpScreen extends StatelessWidget {
   const SignUpScreen({super.key});
@@ -20,7 +21,7 @@ class SignUpScreen extends StatelessWidget {
             Stack(
               alignment: Alignment.topCenter,
               children: <Widget>[
-                Image.asset('assets/icons/landscape_weather.png', height: 301),
+                Image.asset('assets/landscape_weather.png', height: 301),
                 const Positioned(
                   bottom: 0,
                   left: 0,
@@ -40,7 +41,7 @@ class SignUpScreen extends StatelessWidget {
             // Google Sign Up Button
             ElevatedButton(
               onPressed: () {
-                // Handle Google login logic
+                // TODO: Handle Google login logic
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFF5F5F5),
@@ -53,7 +54,7 @@ class SignUpScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Image.asset(
-                    'assets/icons/google_icon.png',
+                    'assets/google_icon.png',
                     width: 28,
                     height: 28,
                   ),
@@ -95,7 +96,7 @@ class SignUpScreen extends StatelessWidget {
                 prefixIcon: Padding(
                   padding: EdgeInsets.only(left: 10, right: 30),
                   child: ImageIcon(
-                    AssetImage('assets/icons/User_box.png'),
+                    AssetImage('assets/User_box.png'),
                     color: Colors.white,
                   ),
                 ),
@@ -122,7 +123,7 @@ class SignUpScreen extends StatelessWidget {
                   child: Opacity(
                     opacity: 0.75,
                     child: ImageIcon(
-                      AssetImage('assets/icons/mail_icon.png'),
+                      AssetImage('assets/mail_icon.png'),
                       color: Colors.white,
                     ),
                   ),
@@ -152,7 +153,7 @@ class SignUpScreen extends StatelessWidget {
                     right: 30,
                   ),
                   child: ImageIcon(
-                    AssetImage('assets/icons/Unlock.png'),
+                    AssetImage('assets/Unlock.png'),
                     color: Colors.white,
                   ),
                 ),
@@ -190,7 +191,7 @@ class SignUpScreen extends StatelessWidget {
                     right: 30,
                   ),
                   child: ImageIcon(
-                    AssetImage('assets/icons/Lock.png'),
+                    AssetImage('assets/Lock.png'),
                     color: Colors.white,
                   ),
                 ),
@@ -219,6 +220,12 @@ class SignUpScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 // Handle sign up logic
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => HomePage(),
+                  ),
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Color(0xFFFFCC00),
@@ -246,7 +253,12 @@ class SignUpScreen extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: () {
-                      //TODO: Revert back to Login Page when clicked
+                                            Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => LoginPage(), // Redirect to Login Page
+                        ),
+                      );
                     },
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,

@@ -121,7 +121,7 @@ class _RegisterPageState extends State<RegisterPage> {
             children: <Widget>[
               Center(
                 child: Image.asset(
-                  'assets/icons/PTBP.png',
+                  'assets/PTBP.png',
                   height: 150,
                   width: 150,
                   fit: BoxFit.cover,

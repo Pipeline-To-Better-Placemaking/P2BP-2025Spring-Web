@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore packa
 import 'package:p2b/ForgotPassword.dart';
 import 'register.dart';
 import 'homepage.dart';
+import 'compare_project.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -136,7 +137,7 @@ class _LoginPageState extends State<LoginPage> {
           children: <Widget>[
             Center(
               child: Image.asset(
-                'assets/icons/PTBP.png',
+                'assets/PTBP.png',
                 height: 150,
                 width: 150,
                 fit: BoxFit.cover,
@@ -301,6 +302,19 @@ class _LoginPageState extends State<LoginPage> {
                         },
                         child: Text(
                           'Create an account',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                      ),
+
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => ProjectComparisonPage()),
+                          );
+                        },
+                        child: Text(
+                          'Testing Grounds',
                           style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                       ),

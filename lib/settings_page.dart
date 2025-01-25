@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-//import 'package:url_launcher/url_launcher.dart';
 import 'widgets.dart';
 import 'change_password.dart';
 import 'bug_report.dart';
+import 'Login.dart';
+import 'homepage.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});

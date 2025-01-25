@@ -72,24 +72,26 @@ flutter:
   #   - images/a_dot_ham.jpeg
 
   assets:
-    - assets/icons/PTBP.png
-    - assets/icons/ForgotPasswordBanner.png
-    - assets/icons/ResetPasswordBanner.png
-    - assets/icons/logo_coin.png
-    - assets/icons/google_icon.png
-    - assets/icons/landscape_weather.png
-    - assets/icons/User_box.png
-    - assets/icons/mail_icon.png
-    - assets/icons/Unlock.png
-    - assets/icons/Lock.png
-    - assets/icons/RedHouse.png
-    - assets/icons/PinkHouse.png
-    - assets/icons/bell-03.png
-    - assets/icons/custom_bell.png
-    - assets/icons/Home_Icon.png
-    - assets/icons/Add_Icon.png
-    - assets/icons/Compare_Icon.png
-    - assets/icons/Profile_Icon.png
+    - assets/ForgotPasswordBanner.png
+    - assets/ResetPasswordBanner.png
+    - assets/logo_coin.png
+    - assets/google_icon.png
+    - assets/landscape_weather.png
+    - assets/User_box.png
+    - assets/mail_icon.png
+    - assets/Unlock.png
+    - assets/Lock.png
+    - assets/P2BP_Logo.png
+    - assets/RedHouse.png
+    - assets/PinkHouse.png
+    - assets/bell-03.png
+    - assets/custom_bell.png
+    - assets/Home_Icon.png
+    - assets/Add_Icon.png
+    - assets/Compare_Icon.png
+    - assets/Profile_Icon.png
+    - assets/Filter_Icon.png
+    - assets/PTBP.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

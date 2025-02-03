@@ -11,6 +11,7 @@ import 'dart:async';
 import 'settings_page.dart';
 import 'package:provider/provider.dart'; // Add Provider package
 import 'homepage_state.dart'; // Import the state management class
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,15 +43,11 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  ThemeMode _themeMode = ThemeMode.light; // Initial theme is light
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Pipeline to Better Placemaking',
-      theme: ThemeData.light(), // Light theme
-      darkTheme: ThemeData.dark(), // Dark theme
-      themeMode: _themeMode, // Use the themeMode from state
       debugShowCheckedModeBanner: false, // Disable the debug banner
       initialRoute: '/',
       routes: {

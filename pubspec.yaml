@@ -30,10 +30,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_svg: ^2.0.14  # Check for the latest version
+  flutter_svg: ^2.0.17  # Check for the latest version
   # google_maps_flutter_web: ^0.5.10
   flutter_dotenv: ^5.0.2
   geolocator: ^13.0.2
+  provider: ^6.0.0
+  shared_preferences: ^2.0.15
 
   # Firebase dependencies
   firebase_core: ^3.7.0       # Core SDK required for all Firebase services
@@ -76,12 +78,31 @@ flutter:
   #   - images/a_dot_ham.jpeg
 
   assets:
-    - assets/icons/PTBP.png
-    - assets/icons/email.png
-    - assets/icons/padlock.png
-    - assets/icons/eye.png
-    - assets/icons/hidden.png
-    - assets/icons/user.png
+    - assets/PTBP.png
+    - assets/email.png
+    - assets/padlock.png
+    - assets/eye.png
+    - assets/hidden.png
+    - assets/user.png
+    - assets/ForgotPasswordBanner.png
+    - assets/ResetPasswordBanner.png
+    - assets/logo_coin.png
+    - assets/google_icon.png
+    - assets/landscape_weather.png
+    - assets/User_box.png
+    - assets/mail_icon.png
+    - assets/Unlock.png
+    - assets/Lock.png
+    - assets/P2BP_Logo.png
+    - assets/RedHouse.png
+    - assets/PinkHouse.png
+    - assets/bell-03.png
+    - assets/custom_bell.png
+    - assets/Home_Icon.png
+    - assets/Add_Icon.png
+    - assets/Compare_Icon.png
+    - assets/Profile_Icon.png
+    - assets/Filter_Icon.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

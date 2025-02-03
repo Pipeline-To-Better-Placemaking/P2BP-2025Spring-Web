@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore packa
 import 'package:p2b/ForgotPassword.dart';
 import 'register.dart';
 import 'homepage.dart';
+import 'compare_project.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -19,8 +20,6 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true; // Toggle for password visibility
 
   String _fullName = '';  // Variable to store full name
-  Color _signUpButtonColor = Colors.white;
-  TextStyle _forgotPasswordTextStyle = TextStyle(color: Colors.white);
 
   @override
   void dispose() {
@@ -138,7 +137,7 @@ class _LoginPageState extends State<LoginPage> {
           children: <Widget>[
             Center(
               child: Image.asset(
-                'assets/icons/PTBP.png',
+                'assets/PTBP.png',
                 height: 150,
                 width: 150,
                 fit: BoxFit.cover,
@@ -193,14 +192,7 @@ class _LoginPageState extends State<LoginPage> {
                           focusedErrorBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
                           ),
-                          prefixIcon: ColorFiltered(
-                            colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                            child: SizedBox(
-                              width: 12,  // Adjust width
-                              height: 12, // Adjust height
-                              child: Image.asset('assets/icons/email.png'),
-                            ),
-                          ),
+                          prefixIcon: Icon(Icons.email, color: Colors.white),
                           errorStyle: TextStyle(color: const Color.fromARGB(255, 255, 255, 255), fontSize: 18),
                         ),
                         keyboardType: TextInputType.emailAddress,
@@ -238,23 +230,12 @@ class _LoginPageState extends State<LoginPage> {
                           focusedErrorBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
                           ),
-                          prefixIcon: ColorFiltered(
-                            colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                            child: SizedBox(
-                              width: 8,  // Adjust width
-                              height: 8, // Adjust height
-                              child: Image.asset('assets/icons/padlock.png'),
-                            ),
-                          ),
+                          prefixIcon: Icon(Icons.lock, color: Colors.white),
                           errorStyle: TextStyle(color: const Color.fromARGB(255, 255, 255, 255), fontSize: 18),
                           suffixIcon: IconButton(
-                            icon: ColorFiltered(
-                              colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn), // Apply white color to the image
-                              child: Image.asset(
-                                _obscureText ? 'assets/icons/eye.png' : 'assets/icons/hidden.png',
-                                width: 24, // Set width as per your requirement
-                                height: 24, // Set height as per your requirement
-                              ),
+                            icon: Icon(
+                              _obscureText ? Icons.visibility : Icons.visibility_off,
+                              color: Colors.white,
                             ),
                             onPressed: _togglePasswordVisibility,
                           ),
@@ -292,68 +273,49 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   SizedBox(height: 18),
-                  MouseRegion(
-                    onEnter: (_) {
-                      setState(() {
-                        _forgotPasswordTextStyle = TextStyle(
-                          color: Color(0xFFFFB300),
-                          shadows: [
-                            Shadow(
-                              color: Colors.blueAccent,
-                              blurRadius: 8.0,
-                              offset: Offset(0, 0),
-                            ),
-                          ],
-                        );
-                      });
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ForgotPassword()),
+                      );
                     },
-                    onExit: (_) {
-                      setState(() {
-                        _forgotPasswordTextStyle = TextStyle(color: Colors.white);
-                      });
-                    },
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => ForgotPassword()),
-                        );
-                      },
-                      child: Text(
-                        'Forgot your password?',
-                        style: _forgotPasswordTextStyle,
-                      ),
+                    child: Text(
+                      'Forgot Password?',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ),
-                  SizedBox(height: 8),
+                  SizedBox(height: 6),
                   Column(
                     children: [
                       Text(
-                        'Don’t have an account?',
-                        style: TextStyle(color: Colors.white),
+                        'New here?',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
                       ),
-                      MouseRegion(
-                        onEnter: (_) {
-                          setState(() {
-                            _signUpButtonColor = Color(0xFFFFB300); // Change color when hovering
-                          });
+                      SizedBox(height: 6),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => RegisterPage()),
+                          );
                         },
-                        onExit: (_) {
-                          setState(() {
-                            _signUpButtonColor = Colors.white; // Revert back when not hovering
-                          });
+                        child: Text(
+                          'Create an account',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                      ),
+
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => ProjectComparisonPage()),
+                          );
                         },
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => RegisterPage()),
-                            );
-                          },
-                          child: Text(
-                            'Click here to Sign Up',
-                            style: TextStyle(color: _signUpButtonColor),
-                          ),
+                        child: Text(
+                          'Testing Grounds',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                       ),
                     ],
@@ -361,6 +323,16 @@ class _LoginPageState extends State<LoginPage> {
                 ],
               ),
             ),
+            SizedBox(height: 16),
+            _fullName.isNotEmpty
+                ? Text(
+                    'Logged in as $_fullName',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                    ),
+                  )
+                : Container(),
           ],
         ),
       ),

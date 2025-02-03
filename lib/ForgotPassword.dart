@@ -72,7 +72,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                 children: [
                   Center(
                     child: Image.asset(
-                      'assets/icons/PTBP.png',
+                      'assets/PTBP.png',
                       height: 150,
                       width: 150,
                       fit: BoxFit.cover,

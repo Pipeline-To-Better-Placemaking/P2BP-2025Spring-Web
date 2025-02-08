@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'teams_settings_screen.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'firestore_functions.dart';
 import 'db_schema_classes.dart';
 
 class TeamsAndInvitesPage extends StatefulWidget {
@@ -18,59 +17,26 @@ User? loggedInUser = FirebaseAuth.instance.currentUser;
 
 class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
   List<Team> teams = [];
-  List invites = [];
+  List teamInvites = [];
+  bool _isLoadingTeams = true;
+  bool _isLoadingInvites = true;
   int teamsCount = 0;
   int invitesCount = 0;
   int selectedIndex = 0;
 
-  void getTeamsIDs() {
+  // Gets user info and once that is done gets teams and invites
+  Future<void> _getTeamAndInvite() async {
     try {
-      _firestore.collection("users").doc(loggedInUser?.uid).get().then(
-        (querySnapshot) {
-          Team tempTeam;
-          for (var reference in querySnapshot.data()?['teams']) {
-            _firestore.doc(reference.path).get().then((teamQuerySnapshot) {
-              // TODO: Add num projects, members list instead of adminName
-              tempTeam = Team(
-                  teamID: teamQuerySnapshot['id'],
-                  title: teamQuerySnapshot['title'],
-                  adminName: 'Temp');
-              teams.add(tempTeam);
-              setState(() {
-                teamsCount = teams.length;
-              });
-            });
-          }
-        },
-        onError: (e) => print("Error completing: $e"),
-      );
-    } catch (e, stacktrace) {
-      print('Exception retrieving teams: $e');
-      print('Stacktrace: $stacktrace');
-    }
-  }
-
-  void getInvites() {
-    try {
-      _firestore.collection("users").doc(loggedInUser?.uid).get().then(
-        (querySnapshot) {
-          Team tempTeam;
-          for (var reference in querySnapshot.data()?['invites']) {
-            _firestore.doc(reference.path).get().then((teamQuerySnapshot) {
-              // TODO: Add admin name.
-              tempTeam = Team(
-                  teamID: teamQuerySnapshot['id'],
-                  title: teamQuerySnapshot['title'],
-                  adminName: 'Temp');
-              invites.add(tempTeam);
-              setState(() {
-                invitesCount = invites.length;
-              });
-            });
-          }
-        },
-        onError: (e) => print("Error completing: $e"),
-      );
+      teams = await getTeamsIDs();
+      setState(() {
+        _isLoadingTeams = false;
+        teamsCount = teams.length;
+      });
+      teamInvites = await getInvites();
+      setState(() {
+        _isLoadingInvites = false;
+        invitesCount = teamInvites.length;
+      });
     } catch (e, stacktrace) {
       print('Exception retrieving teams: $e');
       print('Stacktrace: $stacktrace');
@@ -80,8 +46,7 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
   @override
   void initState() {
     super.initState();
-    getTeamsIDs();
-    getInvites();
+    _getTeamAndInvite();
   }
 
   @override
@@ -111,7 +76,7 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
               ],
             ),
           ),
-          // TODO: make pull down refresh?
+          // TODO: make pull down refresh
           body: TabBarView(
             children: [
               teamsCount > 0
@@ -136,12 +101,14 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
                         height: 50,
                       ),
                     )
-                  : Center(
-                      child: Text(
-                          "You have no teams! Join a team or create one first."),
-                    ),
+                  : _isLoadingTeams
+                      ? const Center(child: CircularProgressIndicator())
+                      : Center(
+                          child: Text(
+                              "You have no teams! Join a team or create one first."),
+                        ),
 
-              // Iterate through list of projects, each being a card.
+              // Iterate through list of invites, each being a card.
               // Update variables each time with: color, team name, num of
               // projects, and members list from database.
               invitesCount > 0
@@ -156,8 +123,7 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
                       itemBuilder: (BuildContext context, int index) {
                         return InviteCard(
                           color: Colors.blue,
-                          name: invites[index].adminName,
-                          teamName: invites[index].title,
+                          team: teamInvites[index],
                         );
                       },
                       separatorBuilder: (BuildContext context, int index) =>
@@ -165,7 +131,9 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
                         height: 25,
                       ),
                     )
-                  : const Center(child: Text('You have no invites!')),
+                  : _isLoadingInvites
+                      ? const Center(child: CircularProgressIndicator())
+                      : const Center(child: Text('You have no invites!')),
             ],
           ),
         ),
@@ -276,7 +244,7 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
               ),
               tooltip: 'Open team settings',
               onPressed: () {
-                // TODO: Actual function
+                // TODO: Actual function (chevron right, team settings)
                 Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -292,16 +260,10 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
 
 class InviteCard extends StatelessWidget {
   final Color color;
-  final String name;
-  final String teamName;
+  final Team team;
   // TODO: final List<Members> members; (for cover photo, not implemented yet)
 
-  const InviteCard({
-    super.key,
-    required this.color,
-    required this.name,
-    required this.teamName,
-  });
+  const InviteCard({super.key, required this.color, required this.team});
 
   @override
   Widget build(BuildContext context) {
@@ -319,10 +281,12 @@ class InviteCard extends StatelessWidget {
           const CircleAvatar(
             radius: 25,
           ),
+          const SizedBox(width: 15),
           Flexible(
             child: Stack(
               children: <Widget>[
-                Center(
+                Align(
+                  alignment: Alignment.centerLeft,
                   child: Text.rich(
                     overflow: TextOverflow.ellipsis,
                     maxLines: 2,
@@ -332,12 +296,12 @@ class InviteCard extends StatelessWidget {
                     TextSpan(
                       children: [
                         TextSpan(
-                          text: name,
+                          text: team.adminName,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const TextSpan(text: ' has invited you to join: '),
                         TextSpan(
-                          text: teamName,
+                          text: team.title,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -355,15 +319,17 @@ class InviteCard extends StatelessWidget {
                         tooltip: 'Accept invitation',
                         color: Colors.white,
                         onPressed: () {
-                          // TODO: Actual function
+                          // TODO: Actual function (accept invite)
+                          addUserToTeam(team.teamID);
                         },
                       ),
                       IconButton(
                         icon: const Icon(Icons.clear),
-                        tooltip: 'Deny invitation',
+                        tooltip: 'Decline invitation',
                         color: Colors.white,
                         onPressed: () {
-                          // TODO: Actual function
+                          // TODO: Actual function (decline invite)
+                          removeInviteFromUser(team.teamID);
                         },
                       ),
                     ],

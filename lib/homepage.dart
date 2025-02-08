@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Import provider
-import 'homepage_state.dart'; // Import your HomePageState class
+import 'package:p2b/project_map_creation.dart';
+import 'package:provider/provider.dart';
+import 'homepage_state.dart';
 import 'create_project_and_teams.dart';
 import 'compare_project.dart';
 import 'settings_page.dart';
 import 'teams_and_invites_page.dart';
 import 'results_panel.dart';
 import 'edit_project_panel.dart';
+import 'project_map_creation.dart'; // Import the project creation page
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-List<String> navIcons2 = [
-  'assets/Home_Icon.png',
-  'assets/Add_Icon.png',
-  'assets/Compare_Icon.png',
-  'assets/Profile_Icon.png',
-];
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -23,8 +18,8 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => HomePageState()..loadState(), // Call loadState to load saved state
-      child: const HomePageBody(), // Updated to use a new Stateless widget for the body
+      create: (_) => HomePageState()..loadState(),
+      child: const HomePageBody(),
     );
   }
 }
@@ -70,7 +65,6 @@ class _HomePageBodyState extends State<HomePageBody> {
     }
   }
 
-  // Define the default gradient
   final LinearGradient defaultGrad = const LinearGradient(
     colors: [Color(0xFF3874CB), Color(0xFF183769)],
     begin: Alignment.topCenter,
@@ -113,12 +107,13 @@ class _HomePageBodyState extends State<HomePageBody> {
             ],
           ),
           body: IndexedStack(
-            index: _getPageIndex(homePageState.currentPage), // Use the currentPage state to get the page index
+            index: _getPageIndex(homePageState.currentPage),
             children: [
-              _buildHomeContent(context), // Pass context to the home content
+              _buildHomeContent(context),
               const CreateProjectAndTeamsPage(),
               const ProjectComparisonPage(),
               const SettingsPage(),
+              //const ProjectMapCreation(), // Added the Project Creation Page
             ],
           ),
         );
@@ -137,7 +132,7 @@ class _HomePageBodyState extends State<HomePageBody> {
       case 'Settings':
         return 3;
       default:
-        return 0; // Default to Home
+        return 0;
     }
   }
 
@@ -153,15 +148,12 @@ class _HomePageBodyState extends State<HomePageBody> {
               padding: const EdgeInsets.only(top: 50),
               child: Stack(
                 children: [
-                  Align(
-                    alignment: Alignment.topCenter,
-                  ),
+                  Align(alignment: Alignment.topCenter),
                   Align(
                     alignment: Alignment.topRight,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        // Notification button
                         IconButton(
                           icon: Image.asset('assets/bell-03.png'),
                           onPressed: () {
@@ -174,7 +166,6 @@ class _HomePageBodyState extends State<HomePageBody> {
                           },
                           iconSize: 24,
                         ),
-                        // Teams Button
                         IconButton(
                           icon: const Icon(Icons.group),
                           color: const Color(0xFF0A2A88),
@@ -192,7 +183,6 @@ class _HomePageBodyState extends State<HomePageBody> {
                       ],
                     ),
                   ),
-                  // "Hello, [user]" greeting
                   Padding(
                     padding: const EdgeInsets.only(top: 40),
                     child: Row(
@@ -218,7 +208,6 @@ class _HomePageBodyState extends State<HomePageBody> {
                 ],
               ),
             ),
-            // "Your Projects" label
             Padding(
               padding: const EdgeInsets.only(right: 5, top: 20),
               child: Row(
@@ -241,7 +230,6 @@ class _HomePageBodyState extends State<HomePageBody> {
                 ],
               ),
             ),
-            // Project Cards in a GridView
             const SizedBox(height: 20),
             GridView.builder(
               shrinkWrap: true,
@@ -252,9 +240,8 @@ class _HomePageBodyState extends State<HomePageBody> {
                 mainAxisSpacing: 20,
                 childAspectRatio: 1.3,
               ),
-              itemCount: 3, // Number of project cards
+              itemCount: 3,
               itemBuilder: (context, index) {
-                // Replace with your data for each card
                 final projectDetails = [
                   {
                     'image': 'assets/RedHouse.png',
@@ -311,7 +298,6 @@ class _HomePageBodyState extends State<HomePageBody> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Banner image
             ClipRRect(
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
@@ -324,7 +310,6 @@ class _HomePageBodyState extends State<HomePageBody> {
                 fit: BoxFit.cover,
               ),
             ),
-            // Project details
             Padding(
               padding: const EdgeInsets.all(10),
               child: Column(

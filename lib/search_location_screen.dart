@@ -348,7 +348,12 @@ class _SearchScreenState extends State<SearchScreen> {
                         Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => CreateProjectDetails(),
+                              builder: (context) => CreateProjectDetails(
+                                projectData: Project.partialProject(
+                                    title: 'No data sent',
+                                    description:
+                                        'Accessed without project data'),
+                              ),
                             ));
                       },
                       child: const Text("Select"),

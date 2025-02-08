@@ -3,7 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'register.dart' as register;
 import 'login.dart' as login;
 import 'ForgotPassword.dart' as forgotpassword;
-import 'homepage.dart'; // Import the HomePage
 import 'firebase_options.dart'; // Import the firebase_options.dart file
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,6 +11,7 @@ import 'settings_page.dart';
 import 'package:provider/provider.dart'; // Add Provider package
 import 'homepage_state.dart'; // Import the state management class
 import 'package:shared_preferences/shared_preferences.dart';
+import 'homepage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

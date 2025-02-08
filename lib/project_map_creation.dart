@@ -3,12 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'create_project_and_teams.dart';
-import 'home_screen.dart';
+import 'package:p2b/homepage.dart';
+import 'homepage.dart';
 import 'widgets.dart';
-import 'create_project_details.dart';
 import 'db_schema_classes.dart';
 import 'dart:math';
+
+import 'firestore_functions.dart';
 
 class ProjectMapCreation extends StatefulWidget {
   final Project partialProjectData;
@@ -18,11 +19,10 @@ class ProjectMapCreation extends StatefulWidget {
   State<ProjectMapCreation> createState() => _ProjectMapCreationState();
 }
 
-final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-User? loggedInUser = FirebaseAuth.instance.currentUser;
+final User? loggedInUser = FirebaseAuth.instance.currentUser;
 
 class _ProjectMapCreationState extends State<ProjectMapCreation> {
-  late DocumentReference teamID;
+  DocumentReference? teamRef;
   late GoogleMapController mapController;
   LatLng _currentPosition =
       const LatLng(45.521563, -122.677433); // Default location
@@ -39,54 +39,29 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
   bool _addPointsMode = true; // Flag to add points mode
   bool _polygonMode = false; // Flag for polygon creation mode
   bool _deleteMode = false; // Flag to enable polygon deletion
-  bool _isHoveringOverButton =
-      false; // Track if the mouse is hovering over a button
 
   MapType _currentMapType = MapType.satellite; // Default map type
+
+  Project? project;
 
   @override
   void initState() {
     super.initState();
     _checkAndFetchLocation();
-    getCurrentTeam();
+    _getCurrentTeam();
   }
 
-  void getCurrentTeam() {
+  // Function to set teamRef to current team.
+  Future<void> _getCurrentTeam() async {
     try {
-      _firestore
-          .collection('users')
-          .doc(loggedInUser?.uid)
-          .get()
-          .then((querySnapshot) async {
-        teamID = await querySnapshot.data()?['selectedTeam'];
-      });
+      teamRef = await getCurrentTeam();
+      if (teamRef == null) {
+        throw Exception(
+            "Error populating projects in home_screen.dart. No selected team available.");
+      }
     } catch (e) {
-      print("Exception trying to getCurrentTeam(): $e");
+      print("Error in project_map_creation.dart, _getCurrentTeam(): $e");
     }
-  }
-
-  String saveProject(
-      {required String projectTitle,
-      required String description,
-      required DocumentReference teamID,
-      required List<GeoPoint> projectArea}) {
-    String projectID = _firestore.collection('projects').doc().id;
-    if (projectTitle.length > 3) {
-      _firestore.collection('projects').doc(projectID).set({
-        'title': projectTitle,
-        'creationTime': FieldValue.serverTimestamp(),
-        // Saves document id as field _id
-        'id': projectID,
-        'team': teamID,
-        'description': description,
-        'projectArea': projectArea,
-      });
-    } else {
-      print("Name too short"); // <-- TODO: change to field display error on app
-    }
-    print(_firestore.doc('/projects/$projectID'));
-
-    return projectID;
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -357,19 +332,25 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                         icon: const Icon(Icons.chevron_right),
                         onPressed: () {
                           if (_polygon.isNotEmpty) {
-                            // TODO: Add project to team also.
+                            saveProject(
+                              projectTitle: widget.partialProjectData.title,
+                              description:
+                                  widget.partialProjectData.description,
+                              teamRef: teamRef,
+                              polygonPoints: _polygonAsPoints,
+                            );
+                            print("Successfully created project");
+                            Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => HomePage(),
+                                ));
+                            // TODO: Push to project details page.
                             Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => HomeScreen(),
+                                  builder: (context) => HomePage(),
                                 ));
-                            saveProject(
-                                projectTitle: widget.partialProjectData.title,
-                                description:
-                                    widget.partialProjectData.description,
-                                teamID: teamID,
-                                projectArea: _polygonAsPoints);
-                            print("Successfully created project");
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(

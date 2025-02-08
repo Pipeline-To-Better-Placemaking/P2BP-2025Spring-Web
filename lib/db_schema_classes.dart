@@ -51,26 +51,31 @@ class Team {
   Team({required this.teamID, required this.title, required this.adminName});
 }
 
+// Project class for project creation (create project + map)
 class Project {
   Timestamp? creationTime;
-  String teamID = '';
+  DocumentReference? teamRef;
   String projectID = '';
   String title = '';
   String description = '';
-  // TODO: Change depending on how polygon is handled by google maps api.
-  String areaID = '';
+  List polygonPoints = [];
   // TODO: Change depending on implementation of tests.
-  List tests = [];
+  List<Test>? tests = [];
 
   Project(
       {this.creationTime,
-      required this.teamID,
+      required this.teamRef,
       required this.projectID,
       required this.title,
       required this.description,
-      required this.areaID,
-      required this.tests});
+      required this.polygonPoints,
+      this.tests});
 
   // TODO: Eventually add Team Photo and Team Color
   Project.partialProject({required this.title, required this.description});
+}
+
+class Test {
+  // TODO: Temporary until test is worked out
+  String type = '';
 }

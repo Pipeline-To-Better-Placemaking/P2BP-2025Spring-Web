@@ -1,4 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'create_project_details.dart';
+import 'db_schema_classes.dart';
+import 'theme.dart';
 import 'create_project_and_teams.dart';
 import 'project_comparison_page.dart';
 import 'settings_page.dart';
@@ -8,8 +12,6 @@ import 'edit_project_panel.dart';
 import 'main.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firestore_functions.dart';
-import 'themes.dart';
-import 'widgets.dart';
 
 List<String> navIcons2 = [
   'assets/Home_Icon.png',
@@ -27,6 +29,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
+  List<Project> _projectList = [];
+  int _projectsCount = 0;
+  bool _isLoading = true;
 
   int selectedIndex = 0;
   String _firstName = 'User';
@@ -35,6 +40,27 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _getUserFirstName();
+    _populateProjects();
+  }
+
+  Future<void> _populateProjects() async {
+    DocumentReference? teamRef;
+
+    try {
+      teamRef = await getCurrentTeam();
+      if (teamRef == null) {
+        print(
+            "Error populating projects in home_screen.dart. No selected team available.");
+      } else {
+        _projectList = await getTeamProjects(teamRef);
+      }
+      setState(() {
+        _projectsCount = _projectList.length;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print("Error in _populateProjects(): $e");
+    }
   }
 
   // Gets name from DB, get the first word of that, then sets _firstName to it
@@ -90,6 +116,146 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget buildProjectCard({
+    required BuildContext context,
+    required String bannerImage, // Image path for banner
+    required Project project, // Project name
+    required String teamName, // Team name
+    required int index,
+  }) {
+    return Card(
+      elevation: 5,
+      shape: RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.circular(12) // Match the container's corner radius
+          ),
+      child: InkWell(
+        onTap: () async {
+          // TODO: Navigation to project details page
+          Project tempProject = await getProjectInfo(project.projectID);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  CreateProjectDetails(projectData: tempProject),
+            ),
+          );
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3874CB), Color(0xFF183769)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Banner image at the top
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+                child: Image.asset(
+                  bannerImage,
+                  width: double.infinity,
+                  height: 150,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              // Project details section
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Project name
+                    Text(
+                      project.title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFFFCC00),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    // Team name
+                    Text(
+                      teamName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFFFCC00),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Row with Edit and Results buttons in the bottom right corner
+              Padding(
+                padding: const EdgeInsets.only(
+                  top: 10,
+                  bottom: 10,
+                  right: 10,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // Edit Info button
+                    OutlinedButton(
+                      onPressed: () {
+                        // Handle navigation to Edit menu
+                        showEditProjectModalSheet(context);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                          color: Color(0xFFFFCC00),
+                          width: 2.0,
+                        ),
+                        foregroundColor: const Color(0xFFFFCC00),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Edit Info',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Results button
+                    ElevatedButton(
+                      onPressed: () {
+                        // Handle navigation to Results menu
+                        showResultsModalSheet(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFCC00),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Results',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF1D4076),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHomeContent() {
     return SingleChildScrollView(
       child: Padding(
@@ -124,7 +290,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const HomeScreen(),
+                                builder: (context) => const HomeScreen(
+                                ),
                               ),
                             );
                           },
@@ -199,160 +366,37 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             // Project Cards
-            Column(
-              children: [
-                // First Project Card
-                buildProjectCard(
-                  context,
-                  'assets/RedHouse.png',
-                  'Project Eola',
-                  'Team: Eola Design Group',
-                ),
-                const SizedBox(height: 20),
-                // Second Project Card
-                buildProjectCard(
-                  context,
-                  'assets/PinkHouse.png',
-                  'Project Neocity',
-                  'Team: New Horizons Placemakers',
-                ),
-                const SizedBox(height: 20),
-                // Third Project Card
-                buildProjectCard(
-                  context,
-                  'assets/RedHouse.png',
-                  'Project Knight Library',
-                  'Team: Lake Nona Design Group',
-                ),
-                const SizedBox(height: 150),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget buildProjectCard(
-    BuildContext context,
-    String bannerImage, // Image path for banner
-    String projectName, // Project name
-    String teamName, // Team name
-  ) {
-    return Card(
-      elevation: 5,
-      shape: RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.circular(12) // Match the container's corner radius
-          ),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF3874CB), Color(0xFF183769)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Banner image at the top
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-              child: Image.asset(
-                bannerImage,
-                width: double.infinity,
-                height: 150,
-                fit: BoxFit.cover,
-              ),
-            ),
-            // Project details section
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Project name
-                  Text(
-                    projectName,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFFCC00),
+            _projectsCount > 0
+                ? ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.only(
+                      left: 15,
+                      right: 15,
+                      top: 25,
+                      bottom: 25,
                     ),
-                  ),
-                  const SizedBox(height: 5),
-                  // Team name
-                  Text(
-                    teamName,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFFCC00),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Row with Edit and Results buttons in the bottom right corner
-            Padding(
-              padding: const EdgeInsets.only(
-                top: 10,
-                bottom: 10,
-                right: 10,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // Edit Info button
-                  OutlinedButton(
-                    onPressed: () {
-                      // Handle navigation to Edit menu
-                      showEditProjectModalSheet(context);
+                    itemCount: _projectsCount,
+                    itemBuilder: (BuildContext context, int index) {
+                      return buildProjectCard(
+                        context: context,
+                        bannerImage: 'assets/RedHouse.png',
+                        project: _projectList[index],
+                        teamName: 'Team: Eola Design Group',
+                        index: index,
+                      );
                     },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                        color: Color(0xFFFFCC00),
-                        width: 2.0,
-                      ),
-                      foregroundColor: const Color(0xFFFFCC00),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                    separatorBuilder: (BuildContext context, int index) =>
+                        const SizedBox(
+                      height: 50,
                     ),
-                    child: const Text(
-                      'Edit Info',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // Results button
-                  ElevatedButton(
-                    onPressed: () {
-                      // Handle navigation to Results menu
-                      showResultsModalSheet(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFCC00),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                  )
+                : _isLoading == true
+                    ? const Center(child: CircularProgressIndicator())
+                    : Align(
+                        alignment: Alignment.center,
+                        child: Text(
+                            "You have no projects! Join or create a team first."),
                       ),
-                    ),
-                    child: const Text(
-                      'Results',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF1D4076),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'create_project_details.dart';
+import 'db_schema_classes.dart';
 
 class TeamSettingsScreen extends StatelessWidget {
   @override
@@ -330,11 +331,16 @@ class TeamSettingsScreen extends StatelessWidget {
                                 Icon(Icons.chevron_right, color: Colors.white),
                             onTap: () {
                               // Navigate to project details
+                              // TODO: Add project data via function returning project object
                               Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) =>
-                                        CreateProjectDetails(),
+                                    builder: (context) => CreateProjectDetails(
+                                      projectData: Project.partialProject(
+                                          title: 'No data sent',
+                                          description:
+                                              'Accessed without project data'),
+                                    ),
                                   ));
                             }, // Replace with project title
                           ),

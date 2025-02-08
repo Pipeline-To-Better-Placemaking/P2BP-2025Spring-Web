@@ -4,29 +4,29 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:math';
 
 class GoogleMapsPage extends StatefulWidget {
-  const GoogleMapsPage({super.key});
-
   @override
-  State<GoogleMapsPage> createState() => _GoogleMapsPageState();
+  _GoogleMapsPageState createState() => _GoogleMapsPageState();
 }
 
 class _GoogleMapsPageState extends State<GoogleMapsPage> {
   late GoogleMapController mapController;
-  LatLng _currentPosition = const LatLng(45.521563, -122.677433); // Default location
+  LatLng _currentPosition = const LatLng(45.521563, -122.677433);
+  LatLng _cameraCenterPosition = const LatLng(45.521563, -122.677433);
   bool _isLoading = true;
 
-  List<LatLng> _polygonPoints = []; // Points for the polygon
-  Set<Polygon> _polygons = {}; // Set of polygons
-  Set<Marker> _markers = {}; // Set of markers for points
+  List<LatLng> _polygonPoints = [];
+  Polygon? _polygon;
+  Set<Marker> _markers = {};
+  int _flagCounter = 0;
 
-  String? _selectedPolygonId; // The ID of the selected polygon
+  String? _selectedPolygonId;
 
-  bool _addPointsMode = true; // Flag to add points mode
-  bool _polygonMode = false; // Flag for polygon creation mode
-  bool _deleteMode = false; // Flag to enable polygon deletion
-  bool _isHoveringOverButton = false; // Track if the mouse is hovering over a button
+  bool _addPointsMode = true;
+  bool _polygonMode = false;
+  bool _deleteMode = false;
+  bool _isHoveringOverButton = false;
 
-  MapType _currentMapType = MapType.satellite; // Default map type
+  MapType _currentMapType = MapType.satellite;
 
   @override
   void initState() {
@@ -36,7 +36,7 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
-    _moveToCurrentLocation(); // Ensure the map is centered on the current location
+    _moveToCurrentLocation();
   }
 
   Future<void> _checkAndFetchLocation() async {
@@ -80,12 +80,8 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
 
   Future<void> _getCurrentLocation() async {
     try {
-      LocationSettings locationSettings = const LocationSettings(
-        accuracy: LocationAccuracy.high, // Specify the desired accuracy
-      );
-
       Position position = await Geolocator.getCurrentPosition(
-        locationSettings: locationSettings,
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       setState(() {
@@ -98,85 +94,115 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
   }
 
   void _moveToCurrentLocation() {
-    if (mapController != null) {
-      mapController.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: _currentPosition, zoom: 14.0),
-        ),
-      );
-    }
+    mapController.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: _currentPosition, zoom: 14.0),
+      ),
+    );
   }
 
   void _togglePoint(LatLng point) {
-    if (_deleteMode || _isHoveringOverButton) return; // Prevent adding points when hovering over buttons or in delete mode
+    if (_deleteMode || _isHoveringOverButton) return;
 
-    setState(() {
-      final markerId = MarkerId(point.toString());
-      if (_markers.any((marker) => marker.markerId == markerId)) {
-        _markers.removeWhere((marker) => marker.markerId == markerId);
-        _polygonPoints.remove(point);
-      } else {
+    if (_polygon == null) {
+      setState(() {
         _polygonPoints.add(point);
-        _markers.add(
-          Marker(
-            markerId: markerId,
+        _markers.add(Marker(
+          markerId: MarkerId(point.toString()),
+          position: point,
+          onTap: () => _removePoint(point),
+        ));
+      });
+    } else {
+      if (isPointInsidePolygon(point, _polygon!.points)) {
+        setState(() {
+          _markers.add(Marker(
+            markerId: MarkerId(point.toString()),
             position: point,
-            onTap: () {
-              // If the marker is tapped again, it will be removed
-              _togglePoint(point);
-            },
-          ),
-        );
+            onTap: () => _removePoint(point),
+          ));
+        });
+      } else {
+        print("Point is outside the polygon!");
       }
+    }
+  }
+
+  void _removePoint(LatLng point) {
+    setState(() {
+      _markers.removeWhere((marker) => marker.position == point);
     });
+  }
+
+  bool isPointInsidePolygon(LatLng point, List<LatLng> polygon) {
+    return rayCastingAlgorithm(point, polygon);
+  }
+
+  bool rayCastingAlgorithm(LatLng point, List<LatLng> polygon) {
+    int n = polygon.length;
+    bool inside = false;
+    double xinters;
+    LatLng p1 = polygon[0], p2;
+
+    for (int i = 1; i <= n; i++) {
+      p2 = polygon[i % n];
+      if (point.latitude > min(p1.latitude, p2.latitude)) {
+        if (point.latitude <= max(p1.latitude, p2.latitude)) {
+          if (point.longitude <= max(p1.longitude, p2.longitude)) {
+            if (p1.latitude != p2.latitude) {
+              xinters = (point.latitude - p1.latitude) * (p2.longitude - p1.longitude) /
+                  (p2.latitude - p1.latitude) + p1.longitude;
+              if (p1.longitude == p2.longitude || point.longitude <= xinters) {
+                inside = !inside;
+              }
+            }
+          }
+        }
+      }
+      p1 = p2;
+    }
+    return inside;
   }
 
   void _finalizePolygon() {
     if (_polygonPoints.isEmpty) return;
 
-    // Sort points in clockwise order
     List<LatLng> sortedPoints = _sortPointsClockwise(_polygonPoints);
 
     final String polygonId = DateTime.now().millisecondsSinceEpoch.toString();
     setState(() {
-      _polygons.add(
-        Polygon(
-          polygonId: PolygonId(polygonId),
-          points: sortedPoints,
-          strokeColor: Colors.blue,
-          strokeWidth: 2,
-          fillColor: Colors.blue.withOpacity(0.2),
-          onTap: () {
-            setState(() {
-              _selectedPolygonId = polygonId; // Store the ID of the clicked polygon
-            });
-          },
-        ),
+      _polygon = Polygon(
+        polygonId: PolygonId(polygonId),
+        points: sortedPoints,
+        strokeColor: Colors.blue,
+        strokeWidth: 2,
+        fillColor: Colors.blue.withOpacity(0.2),
+        onTap: () {
+          setState(() {
+            _selectedPolygonId = polygonId;
+          });
+        },
       );
       _polygonPoints = [];
       _markers.clear();
-      _addPointsMode = true; // Enable adding points again after finalizing the polygon
-      _polygonMode = false; // Disable polygon mode
+      _addPointsMode = true;
+      _polygonMode = false;
     });
   }
 
   void _removeSelectedPolygon() {
-    if (_selectedPolygonId == null) return;
+    if (_polygon == null) return;
 
     setState(() {
-      _polygons.removeWhere((polygon) => polygon.polygonId.value == _selectedPolygonId);
-      _selectedPolygonId = null; // Clear the selection
-      _addPointsMode = true; // Enable adding points again after deleting a polygon
+      _polygon = null;
+      _addPointsMode = true;
     });
   }
 
-  // Function to sort points in clockwise order
   List<LatLng> _sortPointsClockwise(List<LatLng> points) {
-    // Calculate the centroid of the points
     double centerX = points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length;
     double centerY = points.map((p) => p.longitude).reduce((a, b) => a + b) / points.length;
 
-    // Sort the points based on the angle from the centroid
     points.sort((a, b) {
       double angleA = _calculateAngle(centerX, centerY, a.latitude, a.longitude);
       double angleB = _calculateAngle(centerX, centerY, b.latitude, b.longitude);
@@ -186,14 +212,43 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
     return points;
   }
 
-  // Calculate the angle of the point relative to the centroid
   double _calculateAngle(double centerX, double centerY, double x, double y) {
     return atan2(y - centerY, x - centerX);
   }
 
-  void _toggleMapType() {
+  void _addFlagMarker() {
+    if (_polygon == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please create a polygon before adding flags.')),
+      );
+      return;
+    }
+
     setState(() {
-      _currentMapType = _currentMapType == MapType.normal ? MapType.satellite : MapType.normal;
+      final String flagId = 'flag_${_flagCounter++}';
+      final Marker flagMarker = Marker(
+        markerId: MarkerId(flagId),
+        position: _cameraCenterPosition,
+        draggable: true,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        onTap: () {
+          _removeFlagMarker(flagId);
+        },
+        onDragEnd: (LatLng newPosition) {
+          if (isPointInsidePolygon(newPosition, _polygon!.points)) {
+            print("Flag $flagId placed inside the polygon!");
+          } else {
+            print("Flag $flagId placed outside the polygon!");
+          }
+        },
+      );
+      _markers.add(flagMarker);
+    });
+  }
+
+  void _removeFlagMarker(String flagId) {
+    setState(() {
+      _markers.removeWhere((marker) => marker.markerId.value == flagId);
     });
   }
 
@@ -207,10 +262,32 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
                 GoogleMap(
                   onMapCreated: _onMapCreated,
                   initialCameraPosition: CameraPosition(target: _currentPosition, zoom: 14.0),
-                  polygons: _polygons,
+                  polygons: _polygon == null ? {} : {_polygon!},
                   markers: _markers,
                   onTap: _addPointsMode ? _togglePoint : null,
-                  mapType: _currentMapType, // Use current map type
+                  mapType: _currentMapType,
+                  onCameraMove: (CameraPosition position) {
+                    _cameraCenterPosition = position.target;
+                  },
+                ),
+                Positioned(
+                  bottom: 215,
+                  right: 55,
+                  child: MouseRegion(
+                    onEnter: (_) => setState(() {
+                      _addPointsMode = false;
+                      _isHoveringOverButton = true;
+                    }),
+                    onExit: (_) => setState(() {
+                      _addPointsMode = true;
+                      _isHoveringOverButton = false;
+                    }),
+                    child: FloatingActionButton(
+                      onPressed: _addFlagMarker,
+                      backgroundColor: Colors.orange,
+                      child: const Icon(Icons.flag),
+                    ),
+                  ),
                 ),
                 Positioned(
                   bottom: 150,
@@ -225,28 +302,16 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
                   bottom: 85,
                   right: 55,
                   child: MouseRegion(
-                    onEnter: (_) {
-                      setState(() {
-                        _addPointsMode = false;
-                        _isHoveringOverButton = true;
-                      });
-                    },
-                    onExit: (_) {
-                      setState(() {
-                        _addPointsMode = true;
-                        _isHoveringOverButton = false;
-                      });
-                    },
+                    onEnter: (_) => setState(() {
+                      _addPointsMode = false;
+                      _isHoveringOverButton = true;
+                    }),
+                    onExit: (_) => setState(() {
+                      _addPointsMode = true;
+                      _isHoveringOverButton = false;
+                    }),
                     child: FloatingActionButton(
-                      onPressed: () {
-                        setState(() {
-                          if (_polygonPoints.isEmpty) {
-                            _polygonMode = true;
-                          } else {
-                            _finalizePolygon();
-                          }
-                        });
-                      },
+                      onPressed: _finalizePolygon,
                       backgroundColor: Colors.blue,
                       child: const Icon(Icons.add),
                     ),
@@ -256,18 +321,14 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
                   bottom: 20,
                   right: 55,
                   child: MouseRegion(
-                    onEnter: (_) {
-                      setState(() {
-                        _addPointsMode = false;
-                        _isHoveringOverButton = true;
-                      });
-                    },
-                    onExit: (_) {
-                      setState(() {
-                        _addPointsMode = true;
-                        _isHoveringOverButton = false;
-                      });
-                    },
+                    onEnter: (_) => setState(() {
+                      _addPointsMode = false;
+                      _isHoveringOverButton = true;
+                    }),
+                    onExit: (_) => setState(() {
+                      _addPointsMode = true;
+                      _isHoveringOverButton = false;
+                    }),
                     child: FloatingActionButton(
                       onPressed: _removeSelectedPolygon,
                       backgroundColor: Colors.red,
@@ -278,5 +339,11 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
               ],
             ),
     );
+  }
+
+  void _toggleMapType() {
+    setState(() {
+      _currentMapType = _currentMapType == MapType.satellite ? MapType.normal : MapType.satellite;
+    });
   }
 }

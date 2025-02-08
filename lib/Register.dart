@@ -66,7 +66,7 @@ class _RegisterPageState extends State<RegisterPage> {
         await _firestore.collection('users').doc(userCredential.user?.uid).set({
           'fullName': _fullNameController.text.trim(),
           'email': _emailController.text.trim(),
-          'createdAt': FieldValue.serverTimestamp(),
+          'creationTime': FieldValue.serverTimestamp(),
         });
 
         // Send email verification

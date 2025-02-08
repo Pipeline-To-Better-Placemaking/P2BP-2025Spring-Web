@@ -9,7 +9,6 @@ import 'settings_page.dart';
 import 'teams_and_invites_page.dart';
 import 'results_panel.dart';
 import 'edit_project_panel.dart';
-import 'main.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firestore_functions.dart';
 

@@ -55,6 +55,7 @@ class _MyAppState extends State<MyApp> {
         '/register': (context) => register.RegisterPage(),
         '/home': (context) => HomePage(), // Add HomePage route
         '/password_reset': (context) => forgotpassword.ForgotPassword(),
+        
       },
     );
   }

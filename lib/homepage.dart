@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:p2b/project_map_creation.dart';
 import 'package:provider/provider.dart';
 import 'homepage_state.dart';
 import 'create_project_and_teams.dart';
-import 'compare_project.dart';
 import 'settings_page.dart';
 import 'teams_and_invites_page.dart';
 import 'results_panel.dart';
@@ -11,6 +9,11 @@ import 'edit_project_panel.dart';
 import 'project_map_creation.dart'; // Import the project creation page
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firestore_functions.dart';
+import 'create_project_details.dart';
+import 'project_comparison_page.dart';
+import 'themes.dart';
+import 'db_schema_classes.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -34,12 +37,39 @@ class HomePageBody extends StatefulWidget {
 class _HomePageBodyState extends State<HomePageBody> {
   String _firstName = 'User';
 
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  List<Project> _projectList = [];
+  int _projectsCount = 0;
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
     _getUserFirstName();
+    _populateProjects();
   }
 
+  Future<void> _populateProjects() async {
+    DocumentReference? teamRef;
+
+    try {
+      teamRef = await getCurrentTeam();
+      if (teamRef == null) {
+        print(
+            "Error populating projects in home_screen.dart. No selected team available.");
+      } else {
+        _projectList = await getTeamProjects(teamRef);
+      }
+      setState(() {
+        _projectsCount = _projectList.length;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print("Error in _populateProjects(): $e");
+    }
+  }
+
+  // Gets name from DB, get the first word of that, then sets _firstName to it
   Future<void> _getUserFirstName() async {
     try {
       final User? user = FirebaseAuth.instance.currentUser;
@@ -113,7 +143,6 @@ class _HomePageBodyState extends State<HomePageBody> {
               const CreateProjectAndTeamsPage(),
               const ProjectComparisonPage(),
               const SettingsPage(),
-              //const ProjectMapCreation(), // Added the Project Creation Page
             ],
           ),
         );
@@ -148,7 +177,14 @@ class _HomePageBodyState extends State<HomePageBody> {
               padding: const EdgeInsets.only(top: 50),
               child: Stack(
                 children: [
-                  Align(alignment: Alignment.topCenter),
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Image.asset(
+                      'assets/P2BP_Logo.png',
+                      width: 40,
+                      height: 40,
+                    ),
+                  ),
                   Align(
                     alignment: Alignment.topRight,
                     child: Row(
@@ -157,7 +193,7 @@ class _HomePageBodyState extends State<HomePageBody> {
                         IconButton(
                           icon: Image.asset('assets/bell-03.png'),
                           onPressed: () {
-                            Navigator.pushReplacement(
+                            Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const HomePage(),
@@ -173,8 +209,7 @@ class _HomePageBodyState extends State<HomePageBody> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    const TeamsAndInvitesPage(),
+                                builder: (context) => const TeamsAndInvitesPage(),
                               ),
                             );
                           },
@@ -193,7 +228,7 @@ class _HomePageBodyState extends State<HomePageBody> {
                             return defaultGrad.createShader(bounds);
                           },
                           child: Text(
-                            'Hello,\n$_firstName',
+                            'Hello, $_firstName',
                             style: const TextStyle(
                               fontSize: 36,
                               fontWeight: FontWeight.bold,
@@ -209,7 +244,7 @@ class _HomePageBodyState extends State<HomePageBody> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.only(right: 5, top: 20),
+              padding: const EdgeInsets.only(right: 5),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -231,111 +266,179 @@ class _HomePageBodyState extends State<HomePageBody> {
               ),
             ),
             const SizedBox(height: 20),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 20,
-                mainAxisSpacing: 20,
-                childAspectRatio: 1.3,
-              ),
-              itemCount: 3,
-              itemBuilder: (context, index) {
-                final projectDetails = [
-                  {
-                    'image': 'assets/RedHouse.png',
-                    'title': 'Project Eola',
-                    'team': 'Team: Eola Design Group'
-                  },
-                  {
-                    'image': 'assets/PinkHouse.png',
-                    'title': 'Project Neocity',
-                    'team': 'Team: New Horizons Placemakers'
-                  },
-                  {
-                    'image': 'assets/RedHouse.png',
-                    'title': 'Project Knight Library',
-                    'team': 'Team: Lake Nona Design Group'
-                  },
-                ];
-                final details = projectDetails[index];
-                return buildProjectCard(
-                  context,
-                  details['image']!,
-                  details['title']!,
-                  details['team']!,
-                );
-              },
-            ),
-            const SizedBox(height: 150),
+            _projectsCount > 0
+                ? GridView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.only(
+                      left: 15,
+                      right: 15,
+                      top: 25,
+                      bottom: 25,
+                    ),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2, // Define the number of columns
+                      crossAxisSpacing: 15, // Spacing between columns
+                      mainAxisSpacing: 25, // Spacing between rows
+                      childAspectRatio: 1.25, // Adjust the height/width ratio of the cards
+                    ),
+                    itemCount: _projectsCount,
+                    itemBuilder: (BuildContext context, int index) {
+                      final project = _projectList[index];
+                      return buildProjectCard(
+                        context: context,
+                        bannerImage: 'assets/RedHouse.png',
+                        project: project,
+                        teamName: 'Team: Eola Design Group',
+                        index: index,
+                      );
+                    },
+                  )
+                : _isLoading == true
+                    ? const Center(child: CircularProgressIndicator())
+                    : Align(
+                        alignment: Alignment.center,
+                        child: Text(
+                            "You have no projects! Join or create a team first."),
+                      ),
           ],
         ),
       ),
     );
   }
 
-  Widget buildProjectCard(
-    BuildContext context,
-    String bannerImage,
-    String projectName,
-    String teamName,
-  ) {
+  Widget buildProjectCard({
+    required BuildContext context,
+    required String bannerImage, // Image path for banner
+    required Project project, // Project object containing project details
+    required String teamName, // Team name
+    required int index,
+  }) {
     return Card(
       elevation: 5,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12), // Match the container's corner radius
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF3874CB), Color(0xFF183769)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      child: InkWell(
+        onTap: () async {
+          // Fetch project details asynchronously
+          Project tempProject = await getProjectInfo(project.projectID);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CreateProjectDetails(projectData: tempProject),
+            ),
+          );
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3874CB), Color(0xFF183769)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.circular(12),
           ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Banner image at the top
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+                child: Image.asset(
+                  bannerImage,
+                  width: double.infinity,
+                  height: 120,
+                  fit: BoxFit.cover,
+                ),
               ),
-              child: Image.asset(
-                bannerImage,
-                width: double.infinity,
-                height: 120,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    projectName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFFCC00),
+              // Project details section
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Project name
+                    Text(
+                      project.title, // Use project title from the Project object
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFFFCC00),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    teamName,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFFCC00),
+                    const SizedBox(height: 5),
+                    // Team name
+                    Text(
+                      teamName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFFFCC00),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+              // Optional buttons for actions like Edit and Results (can be customized)
+              Padding(
+                padding: const EdgeInsets.only(
+                  top: 10,
+                  bottom: 10,
+                  right: 10,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // Edit Info button
+                    OutlinedButton(
+                      onPressed: () {
+                        // Handle navigation to Edit menu
+                        showEditProjectModalSheet(context);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                          color: Color(0xFFFFCC00),
+                          width: 2.0,
+                        ),
+                        foregroundColor: const Color(0xFFFFCC00),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Edit Info',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Results button
+                    ElevatedButton(
+                      onPressed: () {
+                        // Handle navigation to Results menu
+                        showResultsModalSheet(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFCC00),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Results',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF1D4076),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

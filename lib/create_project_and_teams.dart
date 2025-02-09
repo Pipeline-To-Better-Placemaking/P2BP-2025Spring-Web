@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'homepage.dart';
 import 'project_map_creation.dart';
 import 'teams_and_invites_page.dart';
 import 'firestore_functions.dart';
-import 'home_screen.dart';
 import 'widgets.dart';
 import 'themes.dart';
 import 'db_schema_classes.dart';
@@ -488,7 +488,7 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const HomeScreen(),
+                            builder: (context) => const HomePage(),
                           ),
                         );
                         Navigator.push(

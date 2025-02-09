@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math';
+import 'firestore_functions.dart';
+import 'db_schema_classes.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'homepage.dart';
+import 'widgets.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class GoogleMapsPage extends StatefulWidget {
+  
   @override
   _GoogleMapsPageState createState() => _GoogleMapsPageState();
 }
@@ -176,7 +183,7 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
         points: sortedPoints,
         strokeColor: Colors.blue,
         strokeWidth: 2,
-        fillColor: Colors.blue.withOpacity(0.2),
+        fillColor: Color(0x330000FF), // 20% opacity blue
         onTap: () {
           setState(() {
             _selectedPolygonId = polygonId;
@@ -270,6 +277,15 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
                     _cameraCenterPosition = position.target;
                   },
                 ),
+                // Define your project area text
+                Positioned(
+                  top: 20,
+                  left: 20,
+                  child: Text(
+                    "Define your project area.",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ),
                 Positioned(
                   bottom: 215,
                   right: 55,
@@ -317,7 +333,8 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
                     ),
                   ),
                 ),
-                Positioned(
+                Positioned
+                (
                   bottom: 20,
                   right: 55,
                   child: MouseRegion(
@@ -336,6 +353,7 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
                     ),
                   ),
                 ),
+                
               ],
             ),
     );

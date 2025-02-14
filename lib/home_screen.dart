@@ -1,3 +1,4 @@
+/*
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'create_project_details.dart';
@@ -9,6 +10,7 @@ import 'settings_page.dart';
 import 'teams_and_invites_page.dart';
 import 'results_panel.dart';
 import 'edit_project_panel.dart';
+import 'main.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firestore_functions.dart';
 
@@ -29,9 +31,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   List<Project> _projectList = [];
+  DocumentReference? teamRef;
   int _projectsCount = 0;
   bool _isLoading = true;
-
   int selectedIndex = 0;
   String _firstName = 'User';
 
@@ -43,15 +45,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _populateProjects() async {
-    DocumentReference? teamRef;
-
     try {
       teamRef = await getCurrentTeam();
       if (teamRef == null) {
         print(
             "Error populating projects in home_screen.dart. No selected team available.");
       } else {
-        _projectList = await getTeamProjects(teamRef);
+        _projectList = await getTeamProjects(teamRef!);
       }
       setState(() {
         _projectsCount = _projectList.length;
@@ -65,8 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // Gets name from DB, get the first word of that, then sets _firstName to it
   Future<void> _getUserFirstName() async {
     try {
-      String fullName =
-          await FirestoreFunctions.getUserFullName(_currentUser?.uid);
+      String fullName = await getUserFullName(_currentUser?.uid);
 
       // Get first name from full name
       String firstName = fullName.split(' ').first;
@@ -207,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     OutlinedButton(
                       onPressed: () {
                         // Handle navigation to Edit menu
-                        showEditProjectModalSheet(context);
+                        showEditProjectDialog(context);
                       },
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(
@@ -366,36 +365,58 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             // Project Cards
             _projectsCount > 0
-                ? ListView.separated(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.only(
-                      left: 15,
-                      right: 15,
-                      top: 25,
-                      bottom: 25,
-                    ),
-                    itemCount: _projectsCount,
-                    itemBuilder: (BuildContext context, int index) {
-                      return buildProjectCard(
-                        context: context,
-                        bannerImage: 'assets/RedHouse.png',
-                        project: _projectList[index],
-                        teamName: 'Team: Eola Design Group',
-                        index: index,
-                      );
+                // If there are projects populate ListView
+                ? RefreshIndicator(
+                    onRefresh: () async {
+                      await _populateProjects();
                     },
-                    separatorBuilder: (BuildContext context, int index) =>
-                        const SizedBox(
-                      height: 50,
+                    // TODO: Make listView scrolling separated from home scrolling
+                    child: ListView.separated(
+                      physics: NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.only(
+                        left: 15,
+                        right: 15,
+                        top: 25,
+                        bottom: 25,
+                      ),
+                      itemCount: _projectsCount,
+                      itemBuilder: (BuildContext context, int index) {
+                        return buildProjectCard(
+                          context: context,
+                          bannerImage: 'assets/RedHouse.png',
+                          project: _projectList[index],
+                          teamName: 'Team: Eola Design Group',
+                          index: index,
+                        );
+                      },
+                      separatorBuilder: (BuildContext context, int index) =>
+                          const SizedBox(
+                        height: 50,
+                      ),
                     ),
                   )
+                // Else if there are no projects
                 : _isLoading == true
+                    // If loading display loading indicator
                     ? const Center(child: CircularProgressIndicator())
-                    : Align(
-                        alignment: Alignment.center,
-                        child: Text(
-                            "You have no projects! Join or create a team first."),
+                    // Else display text to create new project
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          await _populateProjects();
+                        },
+                        child: SingleChildScrollView(
+                          physics: AlwaysScrollableScrollPhysics(),
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 2 / 3,
+                            child: Center(
+                              child: Text(
+                                  "You have no projects! Join a team or create a project first."),
+                            ),
+                          ),
+                        ),
                       ),
+            SizedBox(height: 100),
           ],
         ),
       ),
@@ -457,4 +478,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-}
+} */

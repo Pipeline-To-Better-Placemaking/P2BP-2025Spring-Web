@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'homepage.dart';
-import 'widgets.dart';
 import 'db_schema_classes.dart';
 import 'dart:math';
 import 'firestore_functions.dart';
+import 'package:maps_toolkit/maps_toolkit.dart' as mp;
 
 class ProjectMapCreation extends StatefulWidget {
   final Project partialProjectData;
@@ -17,16 +17,18 @@ class ProjectMapCreation extends StatefulWidget {
   State<ProjectMapCreation> createState() => _ProjectMapCreationState();
 }
 
+final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 final User? loggedInUser = FirebaseAuth.instance.currentUser;
 
 class _ProjectMapCreationState extends State<ProjectMapCreation> {
-  DocumentReference? teamRef;
+  late DocumentReference teamRef;
   late GoogleMapController mapController;
   LatLng _currentPosition = const LatLng(45.521563, -122.677433);
   LatLng _cameraCenterPosition = const LatLng(45.521563, -122.677433);
   bool _isLoading = true;
 
-  List<LatLng> _polygonPoints = [];
+  List<LatLng> _polygonPoints = []; // Points for polygons
+  List<mp.LatLng> _mapToolsPolygonPoints = [];
   Polygon? _polygon;
   Set<Marker> _markers = {};
   List<GeoPoint> _polygonAsPoints = []; // The current polygon represented as points (for Firestore).
@@ -115,30 +117,16 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
   }
 
   void _togglePoint(LatLng point) {
-    if (_deleteMode || _isHoveringOverButton) return;
+    if (_deleteMode || _isHoveringOverButton || _polygon != null) return;
 
-    if (_polygon == null) {
-      setState(() {
-        _polygonPoints.add(point);
-        _markers.add(Marker(
-          markerId: MarkerId(point.toString()),
-          position: point,
-          onTap: () => _removePoint(point),
-        ));
-      });
-    } else {
-      if (isPointInsidePolygon(point, _polygon!.points)) {
-        setState(() {
-          _markers.add(Marker(
-            markerId: MarkerId(point.toString()),
-            position: point,
-            onTap: () => _removePoint(point),
-          ));
-        });
-      } else {
-        print("Point is outside the polygon!");
-      }
-    }
+    setState(() {
+      _polygonPoints.add(point);
+      _markers.add(Marker(
+        markerId: MarkerId(point.toString()),
+        position: point,
+        onTap: () => _removePoint(point),
+      ));
+    });
   }
 
   void _removePoint(LatLng point) {
@@ -147,40 +135,14 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
     });
   }
 
-  bool isPointInsidePolygon(LatLng point, List<LatLng> polygon) {
-    return rayCastingAlgorithm(point, polygon);
-  }
-
-  bool rayCastingAlgorithm(LatLng point, List<LatLng> polygon) {
-    int n = polygon.length;
-    bool inside = false;
-    double xinters;
-    LatLng p1 = polygon[0], p2;
-
-    for (int i = 1; i <= n; i++) {
-      p2 = polygon[i % n];
-      if (point.latitude > min(p1.latitude, p2.latitude)) {
-        if (point.latitude <= max(p1.latitude, p2.latitude)) {
-          if (point.longitude <= max(p1.longitude, p2.longitude)) {
-            if (p1.latitude != p2.latitude) {
-              xinters = (point.latitude - p1.latitude) * (p2.longitude - p1.longitude) /
-                  (p2.latitude - p1.latitude) + p1.longitude;
-              if (p1.longitude == p2.longitude || point.longitude <= xinters) {
-                inside = !inside;
-              }
-            }
-          }
-        }
-      }
-      p1 = p2;
-    }
-    return inside;
-  }
-
   void _finalizePolygon() {
     if (_polygonPoints.isEmpty) return;
 
     List<LatLng> sortedPoints = _sortPointsClockwise(_polygonPoints);
+
+    // Empty current polygon as points representation
+    _polygonAsPoints = [];
+    _mapToolsPolygonPoints = [];
 
     final String polygonId = DateTime.now().millisecondsSinceEpoch.toString();
     setState(() {
@@ -196,6 +158,15 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
           });
         },
       );
+
+      // Creating points representations for Firestore storage and area calculation
+      for (LatLng coordinate in _polygonPoints) {
+        _polygonAsPoints
+            .add(GeoPoint(coordinate.latitude, coordinate.longitude));
+        _mapToolsPolygonPoints
+            .add(mp.LatLng(coordinate.latitude, coordinate.longitude));
+      }
+
       _polygonPoints = [];
       _markers.clear();
       _addPointsMode = true;
@@ -248,11 +219,7 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
           _removeFlagMarker(flagId);
         },
         onDragEnd: (LatLng newPosition) {
-          if (isPointInsidePolygon(newPosition, _polygon!.points)) {
-            print("Flag $flagId placed inside the polygon!");
-          } else {
-            print("Flag $flagId placed outside the polygon!");
-          }
+          print("Flag $flagId moved to: $newPosition");
         },
       );
       _markers.add(flagMarker);
@@ -283,19 +250,17 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                     _cameraCenterPosition = position.target;
                   },
                 ),
-                // Define your project area text
                 Positioned(
                   top: 20,
                   left: 20,
                   child: Container(
-                    padding: const EdgeInsets.all(8.0), // Adds padding around the text
-                    //color: Color.fromRGBO(0, 0, 0, 0.2), // Semi-transparent background color
+                    padding: const EdgeInsets.all(8.0),
                     child: Text(
                       "Define your project area.",
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white, // Text color to contrast with the background
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -366,7 +331,6 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                     ),
                   ),
                 ),
-                // Finish button
                 Positioned(
                   bottom: 20,
                   left: 20,
@@ -376,15 +340,17 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                       foregroundColor: Colors.white,
                       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     ),
-                    onPressed: () {
-                      if (_polygon != null) {  // Corrected the condition here
-                        saveProject(
+                    onPressed: () async {
+                      if (_polygon != null) {
+                        await saveProject(
                           projectTitle: widget.partialProjectData.title,
                           description: widget.partialProjectData.description,
-                          teamRef: teamRef,
+                          teamRef: await getCurrentTeam(),
                           polygonPoints: _polygonAsPoints,
+                          // Polygon area is square meters
+                          // (miles *= 0.00062137 * 0.00062137)
+                          polygonArea: mp.SphericalUtil.computeArea(_mapToolsPolygonPoints),
                         );
-                        print("Successfully created project");
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(builder: (context) => HomePage()),
@@ -392,13 +358,12 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text(
-                                'Please designate your project area and confirm with the check button.'),
+                            content: Text('Please designate your project area and confirm with the check button.'),
                           ),
                         );
                       }
                     },
-                    child: const Text('Finish'),  // Added child property here
+                    child: const Text('Finish'),
                   ),
                 ),
               ],

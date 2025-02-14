@@ -216,8 +216,16 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFF4871AE),
                     icon: const Icon(Icons.chevron_right),
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
+                    onPressed: () async {
+                      if (await getCurrentTeam() == null){
+                        // TODO: Display error for creating project before team
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text(
+                                  'You are not in a team! Join a team first.')),
+                        );
+                      }
+                      else if (_formKey.currentState!.validate()) {
                         Project partialProject = Project.partialProject(
                             title: projectTitle,
                             description: projectDescription);
@@ -249,7 +257,7 @@ class CreateTeamWidget extends StatefulWidget {
 }
 
 class _CreateTeamWidgetState extends State<CreateTeamWidget> {
-  List<Member> membersList = [];
+  List<Member> _membersList = [];
   List<Member> membersSearch = [];
   List<Member> invitedMembers = [];
   bool _isLoading = false;
@@ -261,26 +269,20 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
   @override
   initState() {
     super.initState();
-    _firestore
-        .collection('users')
-        .where('creationTime', isNull: false)
-        .get()
-        .then(
-      (querySnapshot) {
-        Member tempMember;
-        for (var document in querySnapshot.docs) {
-          if (document.id != loggedInUser?.uid) {
-            tempMember = Member(
-                userID: document.id, fullName: document.data()['fullName']);
-            membersList.add(tempMember);
-          }
-        }
-        print("Successfully completed");
-      },
-      onError: (e) => print("Error completing: $e"),
-    );
+    _getMembersList();
   }
 
+  // Retrieves membersList and puts it in variable
+  Future<void> _getMembersList() async {
+    try {
+      _membersList = await getMembersList();
+    } catch (e, stacktrace) {
+      print("Error in create_project_and_teams, _getMembersList(): $e");
+      print("Stacktrace: $stacktrace");
+    }
+  }
+
+  // Searches member list for given String
   List<Member> searchMembers(List<Member> membersList, String text) {
     setState(() {
       _isLoading = true;
@@ -435,7 +437,7 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
                   onChanged: (memberText) {
                     setState(() {
                       if (memberText.length > 2) {
-                        membersSearch = searchMembers(membersList, memberText);
+                        membersSearch = searchMembers(_membersList, memberText);
                         itemCount = membersSearch.length;
                       } else {
                         itemCount = 0;
@@ -479,12 +481,13 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFF4871AE),
                     icon: const Icon(Icons.chevron_right),
-                    onPressed: () {
+                    onPressed: () async {
                       if (_formKey.currentState!.validate()) {
                         // TODO: If the form is valid, display a snackbar, await database
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Processing Data')),
                         );
+                        await saveTeam(membersList: invitedMembers, teamName: teamName);
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
@@ -498,7 +501,6 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
                           ),
                         );
                       }
-                      saveTeam(membersList: invitedMembers, teamName: teamName);
                     },
                   ),
                 )

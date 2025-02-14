@@ -36,7 +36,7 @@ class HomePageBody extends StatefulWidget {
 
 class _HomePageBodyState extends State<HomePageBody> {
   String _firstName = 'User';
-
+  DocumentReference? teamRef;
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   List<Project> _projectList = [];
   int _projectsCount = 0;
@@ -50,15 +50,14 @@ class _HomePageBodyState extends State<HomePageBody> {
   }
 
   Future<void> _populateProjects() async {
-    DocumentReference? teamRef;
 
     try {
       teamRef = await getCurrentTeam();
       if (teamRef == null) {
         print(
-            "Error populating projects in home_screen.dart. No selected team available.");
+            "Error populating projects in homepage.dart. No selected team available.");
       } else {
-        _projectList = await getTeamProjects(teamRef);
+        _projectList = await getTeamProjects(teamRef!);
       }
       setState(() {
         _projectsCount = _projectList.length;
@@ -72,25 +71,23 @@ class _HomePageBodyState extends State<HomePageBody> {
   // Gets name from DB, get the first word of that, then sets _firstName to it
   Future<void> _getUserFirstName() async {
     try {
-      final User? user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        DocumentSnapshot userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
+      String fullName = await getUserFullName(_currentUser?.uid);
 
-        if (userDoc.exists) {
-          String fullName = userDoc.get('fullName') ?? 'User';
-          String firstName = fullName.split(' ').first;
+      // Get first name from full name
+      String firstName = fullName.split(' ').first;
 
-          setState(() {
-            _firstName = firstName;
-          });
-        }
+      if (_firstName != firstName) {
+        setState(() {
+          _firstName = firstName;
+        });
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error retrieving name: $e')),
+        SnackBar(
+          content: Text(
+            'An error occurred while retrieving your name: $e',
+          ),
+        ),
       );
     }
   }
@@ -139,7 +136,7 @@ class _HomePageBodyState extends State<HomePageBody> {
           body: IndexedStack(
             index: _getPageIndex(homePageState.currentPage),
             children: [
-              _buildHomeContent(context),
+              SizedBox.expand(child: _buildHomeContent(context)),
               const CreateProjectAndTeamsPage(),
               const ProjectComparisonPage(),
               const SettingsPage(),
@@ -166,109 +163,107 @@ class _HomePageBodyState extends State<HomePageBody> {
   }
 
   Widget _buildHomeContent(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.only(top: 50),
-              child: Stack(
-                children: [
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: Image.asset(
-                      'assets/P2BP_Logo.png',
-                      width: 40,
-                      height: 40,
-                    ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(top: 50),
+            child: Stack(
+              children: [
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: Image.asset(
+                    'assets/P2BP_Logo.png',
+                    width: 40,
+                    height: 40,
                   ),
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        IconButton(
-                          icon: Image.asset('assets/bell-03.png'),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const HomePage(),
-                              ),
-                            );
-                          },
-                          iconSize: 24,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.group),
-                          color: const Color(0xFF0A2A88),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const TeamsAndInvitesPage(),
-                              ),
-                            );
-                          },
-                          iconSize: 24,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 40),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) {
-                            return defaultGrad.createShader(bounds);
-                          },
-                          child: Text(
-                            'Hello, $_firstName',
-                            style: const TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              height: 1.2,
+                ),
+                Positioned(
+                  right: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        icon: Image.asset('assets/bell-03.png'),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const HomePage(),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
+                          );
+                        },
+                        iconSize: 24,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.group),
+                        color: const Color(0xFF0A2A88),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const TeamsAndInvitesPage(),
+                            ),
+                          );
+                        },
+                        iconSize: 24,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 5),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ShaderMask(
-                    shaderCallback: (bounds) {
-                      return defaultGrad.createShader(bounds);
-                    },
-                    child: const Text(
-                      'Your Projects',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        height: 1.2,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 50), // Increased padding to avoid overlap
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ShaderMask(
+                      shaderCallback: (bounds) {
+                        return defaultGrad.createShader(bounds);
+                      },
+                      child: Text(
+                        'Hello, $_firstName',
+                        style: const TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 5, top: 20),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: ShaderMask(
+                shaderCallback: (bounds) {
+                  return defaultGrad.createShader(bounds);
+                },
+                child: const Text(
+                  'Your Projects',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            _projectsCount > 0
+          ),
+          const SizedBox(height: 20),
+
+          // Prevent GridView overflow
+          Expanded(
+            child: _projectsCount > 0
                 ? GridView.builder(
-                    shrinkWrap: true,
                     padding: const EdgeInsets.only(
                       left: 15,
                       right: 15,
@@ -276,10 +271,10 @@ class _HomePageBodyState extends State<HomePageBody> {
                       bottom: 25,
                     ),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, // Define the number of columns
-                      crossAxisSpacing: 15, // Spacing between columns
-                      mainAxisSpacing: 25, // Spacing between rows
-                      childAspectRatio: 1.25, // Adjust the height/width ratio of the cards
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 15,
+                      mainAxisSpacing: 25,
+                      childAspectRatio: 1.25,
                     ),
                     itemCount: _projectsCount,
                     itemBuilder: (BuildContext context, int index) {
@@ -293,15 +288,19 @@ class _HomePageBodyState extends State<HomePageBody> {
                       );
                     },
                   )
-                : _isLoading == true
+                : _isLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : Align(
-                        alignment: Alignment.center,
-                        child: Text(
-                            "You have no projects! Join or create a team first."),
+                    : const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            "You have no projects! Join or create a team first.",
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -396,7 +395,7 @@ class _HomePageBodyState extends State<HomePageBody> {
                     OutlinedButton(
                       onPressed: () {
                         // Handle navigation to Edit menu
-                        showEditProjectModalSheet(context);
+                        showEditProjectDialog(context);
                       },
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(

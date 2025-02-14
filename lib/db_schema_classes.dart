@@ -1,6 +1,6 @@
-// User class for create_project_and_teams.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// User class for create_project_and_teams.dart
 class Member {
   String _userID = '';
   String _fullName = '';
@@ -45,10 +45,24 @@ class Team {
   String adminName = '';
   String teamID = '';
   String title = '';
-  // TODO: Change to contain user id and role.
   List teamMembers = [];
+  List projects = [];
+  int numProjects = 0;
 
-  Team({required this.teamID, required this.title, required this.adminName});
+  Team(
+      {required this.teamID,
+      required this.title,
+      required this.adminName,
+      required this.projects,
+      required this.numProjects});
+
+  // Specifically for a team invite. Invite does not need numProjects, projects,
+  // etc.
+  Team.teamInvite({
+    required this.teamID,
+    required this.title,
+    required this.adminName,
+  });
 }
 
 // Project class for project creation (create project + map)
@@ -59,6 +73,7 @@ class Project {
   String title = '';
   String description = '';
   List polygonPoints = [];
+  num polygonArea = 0;
   // TODO: Change depending on implementation of tests.
   List<Test>? tests = [];
 
@@ -69,6 +84,7 @@ class Project {
       required this.title,
       required this.description,
       required this.polygonPoints,
+      required this.polygonArea,
       this.tests});
 
   // TODO: Eventually add Team Photo and Team Color

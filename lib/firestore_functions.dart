@@ -11,33 +11,27 @@ final User? _loggedInUser = FirebaseAuth.instance.currentUser;
 // delete it in the user's data). For simplicity, any objects that may be
 // deleted should contain references to the objects which contain it.
 
-class FirestoreFunctions {
-  /// Gets the value of fullName from 'users' the document for the given uid.
-  /// Contains error handling for every case starting from uid being null.
-  /// This will always either return the successfully found name or throw
-  /// an exception, so running this in a try-catch is strongly encouraged.
-  static Future<String> getUserFullName(String? uid) async {
-    try {
-      if (uid == null) {
-        throw Exception('no-user-id-found');
-      }
+/// Gets the value of fullName from the 'users' document for the given uid.
+/// Contains error handling for every case starting from uid being null.
+/// This will always either return the successfully found name or throw
+/// an exception, so running this in a try-catch is strongly encouraged.
+Future<String> getUserFullName(String? uid) async {
+  if (uid == null) {
+    throw Exception('no-user-id-found');
+  }
 
-      final userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+  final userDoc =
+      await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
-      if (userDoc.exists) {
-        String? fullName = userDoc['fullName'];
-        if (fullName == null || fullName.isEmpty) {
-          throw Exception('user-has-no-name');
-        } else {
-          return fullName;
-        }
-      } else {
-        throw Exception('user-document-does-not-exist');
-      }
-    } catch (e) {
-      throw Exception(e);
+  if (userDoc.exists) {
+    String? fullName = userDoc['fullName'];
+    if (fullName == null || fullName.isEmpty) {
+      throw Exception('user-has-no-name');
+    } else {
+      return fullName;
     }
+  } else {
+    throw Exception('user-document-does-not-exist');
   }
 }
 
@@ -68,7 +62,7 @@ Future<String> saveTeam(
     });
   }
 
-  // Debugging print statement.
+  // Debugging print statement:
   // print("Teams reference: ${_firestore.doc('/teams/$teamID')}");
 
   return teamID;
@@ -78,11 +72,13 @@ Future<String> saveTeam(
 /// fields for project: String projectTitle, String description,
 /// DocumentReference teamRef, and List`<GeoPoint>` polygonPoints. Saves it in
 /// teams collection too.
-Future<Project> saveProject(
-    {required String projectTitle,
-    required String description,
-    required DocumentReference? teamRef,
-    required List<GeoPoint> polygonPoints}) async {
+Future<Project> saveProject({
+  required String projectTitle,
+  required String description,
+  required DocumentReference? teamRef,
+  required List<GeoPoint> polygonPoints,
+  required num polygonArea,
+}) async {
   Project tempProject;
   String projectID = _firestore.collection('projects').doc().id;
 
@@ -99,6 +95,7 @@ Future<Project> saveProject(
     'team': teamRef,
     'description': description,
     'polygonPoints': polygonPoints,
+    'polygonArea': polygonArea,
   });
 
   await _firestore.doc('/${teamRef.path}').update({
@@ -111,6 +108,7 @@ Future<Project> saveProject(
     title: projectTitle,
     description: description,
     polygonPoints: polygonPoints,
+    polygonArea: polygonArea,
   );
 
   // Debugging print statement.
@@ -128,13 +126,20 @@ Future<Project> getProjectInfo(String projectID) async {
 
   try {
     projectDoc = await _firestore.collection("projects").doc(projectID).get();
-    project = Project(
-      teamRef: projectDoc['team'],
-      projectID: projectDoc['id'],
-      title: projectDoc['title'],
-      description: projectDoc['description'],
-      polygonPoints: projectDoc['polygonPoints'],
-    );
+    if (projectDoc.exists && projectDoc.data()!.containsKey('polygonArea')) {
+      project = Project(
+        teamRef: projectDoc['team'],
+        projectID: projectDoc['id'],
+        title: projectDoc['title'],
+        description: projectDoc['description'],
+        polygonPoints: projectDoc['polygonPoints'],
+        polygonArea: projectDoc['polygonArea'],
+      );
+    } else {
+      print(
+          'Error in firestore_functions: Either project does not exist in Firestore or polygonArea is not initialized');
+      print('Project exists? ${projectDoc.exists}.');
+    }
   } catch (e, stacktrace) {
     print('Exception retrieving teams: $e');
     print('Stacktrace: $stacktrace');
@@ -146,13 +151,15 @@ Future<Project> getProjectInfo(String projectID) async {
 /// team. If retrieval throws an exception, then returns null. When implementing
 /// this function, check for null before using value.
 Future<DocumentReference?> getCurrentTeam() async {
-  DocumentReference teamRef;
+  DocumentReference? teamRef;
   final DocumentSnapshot<Map<String, dynamic>> userDoc;
 
   try {
     userDoc =
         await _firestore.collection('users').doc(_loggedInUser?.uid).get();
-    teamRef = await userDoc['selectedTeam'];
+    if (userDoc.exists && userDoc.data()!.containsKey('selectedTeam')) {
+      teamRef = await userDoc['selectedTeam'];
+    }
   } catch (e) {
     print("Exception trying to getCurrentTeam(): $e");
     return null;
@@ -173,7 +180,6 @@ Future<List<Project>> getTeamProjects(DocumentReference teamRef) async {
 
     if (teamDoc.exists && teamDoc.data()!.containsKey('projects')) {
       for (var projectRef in teamDoc['projects']) {
-        print("Project getting: $projectList");
         tempProject = await getProjectInfo(projectRef.id);
         projectList.add(tempProject);
       }
@@ -194,20 +200,25 @@ Future<List<Team>> getInvites() async {
   List<Team> teamInvites = [];
   final DocumentSnapshot<Map<String, dynamic>> userDoc;
   DocumentSnapshot<Map<String, dynamic>> teamDoc;
+  DocumentSnapshot<Map<String, dynamic>> adminDoc;
 
   try {
     userDoc =
         await _firestore.collection("users").doc(_loggedInUser?.uid).get();
     Team tempTeam;
+
     if (userDoc.exists && userDoc.data()!.containsKey('invites')) {
       for (DocumentReference teamRef in userDoc['invites']) {
         teamDoc = await _firestore.doc(teamRef.path).get();
-        // TODO: Add admin name (where role = owner)
-        if (teamDoc.exists) {
-          tempTeam = Team(
+        if (teamDoc.exists && teamDoc.data()!.containsKey('teamMembers')) {
+          adminDoc = await teamDoc['teamMembers']
+              .where((team) => team.containsValue('owner') == true)
+              .first['user']
+              .get();
+          tempTeam = Team.teamInvite(
             teamID: teamDoc['id'],
             title: teamDoc['title'],
-            adminName: 'Temp',
+            adminName: adminDoc['fullName'],
           );
 
           teamInvites.add(tempTeam);
@@ -230,6 +241,8 @@ Future<List<Team>> getTeamsIDs() async {
   List<Team> teams = [];
   final DocumentSnapshot<Map<String, dynamic>> userDoc;
   DocumentSnapshot<Map<String, dynamic>> teamDoc;
+  // For later use, members in Team:
+  // List<DocumentSnapshot<Map<String, dynamic>>> memberDocs;
 
   try {
     userDoc =
@@ -238,15 +251,18 @@ Future<List<Team>> getTeamsIDs() async {
     if (userDoc.exists && userDoc.data()!.containsKey('teams')) {
       for (DocumentReference teamRef in userDoc['teams']) {
         teamDoc = await _firestore.doc(teamRef.path).get();
-
-        // TODO: Add num projects, members list instead of adminName
-        tempTeam = Team(
-          teamID: teamDoc['id'],
-          title: teamDoc['title'],
-          adminName: 'Temp',
-        );
-
-        teams.add(tempTeam);
+        // TODO: Add members list instead of adminName
+        // Note: must contain projects *field* to display teams.
+        if (teamDoc.exists && teamDoc.data()!.containsKey('projects')) {
+          tempTeam = Team(
+            teamID: teamDoc['id'],
+            title: teamDoc['title'],
+            adminName: 'Temp',
+            projects: teamDoc['projects'],
+            numProjects: teamDoc['projects'].length,
+          );
+          teams.add(tempTeam);
+        }
       }
     }
   } catch (e, stacktrace) {
@@ -334,4 +350,32 @@ Future<void> addUserToTeam(String teamID) async {
     print('Exception accepting team invite: $e');
     print('Stacktrace: $stacktrace');
   }
+}
+
+/// Fetches the list of all users in database. Used for inviting members to
+/// to teams. Extracts the name and ID from them and puts them into a list of
+/// Member objects. Returns them as a future of a list of Member objects.
+/// Excludes current, logged in user. List can then be queried accordingly.
+Future<List<Member>> getMembersList() async {
+  List<Member> membersList = [];
+  final QuerySnapshot<Map<String, dynamic>> usersQuery;
+
+  try {
+    usersQuery = await _firestore
+        .collection('users')
+        .where('creationTime', isNull: false)
+        .get();
+    Member tempMember;
+    for (DocumentSnapshot<Map<String, dynamic>> document in usersQuery.docs) {
+      if (document.id != _loggedInUser?.uid) {
+        tempMember =
+            Member(userID: document.id, fullName: document.data()!['fullName']);
+        membersList.add(tempMember);
+      }
+    }
+  } catch (e, stacktrace) {
+    print('Exception loading list of members: $e');
+    print('Stacktrace: $stacktrace');
+  }
+  return membersList;
 }

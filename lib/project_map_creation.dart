@@ -23,8 +23,8 @@ final User? loggedInUser = FirebaseAuth.instance.currentUser;
 class _ProjectMapCreationState extends State<ProjectMapCreation> {
   late DocumentReference teamRef;
   late GoogleMapController mapController;
-  LatLng _currentPosition = const LatLng(45.521563, -122.677433);
-  LatLng _cameraCenterPosition = const LatLng(45.521563, -122.677433);
+  LatLng _currentPosition = const LatLng(28.6024, -81.2001);
+  LatLng _cameraCenterPosition = const LatLng(28.6024, -81.2001);
   bool _isLoading = true;
 
   List<LatLng> _polygonPoints = []; // Points for polygons
@@ -56,6 +56,10 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
   Future<void> _checkAndFetchLocation() async {
     try {
+      setState(() {
+        _isLoading = true;
+      });
+
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
         permission = await Geolocator.requestPermission();
@@ -72,16 +76,6 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
       await _getCurrentLocation();
 
-      Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 10,
-        ),
-      ).listen((Position position) {
-        setState(() {
-          _currentPosition = LatLng(position.latitude, position.longitude);
-        });
-      });
     } catch (e) {
       print('Error checking location permissions: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -103,17 +97,23 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
         _currentPosition = LatLng(position.latitude, position.longitude);
         _isLoading = false;
       });
+
     } catch (e) {
       print('Error getting location: $e');
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   void _moveToCurrentLocation() {
-    mapController.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: _currentPosition, zoom: 14.0),
-      ),
-    );
+    if (_currentPosition != null) {
+      mapController.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: _currentPosition, zoom: 14.0),
+        ),
+      );
+    }
   }
 
   void _togglePoint(LatLng point) {

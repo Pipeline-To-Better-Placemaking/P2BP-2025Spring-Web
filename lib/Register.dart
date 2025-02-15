@@ -104,7 +104,7 @@ class _RegisterPageState extends State<RegisterPage> {
       _hasLowerCase = value.contains(RegExp(r'[a-z]'));
       _hasDigits = value.contains(RegExp(r'[0-9]'));
       _hasSpecialCharacter = value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-      _isLengthValid = value.length >= 12;
+      _isLengthValid = value.length >= 10;
     });
   }
 

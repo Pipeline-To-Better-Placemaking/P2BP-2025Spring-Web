@@ -37,7 +37,7 @@ class EditProjectTextBox extends StatelessWidget {
       required this.maxLength,
       required this.labelText,
       required this.maxLines,
-      required this.minLines});
+      required this.minLines,});
   @override
   Widget build(BuildContext context) {
     return SizedBox(

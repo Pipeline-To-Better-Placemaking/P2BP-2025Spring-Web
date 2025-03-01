@@ -1,13 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'section_cutter_test.dart';
 import 'db_schema_classes.dart';
+import 'firestore_functions.dart';
 
-// IMPORTANT: When navigating to this page, pass in project details. Use
-// getProjectInfo() from firestore_functions.dart to retrieve project object w/ data.
-// *Note: project is returned as future. Must await response before passing.
 class CreateProjectDetails extends StatefulWidget {
   final Project projectData;
+
+  /// IMPORTANT: When navigating to this page, pass in project details. Use
+  /// `getProjectInfo()` from firestore_functions.dart to retrieve project
+  /// object w/ data.
+  /// <br/>Note: project is returned as future, await return before passing.
   const CreateProjectDetails({super.key, required this.projectData});
 
   @override
@@ -20,6 +24,114 @@ class _CreateProjectDetailsState extends State<CreateProjectDetails> {
   int itemCount = 10;
   bool _isLoading = false;
   Project? project;
+  User? loggedInUser = FirebaseAuth.instance.currentUser;
+
+  void _showCreateActivityPopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        String activityName = "";
+        TimeOfDay? selectedTime;
+        String? selectedActivity;
+        List<String> activities = [
+          "Absence of Order",
+          "Acoustic Profile",
+          "Community Survey",
+          "Identifying Access",
+          "Lighting Profile",
+          "Nature Prevalence",
+          "People in Motion",
+          "People in Place",
+          "Section Cutter",
+          "Spatial Boundaries",
+        ];
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text("Create Activity"),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              content: Container(
+                width: 350,
+                height: 200,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(labelText: "Activity Name"),
+                      onChanged: (value) {
+                        activityName = value;
+                      },
+                    ),
+                    SizedBox(height: 10),
+                    InkWell(
+                      onTap: () async {
+                        TimeOfDay? pickedTime = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.now(),
+                          initialEntryMode: TimePickerEntryMode.input,
+                        );
+                        if (pickedTime != null) {
+                          setDialogState(() {
+                            selectedTime = pickedTime;
+                          });
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: "Start Time",
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          selectedTime != null
+                              ? selectedTime!.format(context)
+                              : "Enter Time",
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      decoration: InputDecoration(labelText: "Activity Type"),
+                      value: selectedActivity,
+                      hint: Text("Select an Activity"),
+                      items: activities.map((String activity) {
+                        return DropdownMenuItem(
+                          value: activity,
+                          child: Text(activity),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setDialogState(() {
+                          selectedActivity = newValue;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // TODO: Save activity logic
+                  },
+                  child: Text("Create"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +144,6 @@ class _CreateProjectDetailsState extends State<CreateProjectDetails> {
       body: SingleChildScrollView(
         child: Column(
           children: <Widget>[
-            //Image(image:,),
             Container(
               width: double.infinity,
               height: 150,
@@ -118,7 +229,6 @@ class _CreateProjectDetailsState extends State<CreateProjectDetails> {
               ),
             ),
             SizedBox(height: 30),
-            SizedBox(height: 30),
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
@@ -139,12 +249,8 @@ class _CreateProjectDetailsState extends State<CreateProjectDetails> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10.0),
                       ),
-                      // foregroundColor: foregroundColor,
-                      // backgroundColor: backgroundColor,
                     ),
-                    onPressed: () => {
-                      // TODO: Function (research activity)
-                    },
+                    onPressed: _showCreateActivityPopup,
                     label: Text('Create'),
                     icon: Icon(Icons.add),
                     iconAlignment: IconAlignment.end,
@@ -155,7 +261,6 @@ class _CreateProjectDetailsState extends State<CreateProjectDetails> {
             Expanded(
               flex: 0,
               child: Container(
-                // TODO: change depending on size of description box.
                 height: 350,
                 decoration: BoxDecoration(
                   color: Color(0x22535455),
@@ -172,15 +277,12 @@ class _CreateProjectDetailsState extends State<CreateProjectDetails> {
                           top: 25,
                           bottom: 30,
                         ),
-                        itemBuilder: (BuildContext context, int index) {
-                          return TestCard();
-                        },
+                        itemBuilder: (BuildContext context, int index) =>
+                            TestCard(projectData: widget.projectData),
                         separatorBuilder: (BuildContext context, int index) =>
-                            const SizedBox(
-                          height: 10,
-                        ),
+                            const SizedBox(height: 10),
                       )
-                    : _isLoading == true
+                    : _isLoading
                         ? const Center(child: CircularProgressIndicator())
                         : const Center(
                             child: Text(
@@ -196,9 +298,8 @@ class _CreateProjectDetailsState extends State<CreateProjectDetails> {
 }
 
 class TestCard extends StatelessWidget {
-  const TestCard({
-    super.key,
-  });
+  final Project projectData;
+  const TestCard({super.key, required this.projectData});
 
   @override
   Widget build(BuildContext context) {
@@ -220,13 +321,25 @@ class TestCard extends StatelessWidget {
                   Icons.chevron_right,
                   color: Colors.blue,
                 ),
-                tooltip: 'Open team settings',
-                onPressed: () {
-                  // TODO: Actual function (chevron right, project details)
-                  // Navigator.push(
-                  //     context,
-                  //     MaterialPageRoute(
-                  //         builder: (context) => TeamSettingsScreen()));
+                tooltip: 'Start test',
+                onPressed: () async {
+                  // TODO: Function (research activity)
+                  final SectionCutterTest? test =
+                      Test.castTo<SectionCutterTest>(await getTestInfo(
+                          FirebaseFirestore.instance
+                              .collection(SectionCutterTest.collectionIDStatic)
+                              .doc('bBoihCszZAHf2FmHzoln')));
+                  if (test != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) {
+                        return SectionCutter(
+                            projectData: projectData, activeTest: test);
+                      }),
+                    );
+                  } else {
+                    print('something went wrong with getTestInfo for Section');
+                  }
                 },
               ),
             ),

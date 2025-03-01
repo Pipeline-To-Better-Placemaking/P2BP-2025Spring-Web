@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'themes.dart';
 
-// Bar Indicator for the Sliding Up Panels (Edit Project, Results)
+/// Bar Indicator for the Sliding Up Panels (Edit Project, Results)
 class BarIndicator extends StatelessWidget {
   const BarIndicator({
     super.key,
@@ -24,8 +25,8 @@ class BarIndicator extends StatelessWidget {
   }
 }
 
-// Text Boxes used in Edit Project. With correct text counters, alignment, and
-// coloring.
+/// Text Boxes used in Edit Project. With correct text counters, alignment, and
+/// coloring.
 class EditProjectTextBox extends StatelessWidget {
   final int maxLength;
   final int maxLines;
@@ -37,7 +38,7 @@ class EditProjectTextBox extends StatelessWidget {
       required this.maxLength,
       required this.labelText,
       required this.maxLines,
-      required this.minLines,});
+      required this.minLines});
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -70,14 +71,14 @@ class EditProjectTextBox extends StatelessWidget {
   }
 }
 
-// Icon buttons used in Edit Project Panel. Rounded buttons with icon alignment
-// set to end. 15 padding on left and right.
+/// Icon buttons used in Edit Project Panel. Rounded buttons with icon alignment
+/// set to end. 15 padding on left and right.
 class EditButton extends StatelessWidget {
   final String text;
   final Color foregroundColor;
   final Color backgroundColor;
   final Icon icon;
-  final Function onPressed;
+  final VoidCallback? onPressed;
   final Color iconColor;
 
   const EditButton({
@@ -101,8 +102,9 @@ class EditButton extends StatelessWidget {
         foregroundColor: foregroundColor,
         backgroundColor: backgroundColor,
         iconColor: iconColor,
+        disabledBackgroundColor: disabledGrey,
       ),
-      onPressed: () => onPressed(),
+      onPressed: onPressed,
       label: Text(text),
       icon: icon,
       iconAlignment: IconAlignment.end,

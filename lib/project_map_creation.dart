@@ -201,29 +201,55 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
   }
 
   void _addFlagMarker() {
-    if (_polygon == null) {
+    if (_polygon == null || _polygon!.points.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please create a polygon before adding flags.')),
       );
       return;
     }
 
+    // Calculate centroid of the polygon
+    LatLng centroid = _calculatePolygonCentroid(_polygon!.points);
+
     setState(() {
       final String flagId = 'flag_${_flagCounter++}';
       final Marker flagMarker = Marker(
         markerId: MarkerId(flagId),
-        position: _cameraCenterPosition,
+        position: centroid,
         draggable: true,
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         onTap: () {
           _removeFlagMarker(flagId);
         },
         onDragEnd: (LatLng newPosition) {
-          print("Flag $flagId moved to: $newPosition");
+          // Check if the new position is inside the polygon
+          if (!mp.PolygonUtil.containsLocation(
+              mp.LatLng(newPosition.latitude, newPosition.longitude),
+              _mapToolsPolygonPoints,
+              false)) {
+            // If the flag is outside the polygon, show a message and remove the flag
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Standing point removed. It cannot be placed outside the project area polygon.')),
+            );
+            _removeFlagMarker(flagId);
+          }
         },
       );
       _markers.add(flagMarker);
     });
+  }
+
+  // Function to calculate the centroid of a polygon
+  LatLng _calculatePolygonCentroid(List<LatLng> points) {
+    double centroidX = 0, centroidY = 0;
+    int pointCount = points.length;
+
+    for (LatLng point in points) {
+      centroidX += point.latitude;
+      centroidY += point.longitude;
+    }
+
+    return LatLng(centroidX / pointCount, centroidY / pointCount);
   }
 
   void _removeFlagMarker(String flagId) {

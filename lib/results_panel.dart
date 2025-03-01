@@ -1,66 +1,68 @@
 import 'package:flutter/material.dart';
-import 'themes.dart';
-import 'widgets.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 
-class ResultsPanel extends StatefulWidget {
-  const ResultsPanel({super.key});
+class ResultsPage extends StatefulWidget {
+  const ResultsPage({super.key});
 
   @override
-  State<ResultsPanel> createState() => _ResultsPanelState();
+  State<ResultsPage> createState() => _ResultsPageState();
 }
 
-class _ResultsPanelState extends State<ResultsPanel> {
+class _ResultsPageState extends State<ResultsPage> {
+  late GoogleMapController mapController;
+  LatLng _currentPosition = const LatLng(28.5417, -81.3835); // UCF Downtown Campus coordinates
+
+  @override
+  void initState() {
+    super.initState();
+    _determinePosition();
+  }
+
+  Future<void> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.deniedForever) {
+        return;
+      }
+    }
+
+    Position position = await Geolocator.getCurrentPosition();
+    setState(() {
+      _currentPosition = LatLng(position.latitude, position.longitude);
+    });
+  }
+
+  void _onMapCreated(GoogleMapController controller) {
+    mapController = controller;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: FilledButton(
-          onPressed: () {
-            showResultsModalSheet(context);
-          },
-          child: const Text('Open bottom sheet'),
+      appBar: AppBar(
+        title: const Text('Results - Map View'),
+        backgroundColor: Colors.black87,
+      ),
+      body: GoogleMap(
+        onMapCreated: _onMapCreated,
+        initialCameraPosition: CameraPosition(
+          target: _currentPosition,
+          zoom: 14.0,
         ),
+        mapType: MapType.satellite,
+        myLocationEnabled: true,
+        myLocationButtonEnabled: true,
       ),
     );
   }
-}
-
-void showResultsModalSheet(BuildContext context) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (context) {
-      return Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SingleChildScrollView(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: defaultGrad,
-              // rounded corners of panel
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(24.0),
-                topRight: Radius.circular(24.0),
-              ),
-            ),
-            child: Column(
-              children: [
-                const BarIndicator(),
-                Text(
-                  "Results",
-                  style: TextStyle(
-                    color: Colors.yellow[700],
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
 }

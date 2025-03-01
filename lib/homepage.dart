@@ -41,31 +41,44 @@ class _HomePageBodyState extends State<HomePageBody> {
   List<Project> _projectList = [];
   int _projectsCount = 0;
   bool _isLoading = true;
+  String _currentTeamId = '';
 
   @override
   void initState() {
     super.initState();
     _getUserFirstName();
-    _populateProjects();
+    _populateProjects(); // Populate projects initially
   }
 
   Future<void> _populateProjects() async {
-
     try {
       teamRef = await getCurrentTeam();
       if (teamRef == null) {
-        print(
-            "Error populating projects in homepage.dart. No selected team available.");
+        print("Error populating projects in homepage.dart. No selected team available.");
       } else {
-        _projectList = await getTeamProjects(teamRef!);
+        String newTeamId = teamRef!.id;
+        if (_currentTeamId != newTeamId) {
+          // If the team has changed, refresh the data
+          _currentTeamId = newTeamId;
+          _projectList = await getTeamProjects(teamRef!);
+          setState(() {
+            _projectsCount = _projectList.length;
+            _isLoading = false;
+          });
+        }
       }
-      setState(() {
-        _projectsCount = _projectList.length;
-        _isLoading = false;
-      });
     } catch (e) {
       print("Error in _populateProjects(): $e");
     }
+  }
+
+  // Method to trigger the page update and refresh the data
+  void _updatePageAndRefresh(String newPage) {
+    // First update the page
+    Provider.of<HomePageState>(context, listen: false).updatePage(newPage);
+    
+    // Then refresh project data
+    _populateProjects();
   }
 
   // Gets name from DB, get the first word of that, then sets _firstName to it
@@ -98,6 +111,7 @@ class _HomePageBodyState extends State<HomePageBody> {
     end: Alignment.bottomCenter,
   );
 
+
   @override
   Widget build(BuildContext context) {
     return Consumer<HomePageState>(
@@ -112,7 +126,7 @@ class _HomePageBodyState extends State<HomePageBody> {
             ),
             actions: [
               TextButton.icon(
-                onPressed: () => homePageState.updatePage("Home"),
+                onPressed: () => _updatePageAndRefresh("Home"),
                 icon: const Icon(Icons.home, color: Colors.white),
                 label: const Text('Home', style: TextStyle(color: Colors.white)),
               ),
@@ -416,8 +430,11 @@ class _HomePageBodyState extends State<HomePageBody> {
                     // Results button
                     ElevatedButton(
                       onPressed: () {
-                        // Handle navigation to Results menu
-                        showResultsModalSheet(context);
+                        // Handle navigation to Results page
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ResultsPage()),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFFCC00),

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'db_schema_classes.dart';
 
 final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -69,8 +69,8 @@ Future<String> saveTeam(
 }
 
 /// Saves project after project creation in create_project_and_teams.dart. Takes
-/// fields for project: String projectTitle, String description,
-/// DocumentReference teamRef, and List`<GeoPoint>` polygonPoints. Saves it in
+/// fields for project: `String` projectTitle, `String` description,
+/// `DocumentReference` teamRef, and `List<GeoPoint>` polygonPoints. Saves it in
 /// teams collection too.
 Future<Project> saveProject({
   required String projectTitle,
@@ -90,12 +90,12 @@ Future<Project> saveProject({
   await _firestore.collection('projects').doc(projectID).set({
     'title': projectTitle,
     'creationTime': FieldValue.serverTimestamp(),
-    // Saves document id as field _id
     'id': projectID,
     'team': teamRef,
     'description': description,
     'polygonPoints': polygonPoints,
     'polygonArea': polygonArea,
+    'tests': [],
   });
 
   await _firestore.doc('/${teamRef.path}').update({
@@ -109,6 +109,7 @@ Future<Project> saveProject({
     description: description,
     polygonPoints: polygonPoints,
     polygonArea: polygonArea,
+    tests: [],
   );
 
   // Debugging print statement.
@@ -117,7 +118,7 @@ Future<Project> saveProject({
   return tempProject;
 }
 
-/// Retrieves project info from Firestore. Returns a Future`<Project>`. Takes
+/// Retrieves project info from Firestore. Returns a `Future<Project>`. Takes
 /// projectID. Uses projectID to retrieve info, then saves it into a Project
 /// object for future use.
 Future<Project> getProjectInfo(String projectID) async {
@@ -127,6 +128,15 @@ Future<Project> getProjectInfo(String projectID) async {
   try {
     projectDoc = await _firestore.collection("projects").doc(projectID).get();
     if (projectDoc.exists && projectDoc.data()!.containsKey('polygonArea')) {
+      // Create List of Tests from List of DocumentReferences
+      List<Test> testList = [];
+      // TODO: maybe remove 'tests' check after DB purge or something
+      if (projectDoc.data()!.containsKey('tests')) {
+        for (final ref in projectDoc['tests']) {
+          testList.add(await getTestInfo(ref));
+        }
+      }
+
       project = Project(
         teamRef: projectDoc['team'],
         projectID: projectDoc['id'],
@@ -134,6 +144,8 @@ Future<Project> getProjectInfo(String projectID) async {
         description: projectDoc['description'],
         polygonPoints: projectDoc['polygonPoints'],
         polygonArea: projectDoc['polygonArea'],
+        creationTime: projectDoc['creationTime'],
+        tests: testList,
       );
     } else {
       print(
@@ -141,15 +153,15 @@ Future<Project> getProjectInfo(String projectID) async {
       print('Project exists? ${projectDoc.exists}.');
     }
   } catch (e, stacktrace) {
-    print('Exception retrieving teams: $e');
+    print('Exception retrieving project: $e');
     print('Stacktrace: $stacktrace');
   }
   return project;
 }
 
 /// Calling this function returns a future reference to the currently selected
-/// team. If retrieval throws an exception, then returns null. When implementing
-/// this function, check for null before using value.
+/// team. If retrieval throws an exception, then returns `null`. When
+/// implementing this function, check for `null` before using value.
 Future<DocumentReference?> getCurrentTeam() async {
   DocumentReference? teamRef;
   final DocumentSnapshot<Map<String, dynamic>> userDoc;
@@ -193,8 +205,8 @@ Future<List<Project>> getTeamProjects(DocumentReference teamRef) async {
 }
 
 /// Fetches the current user's list of invites (team references). Extracts the
-/// data from them and puts them into a Team object. Returns them as a future
-/// of a list of Team objects. Checks to make sure document exists
+/// data from them and puts them into a `Team` object. Returns them as a future
+/// of a list of `Team` objects. Checks to make sure document exists
 /// and invites field properly created (should *always* be created, failsafe).
 Future<List<Team>> getInvites() async {
   List<Team> teamInvites = [];
@@ -234,8 +246,8 @@ Future<List<Team>> getInvites() async {
 }
 
 /// Fetches the current user's list of teams (team references). Extracts the
-/// data from them and puts them into a Team object. Returns them as a future
-/// of a list of Team objects. Checks to make sure document exists
+/// data from them and puts them into a `Team` object. Returns them as a future
+/// of a list of `Team` objects. Checks to make sure document exists
 /// and teams field properly created (should *always* be created, failsafe).
 Future<List<Team>> getTeamsIDs() async {
   List<Team> teams = [];
@@ -354,7 +366,7 @@ Future<void> addUserToTeam(String teamID) async {
 
 /// Fetches the list of all users in database. Used for inviting members to
 /// to teams. Extracts the name and ID from them and puts them into a list of
-/// Member objects. Returns them as a future of a list of Member objects.
+/// `Member` objects. Returns them as a future of a list of Member objects.
 /// Excludes current, logged in user. List can then be queried accordingly.
 Future<List<Member>> getMembersList() async {
   List<Member> membersList = [];
@@ -378,4 +390,98 @@ Future<List<Member>> getMembersList() async {
     print('Stacktrace: $stacktrace');
   }
   return membersList;
+}
+
+/// Creates a new [Test] from scratch and inserts it into Firestore.
+///
+/// The [testID] is generated here to be used in the [Test] constructor.
+///
+/// Returns the [Test] object representing the instance just inserted
+/// to Firestore.
+Future<Test> saveTest({
+  required String title,
+  required Timestamp scheduledTime,
+  required DocumentReference? projectRef,
+  required String collectionID,
+}) async {
+  Test tempTest;
+
+  if (projectRef == null) {
+    throw Exception('projectRef not defined when passed to createTest()');
+  }
+
+  // Generates test document ID
+  String testID = _firestore.collection(collectionID).doc().id;
+
+  // Creates Test object
+  tempTest = Test.createNew(
+    title: title,
+    testID: testID,
+    scheduledTime: scheduledTime,
+    projectRef: projectRef,
+    collectionID: collectionID,
+  );
+
+  // Inserts Test to Firestore
+  await _firestore.collection(collectionID).doc(testID).set({
+    'title': title,
+    'id': testID,
+    'scheduledTime': scheduledTime,
+    'project': projectRef,
+    'data': tempTest.data,
+    'creationTime': tempTest.creationTime,
+    'maxResearchers': tempTest.maxResearchers,
+    'isCompleted': false,
+  });
+
+  // Adds a reference to the Test to the relevant Project in Firestore
+  await _firestore.doc('/${projectRef.path}').update({
+    'tests': FieldValue.arrayUnion([_firestore.doc('/$collectionID/$testID')])
+  });
+
+  return tempTest;
+}
+
+/// Retrieves test info from Firestore.
+///
+/// When successful, this returns a
+/// [Future] of a [Test] containing all info
+/// from the desired test.
+///
+/// Returns null if there is an error.
+Future<Test> getTestInfo(
+    DocumentReference<Map<String, dynamic>> testRef) async {
+  late Test test;
+  final DocumentSnapshot<Map<String, dynamic>> testDoc;
+
+  try {
+    testDoc = await testRef.get();
+    if (testDoc.exists && testDoc.data()!.containsKey('scheduledTime')) {
+      test = Test.recreateFromDoc(testDoc);
+    } else {
+      if (!testDoc.exists) {
+        throw Exception('test-does-not-exist');
+      } else {
+        throw Exception('retrieved-test-is-invalid');
+      }
+    }
+  } catch (e, stacktrace) {
+    print('Exception retrieving : $e');
+    print('Stacktrace: $stacktrace');
+  }
+
+  print('Test from getTestInfo: $test'); // debug
+  return test;
+}
+
+extension GeoPointConversion on GeoPoint {
+  LatLng toLatLng() {
+    return LatLng(this.latitude, this.longitude);
+  }
+}
+
+extension LatLngConversion on LatLng {
+  GeoPoint toGeoPoint() {
+    return GeoPoint(this.latitude, this.longitude);
+  }
 }

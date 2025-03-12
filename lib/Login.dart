@@ -234,7 +234,7 @@ class _LoginPageState extends State<LoginPage> {
                           errorStyle: TextStyle(color: const Color.fromARGB(255, 255, 255, 255), fontSize: 18),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscureText ? Icons.visibility : Icons.visibility_off,
+                              _obscureText ? Icons.visibility_off : Icons.visibility,
                               color: Colors.white,
                             ),
                             onPressed: _togglePasswordVisibility,

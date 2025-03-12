@@ -6,13 +6,11 @@ import 'settings_page.dart';
 import 'teams_and_invites_page.dart';
 import 'results_panel.dart';
 import 'edit_project_panel.dart';
-import 'project_map_creation.dart'; // Import the project creation page
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firestore_functions.dart';
-import 'create_project_details.dart';
+import 'project_details_page.dart';
 import 'project_comparison_page.dart';
-import 'themes.dart';
 import 'db_schema_classes.dart';
 
 class HomePage extends StatelessWidget {
@@ -200,18 +198,6 @@ class _HomePageBodyState extends State<HomePageBody> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       IconButton(
-                        icon: Image.asset('assets/bell-03.png'),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const HomePage(),
-                            ),
-                          );
-                        },
-                        iconSize: 24,
-                      ),
-                      IconButton(
                         icon: const Icon(Icons.group),
                         color: const Color(0xFF0A2A88),
                         onPressed: () {
@@ -288,7 +274,7 @@ class _HomePageBodyState extends State<HomePageBody> {
                       crossAxisCount: 2,
                       crossAxisSpacing: 15,
                       mainAxisSpacing: 25,
-                      childAspectRatio: 1.25,
+                      childAspectRatio: 2,
                     ),
                     itemCount: _projectsCount,
                     itemBuilder: (BuildContext context, int index) {
@@ -321,140 +307,140 @@ class _HomePageBodyState extends State<HomePageBody> {
 
   Widget buildProjectCard({
     required BuildContext context,
-    required String bannerImage, // Image path for banner
-    required Project project, // Project object containing project details
-    required String teamName, // Team name
+    required String bannerImage,
+    required Project project,
+    required String teamName,
     required int index,
   }) {
     return Card(
       elevation: 5,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12), // Match the container's corner radius
+        borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
         onTap: () async {
-          // Fetch project details asynchronously
-          Project tempProject = await getProjectInfo(project.projectID);
+          if (project.tests == null) {
+            await project.loadAllTestData();
+          }
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => CreateProjectDetails(projectData: tempProject),
+              builder: (context) => ProjectDetailsPage(projectData: project),
             ),
           );
         },
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF3874CB), Color(0xFF183769)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Banner image at the top
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth = constraints.maxWidth;
+            final double cardWidth = maxWidth > 800 ? 800 : maxWidth * 0.01; // Dynamically adjust card width
+            
+            return Container(
+              width: cardWidth,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF3874CB), Color(0xFF183769)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
-                child: Image.asset(
-                  bannerImage,
-                  width: double.infinity,
-                  height: 120,
-                  fit: BoxFit.cover,
-                ),
+                borderRadius: BorderRadius.circular(12),
               ),
-              // Project details section
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Project name
-                    Text(
-                      project.title, // Use project title from the Project object
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFFFCC00),
-                      ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
                     ),
-                    const SizedBox(height: 5),
-                    // Team name
-                    Text(
-                      teamName,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFFFCC00),
-                      ),
+                    child: Image.asset(
+                      bannerImage,
+                      width: double.infinity,
+                      height: 120,
+                      fit: BoxFit.cover,
                     ),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          project.title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFFCC00),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          teamName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFFCC00),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 10,
+                      bottom: 10,
+                      right: 10,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () {
+                            showEditProjectDialog(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                              color: Color(0xFFFFCC00),
+                              width: 2.0,
+                            ),
+                            foregroundColor: const Color(0xFFFFCC00),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Edit Info',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const ResultsPage()),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFCC00),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Results',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF1D4076),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              // Optional buttons for actions like Edit and Results (can be customized)
-              Padding(
-                padding: const EdgeInsets.only(
-                  top: 10,
-                  bottom: 10,
-                  right: 10,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    // Edit Info button
-                    OutlinedButton(
-                      onPressed: () {
-                        // Handle navigation to Edit menu
-                        showEditProjectDialog(context);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                          color: Color(0xFFFFCC00),
-                          width: 2.0,
-                        ),
-                        foregroundColor: const Color(0xFFFFCC00),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Edit Info',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    // Results button
-                    ElevatedButton(
-                      onPressed: () {
-                        // Handle navigation to Results page
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const ResultsPage()),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFCC00),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Results',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF1D4076),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

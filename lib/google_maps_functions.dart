@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-// Conversion used for length and area to convert from meters to feet.
-// Make sure to multiply twice (or square) for use in area,
+/// Conversion used for length and area to convert from meters to feet.
+/// Make sure to multiply twice (or square) for use in area,
 const double feetPerMeter = 3.280839895;
+
+/// Radius of the Earth in feet.
+const double earthRadius = 20925646.3254;
 
 // Default position (UCF) if location is denied.
 const LatLng defaultLocation = LatLng(28.6024, -81.2001);
@@ -72,7 +75,7 @@ Set<Polygon> finalizePolygon(List<LatLng> polygonPoints) {
       ),
     };
   } catch (e, stacktrace) {
-    print('Excpetion in finalize_polygon(): $e');
+    print('Exception in finalize_polygon(): $e');
     print('Stacktrace: $stacktrace');
   }
   return polygon;
@@ -165,14 +168,37 @@ Polyline? createPolyline(List<LatLng> polylinePoints, Color color) {
 
     polyline = Polyline(
       polylineId: PolylineId(polylineID),
-      width: 3,
-      startCap: Cap.roundCap,
+      width: 4,
+      startCap: Cap.squareCap,
       points: polylinePoints,
       color: color,
     );
   } catch (e, stacktrace) {
-    print('Excpetion in finalize_polygon(): $e');
+    print('Exception in finalize_polygon(): $e');
     print('Stacktrace: $stacktrace');
   }
   return polyline;
+}
+
+/// Gets the the rectangle bounds enclosing a polygon.
+///
+/// Takes a list of [LatLng] points and returns a [LatLngBounds]. If bounds
+/// cannot be created (eg. points is empty) then returns null.
+LatLngBounds? getLatLngBounds(List<LatLng> points) {
+  LatLng southWest;
+  LatLng northEast;
+
+  if (points.isEmpty || points.firstOrNull == null) return null;
+
+  southWest = points.first;
+  northEast = points.first;
+
+  for (LatLng point in points) {
+    southWest = LatLng(min(point.latitude, southWest.latitude),
+        min(point.longitude, southWest.longitude));
+    northEast = LatLng(max(point.latitude, northEast.latitude),
+        max(point.longitude, northEast.longitude));
+  }
+
+  return LatLngBounds(southwest: southWest, northeast: northEast);
 }

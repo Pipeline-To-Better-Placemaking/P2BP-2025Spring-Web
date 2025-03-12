@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'db_schema_classes.dart';
 import 'theme.dart';
-import 'create_project_details.dart';
+import 'project_details_page.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key, required Project partialProjectData});
@@ -348,7 +348,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => CreateProjectDetails(
+                              builder: (context) => ProjectDetailsPage(
                                 projectData: Project.partialProject(
                                     title: 'No data sent',
                                     description:

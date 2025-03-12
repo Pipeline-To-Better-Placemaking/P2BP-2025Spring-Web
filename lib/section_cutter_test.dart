@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'themes.dart';
 import 'widgets.dart';
-import 'create_project_details.dart';
+import 'project_details_page.dart';
 import 'db_schema_classes.dart';
 import 'firestore_functions.dart';
 import 'google_maps_functions.dart';
@@ -207,12 +207,18 @@ class _SectionCutterState extends State<SectionCutter> {
                         mapType: _currentMapType,
                       ),
                     ),
-                    // Back Button
+                    // Back Button (conditionally colorized in 2D mode)
                     Positioned(
                       top: 20, // Position at the top left
                       left: 10, // Adjust the distance from the left
                       child: IconButton(
-                        icon: Icon(Icons.arrow_back, color: Colors.white),
+                        icon: Icon(
+                          Icons.arrow_back, 
+                          color: _currentMapType == MapType.normal 
+                              ? Colors.black // Back button black in 2D mode
+                              : Colors.white, // Default color in other modes
+                          size: 48, // Bigger size
+                        ),
                         onPressed: () {
                           Navigator.pop(context); // Go back to the previous screen
                         },

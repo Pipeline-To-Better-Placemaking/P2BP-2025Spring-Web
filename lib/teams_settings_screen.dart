@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'create_project_details.dart';
+import 'project_details_page.dart';
 import 'db_schema_classes.dart';
 
 class TeamSettingsScreen extends StatelessWidget {
@@ -335,7 +335,7 @@ class TeamSettingsScreen extends StatelessWidget {
                               Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => CreateProjectDetails(
+                                    builder: (context) => ProjectDetailsPage(
                                       projectData: Project.partialProject(
                                           title: 'No data sent',
                                           description:

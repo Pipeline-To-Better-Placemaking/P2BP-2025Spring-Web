@@ -236,7 +236,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             errorStyle: TextStyle(color: Colors.white, fontSize: 18),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscureText ? Icons.visibility : Icons.visibility_off,
+                                _obscureText ? Icons.visibility_off : Icons.visibility,
                                 color: Colors.white,
                               ),
                               onPressed: _togglePasswordVisibility,
@@ -322,7 +322,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             errorStyle: TextStyle(color: Colors.white, fontSize: 18),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscureConfirmText ? Icons.visibility : Icons.visibility_off,
+                                _obscureConfirmText ? Icons.visibility_off : Icons.visibility,
                                 color: Colors.white,
                               ),
                               onPressed: _toggleConfirmPasswordVisibility,

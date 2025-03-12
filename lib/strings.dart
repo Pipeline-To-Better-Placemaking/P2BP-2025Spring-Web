@@ -15,4 +15,8 @@ class Strings {
       'It is highly recommended that you log out and back in once you have verified your new email address.';
   static const String changeNameText =
       'To change the name attached to your account, just enter the new name and press submit.';
+  static const String signOutConfirmText =
+      'This will send you back to the login screen and require you to input your account information to log in again.';
+  static const String deleteAccountConfirmText =
+      'This will permanently erase your account and all associated data. You will have to make a new account if you ever want to use this app again.';
 }

@@ -289,7 +289,7 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
 
       membersList = membersList
           .where((member) =>
-              member.getFullName().toLowerCase().startsWith(text.toLowerCase()))
+              member.fullName.toLowerCase().startsWith(text.toLowerCase()))
           .toList();
 
       _isLoading = false;
@@ -521,7 +521,7 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
             CircleAvatar(),
             SizedBox(width: 15),
             Expanded(
-              child: Text(member.getFullName()),
+              child: Text(member.fullName),
             ),
             Align(
               alignment: Alignment.centerRight,
@@ -537,11 +537,11 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
   InkWell memberInviteButton(
       {required int index, required String teamID, required Member member}) {
     return InkWell(
-      child: Text(member.getInvited() == true ? "Invite sent!" : "Invite"),
+      child: Text(member.invited ? "Invite sent!" : "Invite"),
       onTap: () {
         setState(() {
-          if (member.getInvited() == false) {
-            member.setInvited(true);
+          if (!member.invited) {
+            member.invited = true;
             invitedMembers.add(member);
           }
         });

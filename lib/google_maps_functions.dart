@@ -56,7 +56,8 @@ Future<LocationPermission> _checkLocationPermissions() async {
 /// polygon out of those points (makes sure the polygon is logical). Returns
 /// the singular polygon as a Set so it can be used directly on the GoogleMap
 /// widget.
-Set<Polygon> finalizePolygon(List<LatLng> polygonPoints) {
+Set<Polygon> finalizePolygon(List<LatLng> polygonPoints,
+    [Color? polygonColor]) {
   Set<Polygon> polygon = {};
   try {
     // Sort points in clockwise order
@@ -69,9 +70,9 @@ Set<Polygon> finalizePolygon(List<LatLng> polygonPoints) {
       Polygon(
         polygonId: PolygonId(polygonId),
         points: sortedPoints,
-        strokeColor: Colors.blue,
+        strokeColor: polygonColor ?? Colors.blue,
         strokeWidth: 2,
-        fillColor: Colors.blue.withValues(alpha: 0.2),
+        fillColor: polygonColor ?? Colors.blue.withValues(alpha: 0.2),
       ),
     };
   } catch (e, stacktrace) {

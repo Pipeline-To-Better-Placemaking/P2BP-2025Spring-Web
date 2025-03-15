@@ -6,7 +6,7 @@ import 'project_map_creation.dart';
 import 'teams_and_invites_page.dart';
 import 'firestore_functions.dart';
 import 'widgets.dart';
-import 'themes.dart';
+import 'theme.dart';
 import 'db_schema_classes.dart';
 
 // For page selection switch. 0 = project, 1 = team.

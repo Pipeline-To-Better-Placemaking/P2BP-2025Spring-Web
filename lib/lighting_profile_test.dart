@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'themes.dart';
+import 'theme.dart';
 import 'google_maps_functions.dart';
 import 'db_schema_classes.dart';
 

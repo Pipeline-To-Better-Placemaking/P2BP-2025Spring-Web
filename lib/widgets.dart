@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'themes.dart';
+import 'theme.dart';
 
 /// Bar Indicator for the Sliding Up Panels (Edit Project, Results)
 class BarIndicator extends StatelessWidget {

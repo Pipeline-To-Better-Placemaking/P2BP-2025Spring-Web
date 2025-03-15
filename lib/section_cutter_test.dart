@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'themes.dart';
+import 'theme.dart';
 import 'widgets.dart';
 import 'project_details_page.dart';
 import 'db_schema_classes.dart';
@@ -10,12 +10,15 @@ import 'firestore_functions.dart';
 import 'google_maps_functions.dart';
 import 'package:file_selector/file_selector.dart';
 
-import 'homepage.dart';
+//import 'homepage.dart';
 
 class SectionCutter extends StatefulWidget {
   final Project projectData;
   final SectionCutterTest? activeTest;
 
+  /// IMPORTANT: When navigating to this page, pass in project details. The
+  /// project details page already contains project info, so you should use
+  /// that data.
   const SectionCutter({super.key, required this.projectData, required this.activeTest});
 
   @override
@@ -30,20 +33,25 @@ const XTypeGroup acceptedFileTypes = XTypeGroup(
 class _SectionCutterState extends State<SectionCutter> {
   bool _isLoadingUpload = false;
   bool _uploaded = false;
+  bool _isLoading = false;
   bool _failedToUpload = false;
   String _errorText = 'Failed to upload new image.';
   String _directions =
       "Go to designated section. Then upload the section drawing here.";
   XFile? sectionCutterFile;
+  final double _bottomSheetHeight = 300;
   late DocumentReference teamRef;
   late GoogleMapController mapController;
-  LatLng _location = defaultLocation;
+  LatLng _location = defaultLocation; // Default location
   SectionCutterTest? currentTest;
-  Set<Polygon> _polygons = {}; 
-
+  Set<Polygon> _polygons = {}; // Set of polygons
+  Set<Polyline> _polyline = {};
+  List<LatLng> _sectionPoints = [];
   MapType _currentMapType = MapType.satellite; 
 
   Project? project;
+
+  double _zoom = 14;
 
   @override
   void initState() {
@@ -51,23 +59,37 @@ class _SectionCutterState extends State<SectionCutter> {
     initProjectArea();
   }
 
+  /// Gets the project polygon, adds it to the current polygon list, and
+  /// centers the map over it.
   void initProjectArea() {
     setState(() {
       _polygons = getProjectPolygon(widget.projectData.polygonPoints);
       _location = getPolygonCentroid(_polygons.first);
+      // Take some lattitude away to center considering bottom sheet.
       _location = LatLng(_location.latitude * .999999, _location.longitude);
+      // TODO: dynamic zooming
+      _sectionPoints = widget.activeTest!.linePoints.toLatLngList();
+      _polyline = {
+        Polyline(
+          polylineId:
+              PolylineId(DateTime.now().millisecondsSinceEpoch.toString()),
+          points: _sectionPoints,
+          color: Colors.green,
+          width: 4,
+        )
+      };
     });
   }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
-    _moveToLocation();
+    _moveToLocation(); // Ensure the map is centered on the current location
   }
 
   void _moveToLocation() {
     mapController.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(target: _location, zoom: 14),
+        CameraPosition(target: _location, zoom: _zoom),
       ),
     );
   }
@@ -170,11 +192,24 @@ class _SectionCutterState extends State<SectionCutter> {
                           setState(() {
                             _isLoadingUpload = true;
                           });
-                          Map<String, String> data = await widget
+                          
+                          Section data = await widget
                               .activeTest!
                               .saveXFile(sectionCutterFile!);
                           widget.activeTest!.submitData(data);
+
+                          if (!context.mounted) return;
+
                           Navigator.pop(context);
+
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProjectDetailsPage(
+                                projectData: widget.projectData,
+                              ),
+                            ),
+                          );
                         },
                 ),
               ],
@@ -204,6 +239,7 @@ class _SectionCutterState extends State<SectionCutter> {
                         initialCameraPosition:
                             CameraPosition(target: _location, zoom: 14),
                         polygons: _polygons,
+                        polylines: _polyline,
                         mapType: _currentMapType,
                       ),
                     ),

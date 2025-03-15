@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'create_test_form.dart';
 import 'theme.dart';
 import 'firestore_functions.dart';
+import 'standing_points_page.dart';
 
 class ProjectDetailsPage extends StatefulWidget {
   final Project projectData;
@@ -280,7 +281,7 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
   }
 
   void _showCreateTestModal() async {
-    final Map<String, dynamic> newTestInfo = await showDialog(
+    final Map<String, dynamic> ? newTestInfo = await showDialog(
       context: context,
       barrierDismissible: false, // Disallows dismissal by tapping outside the dialog
       builder: (BuildContext context) {
@@ -292,17 +293,23 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
             padding: EdgeInsets.all(16),
             height: 560, // You can adjust the height based on your content
             width: 600,  // Adjust the width of the dialog
-            child: CreateTestForm(),
+            child: CreateTestForm(activeProject: widget.projectData,),
           ),
         );
       },
     );
 
+    if (newTestInfo == null) return;
+    
     final Test test = await saveTest(
       title: newTestInfo['title'],
       scheduledTime: newTestInfo['scheduledTime'],
       projectRef:_firestore.collection('projects').doc(widget.projectData.projectID),
       collectionID: newTestInfo['collectionID'],
+
+      standingPoints: newTestInfo.containsKey('standingPoints') 
+        ? newTestInfo['standingPoints'] 
+        : null,
       );
       setState(() {
         widget.projectData.tests?.add(test);
@@ -333,9 +340,11 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
 }
 
 const Map<Type, String> _testInitialsMap = {
+  AbsenceOfOrderTest: 'AO',
   LightingProfileTest: 'LP',
   SectionCutterTest: 'SC',
   IdentifyingAccessTest: 'IA',
+  NaturePrevalenceTest: 'NP',
   //PeopleInPlaceTest: 'PP',
   //PeopleInMotionTest: 'PM',
 };

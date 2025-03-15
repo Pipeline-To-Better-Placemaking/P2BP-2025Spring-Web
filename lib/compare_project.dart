@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'strings.dart';
-import 'themes.dart';
+import 'theme.dart';
 
 enum _PageNames { text, compare }
 

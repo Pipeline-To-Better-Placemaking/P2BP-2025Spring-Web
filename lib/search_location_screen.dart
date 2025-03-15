@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'db_schema_classes.dart';
-import 'theme.dart';
+import 'themes.dart';
 import 'project_details_page.dart';
 
 class SearchScreen extends StatefulWidget {

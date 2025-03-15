@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'themes.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 class EditProjectPanel extends StatefulWidget {

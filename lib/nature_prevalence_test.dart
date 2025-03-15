@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'firestore_functions.dart';
 import 'project_details_page.dart';
-import 'themes.dart';
+import 'theme.dart';
 import 'widgets.dart';
 import 'db_schema_classes.dart';
 import 'google_maps_functions.dart';
@@ -888,16 +888,20 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
   void _finalizePolygon() {
     Set<Polygon> tempPolygon;
     try {
-      tempPolygon = finalizePolygon(_polygonPoints);
-      // Create polygon.
-      _polygons = {..._polygons, ...tempPolygon};
-
       if (_natureType == NatureType.vegetation) {
+        tempPolygon = finalizePolygon(
+            _polygonPoints, Vegetation.vegetationTypeToColor[_vegetationType]);
+        // Create polygon.
+        _polygons = {..._polygons, ...tempPolygon};
         vegetationData.add(Vegetation(
             vegetationType: _vegetationType!,
             polygon: tempPolygon.first,
             otherType: _otherType));
       } else if (_natureType == NatureType.waterBody) {
+        tempPolygon = finalizePolygon(
+            _polygonPoints, WaterBody.waterBodyTypeToColor[_waterBodyType]);
+        // Create polygon.
+        _polygons = {..._polygons, ...tempPolygon};
         waterBodyData.add(WaterBody(
             waterBodyType: _waterBodyType!, polygon: tempPolygon.first));
       } else {

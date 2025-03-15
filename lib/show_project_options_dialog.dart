@@ -4,7 +4,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'theme.dart';
+import 'themes.dart';
 import 'change_project_description_form.dart';
 import 'change_project_name_form.dart';
 

@@ -111,6 +111,8 @@ flutter:
     - assets/Compare_Icon.png
     - assets/Profile_Icon.png
     - assets/Filter_Icon.png
+    - assets/standing_point_disabled_marker.png
+    - assets/standing_point_enabled_marker.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

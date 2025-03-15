@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'themes.dart';
+import 'theme.dart';
 import 'widgets.dart';
 import 'google_maps_functions.dart';
 import 'db_schema_classes.dart';

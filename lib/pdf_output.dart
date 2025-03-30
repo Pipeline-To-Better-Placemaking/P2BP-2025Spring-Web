@@ -114,6 +114,9 @@ Future<Uint8List> generateReport(PdfPageFormat pageFormat, Project projectData) 
             pw.Row(
               children: [
                 pw.Expanded(
+                  // Contributor Loop should either be a manual entry by the user on 'who to thank' 
+                  // https://davbfr.github.io/dart_pdf/ -> certificate for an example
+                  // Or Pull data from Team, to list all the people on the team who contributed.
                   child: pw.Text('Contributors:\n INSERT CONTRIBUTORS LOOP HERE\n\nSponsor: UCF Professor Herbert Tommy James', textAlign: pw.TextAlign.center), 
                 ),
               ],
@@ -209,23 +212,34 @@ Future<Uint8List> generateReport(PdfPageFormat pageFormat, Project projectData) 
     List<List<dynamic>> combined = [];
 
    
-    if (sortedTests[testNum]['projType'] == 'Section Cutter') 
+    if (sortedTests[testNum]['projType'] == 'Section Cutter')                           // ** SECTION CUTTER DATA                 
     {
       continue; // TODO: Section Cutter
       // note: Might need Dom's help with this one... Picture rendering
     } else
-    if (sortedTests[testNum]['projType'] == 'Absence Of Order') 
+
+
+   if (sortedTests[testNum]['projType'] == 'Absence Of Order')                           // ** ABSENCE OF ORDER DATA
     {
       continue; // TODO: Absence of Order
     } else 
-    if (sortedTests[testNum]['projType'] == 'People In Motion') 
+
+
+
+    if (sortedTests[testNum]['projType'] == 'People In Motion')                         // ** PEOPLE IN MOTION DATA
     {
       continue; // TODO: People In Motion
     } else 
-    if (sortedTests[testNum]['projType'] == 'People In Place') 
+
+
+
+    if (sortedTests[testNum]['projType'] == 'People In Place')                          // ** PEOPLE IN PLACE DATA
     {
       continue; // TODO: People In Place
     } else 
+
+
+
     if (sortedTests[testNum]['projType'] == 'Lighting Profile')                         // ** LIGHTING PROFILE DATA
     {
       continue; // Done for testing purposes
@@ -250,20 +264,56 @@ Future<Uint8List> generateReport(PdfPageFormat pageFormat, Project projectData) 
 
       for (int i = 0; i < labels.length; i++) {
         combined.add([labels[i], data[i]]);
-      }                                                                               // ** END LIGHTING PROFILE DATA
+      }
 
     } else 
-    if (sortedTests[testNum]['projType'] == 'Nature Prevalence') 
+    if (sortedTests[testNum]['projType'] == 'Nature Prevalence')                                                  // ** NATURE PREVALENCE DATA
     {
       continue; // TODO: Nature Prevalence
     } else 
-    if (sortedTests[testNum]['projType'] == 'Spatial Boundaries') // TODO: I did not get any data for the test I was working with
+
+
+    if (sortedTests[testNum]['projType'] == 'Spatial Boundaries')                                                 // ** SPATIAL BOUNDARIES DATA 
     {
+      // TODO: I did not get any data for the test I was working with
       continue; //Temporary for my testing purposes
     } else 
-    if (sortedTests[testNum]['projType'] == 'Acoustic Profile') 
-    {
-      continue;// TODO: Acoustic Profile
+
+
+    if (sortedTests[testNum]['projType'] == 'Acoustic Profile')                                                     // ** ACOUSTIC PROFILE DATA
+    { // This can honestly get refined a lot further but its work in progress
+      continue;
+      labels.add('Traffic');
+      labels.add('Wind');
+      labels.add('people');
+      labels.add('animals');
+      labels.add('water');
+      labels.add('music');
+      labels.add('other');
+
+      num traf_Dec = 0; num wind_dec = 0; num peop_dec = 0; num oth_dec = 0; num decibal_val = 0;
+      num anim_dec = 0; num water_num = 0; num music_num = 0;
+
+      for (int subtests = 0; subtests = sortedTests[testNum]["data"]["dataPoints"].length; subtests++)
+      {
+        String soundType = sortedTests[testNum]["data"]["dataPoints"][subtests]["measurements"][0]["soundTypes"][1]; // Get Sound Type
+
+
+        decibal_val += sortedTests[testNum]["data"]["dataPoints"][subtests]["measurements"][1]["decibels"]; // Gets Decibel
+        if (soundType == 'traffic') {traf_Dec += decibal_val;}
+        else if (soundType == 'wind') {wind_dec += decibal_val;}
+        else if (soundType == 'people') {peop_dec += decibal_val;}
+        else if (soundType == 'animals') {anim_dec += decibal_val;}
+        else if (soundType == 'people') {peop_dec += decibal_val;}
+        else if (soundType == 'water') {water_num += decibal_val;}
+        else if (soundType == 'music') {music_num += decibal_val;}
+        else if (soundType == 'other') {oth_dec += decibal_val;}
+
+      }
+
+      for (int i = 0; i < labels.length; i++) {
+        combined.add([labels[i], data[i]]);
+      }
     }
 
 

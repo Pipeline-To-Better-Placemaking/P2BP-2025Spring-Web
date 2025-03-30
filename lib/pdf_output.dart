@@ -1,71 +1,26 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:p2b/db_schema_classes.dart';
+import 'package:p2b/firestore_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:collection/collection.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'dart:math';
 
-// ********* TODO: DUMMY DATA, TO BE TIED INTO db_schema_classes.dart ************************
-TestProject generateSampleData() {
-  return TestProject(
-    projectName: 'Project Testing',
-    projectDescription: 'This is the description of the project',
-    // mapImagePath: 'assets/PinkHouse.png', // TODO: Figure out image workings
-    contributors: ['John Doe', 'Jane Smith'],
-    sponsor: 'UCF Professor Herbert ''Tommy'' James',
-    tests: [
-      Test('Test 1', [
-        ['Phone',  80, 95],
-        ['Internet', 250, 230],
-        ['Electricity', 300, 375],
-        ['Movies', 85, 80],
-        ['Food', 300, 350],
-      ]),
-      Test('Test 2', [
-        ['Fuel', 650, 550],
-        ['Insurance', 250, 310],
-        ['Rent', 1200, 1250],
-      ]),
-    ],
-  );
-}
 
-
-// Actual Project / Test classes go here
-class Test {
-  final String name;
-  final List<List<dynamic>> dataTable;
-  Test(this.name, this.dataTable);
-}
-
-class TestProject {
-  final String projectName;
-  final String projectDescription;
-  // final String mapImagePath;
-  final List<String> contributors;
-  final String sponsor;
-  final List<Test> tests;
-
-  TestProject({
-    required this.projectName,
-    required this.projectDescription,
-    // required this.mapImagePath,
-    required this.contributors,
-    required this.sponsor,
-    required this.tests,
-  });
-}
-// ************************** END DUMMY DATA
-
-// Allows user to see the pdf in browser, sort of testing purposes
+// Allows user to see the pdf in browser so they know what they are getting
 class PdfReportPage extends StatelessWidget {
-  final TestProject data;
+  final Project projectData;
 
-  PdfReportPage({required this.data});
+  const PdfReportPage({super.key, required this.projectData});
 
-  // Function to generate the PDF
+
+
+  // generate the PDF
   Future<Uint8List> _generatePdf() async {
-    return generateReport(PdfPageFormat.a4, data);
+    return generateReport(PdfPageFormat.a4, projectData);
   }
 
   @override
@@ -86,7 +41,7 @@ class PdfReportPage extends StatelessWidget {
             return PdfPreview(
               build: (format) => snapshot.data!, // Generate PDF in the specified format
               onPrinted: (context) {
-                // Optional: Perform actions after the PDF is printed
+
               },
             );
           } else {
@@ -99,14 +54,15 @@ class PdfReportPage extends StatelessWidget {
 }
 
 
-
 // PDF Generation Logic
-Future<Uint8List> generateReport(PdfPageFormat pageFormat, TestProject data) async {
+Future<Uint8List> generateReport(PdfPageFormat pageFormat, Project projectData) async 
+{
 
-  // Load image data before building the PDF
+  // Load images data before building the PDF, but was not implemented
   // final imageData = await _loadImage(data.mapImagePath);
-  const baseColor = PdfColors.cyan;
+  const baseColor = PdfColors.black;
 
+  // Actually launches the pdf builder
   final document = pw.Document();
 
   // Theme settings
@@ -115,7 +71,7 @@ Future<Uint8List> generateReport(PdfPageFormat pageFormat, TestProject data) asy
     bold: await PdfGoogleFonts.openSansBold(),
   );
 
-  // Front Page
+  // First Page
   document.addPage(
     pw.Page(
       pageFormat: pageFormat,
@@ -123,7 +79,7 @@ Future<Uint8List> generateReport(PdfPageFormat pageFormat, TestProject data) asy
       build: (context) {
         return pw.Column(
           children: [
-            pw.Text(data.projectName,
+            pw.Text(projectData.title,
                 style: const pw.TextStyle(
                   color: baseColor,
                   fontSize: 40,
@@ -136,7 +92,7 @@ Future<Uint8List> generateReport(PdfPageFormat pageFormat, TestProject data) asy
                   child: pw.Column(
                     children: [
                       pw.Text(
-                        data.projectDescription,
+                        projectData.description,
                         style: const pw.TextStyle(fontSize: 16),
                         textAlign: pw.TextAlign.justify,
                       ),
@@ -145,6 +101,7 @@ Future<Uint8List> generateReport(PdfPageFormat pageFormat, TestProject data) asy
                 ),
                 pw.SizedBox(width: 10),
                 // TODO: Figure out how to populate the image for each test
+                // This handles the cover page
                 // pw.Expanded(
                   // child: pw.Image(
                   //   pw.MemoryImage(imageData),
@@ -157,7 +114,7 @@ Future<Uint8List> generateReport(PdfPageFormat pageFormat, TestProject data) asy
             pw.Row(
               children: [
                 pw.Expanded(
-                  child: pw.Text('Contributors:\n ${data.contributors.join(', ')}\n\nSponsor: ${data.sponsor}', textAlign: pw.TextAlign.center), 
+                  child: pw.Text('Contributors:\n INSERT CONTRIBUTORS LOOP HERE\n\nSponsor: UCF Professor Herbert Tommy James', textAlign: pw.TextAlign.center), 
                 ),
               ],
             ),
@@ -168,60 +125,197 @@ Future<Uint8List> generateReport(PdfPageFormat pageFormat, TestProject data) asy
   );
 
 
-// ** Handles all chart generation for all the tests within the project.
-for (var test in data.tests) { // For Each Test
-  for (int i = 0; i < test.dataTable.length; i += 4) { // Handles the charts
-    final end = (i + 4 <= test.dataTable.length) ? i + 4 : test.dataTable.length;
-    document.addPage(
-      pw.Page(
-        pageFormat: pageFormat,
-        theme: theme,
-        build: (context) {
-          return pw.Column(
-            children: [
-              pw.Text(test.name,
-                  style: const pw.TextStyle(
-                    color: baseColor,
-                    fontSize: 30,
-                  )),
-              pw.Divider(thickness: 4),
-              pw.Column(
-                children: List.generate(2, (rowIndex) { 
-                  final startIndex = i + rowIndex * 2;
-                  if (startIndex < end) {
-                    return pw.Row(
-                      children: List.generate(2, (colIndex) {
-                        final chartIndex = startIndex + colIndex;
-                        if (chartIndex < end) {
-                          return pw.Expanded(
-                            child: _generateChart(test.dataTable[chartIndex]),
-                          );
-                        } else {
-                          return pw.Expanded(child: pw.SizedBox()); // Empty space if no chart
-                        }
-                      }),
-                    );
-                  } else {
-                    return pw.SizedBox(); // Empty row if there's nothing to show
-                  }
-                }),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+
+  // ** Bucket Sorting of tests **
+  // Variables used to sort all the tests, so similar tests are shown together
+  List secCut = [], absOfOrder =[], identAccess = [], peopInMot = [] ,peopInPlace = [], lightProf = [], natPrev = [], spatBound = [], acouProf = [];
+  List sortedTests = [];
+
+  for (var testIterator in projectData.testRefs) 
+  {
+    // Pulls data for this individual test
+    DocumentSnapshot testDoc = await testIterator.get(); 
+    Map<String, dynamic> test = testDoc.data() as Map<String, dynamic>;
+
+    // Fixes the Datetime for the header
+    DateTime dateTime = DateTime.fromMillisecondsSinceEpoch(test["scheduledTime"].millisecondsSinceEpoch);
+    DateTime estDateTime = dateTime.toLocal();
+    test['scheduledTime'] = estDateTime;
+
+    // If a test isn't complete, skip it
+    if (!test['isComplete']) continue;
+
+    // Logic to combine all the tests into an organized, singular list we can work with
+    // Useful so all test types are clustered together
+    if (testIterator.path.contains('section_cutter'))
+    {
+      test['projType'] = 'Section Cutter'; 
+      secCut.add(test);
+
+    } else 
+    if (testIterator.path.contains('absence_of_order'))
+    {
+      test['projType'] = 'Absence Of Order'; 
+      absOfOrder.add(test);
+
+    } else
+    if (testIterator.path.contains('identifying_access'))
+    {
+      test['projType'] = 'Identifying Access'; 
+      identAccess.add(test);
+
+    } else
+    if (testIterator.path.contains('people_in_motion'))
+    {
+      test['projType'] = 'People In Motion'; 
+      peopInMot.add(test);
+
+    } else 
+    if (testIterator.path.contains('people_in_place'))
+    {
+      test['projType'] = 'People In Place'; 
+      peopInPlace.add(test);
+
+    } else 
+    if (testIterator.path.contains('lighting_profile'))
+    {
+      test['projType'] = 'Lighting Profile';
+      lightProf.add(test);
+    } else 
+    if (testIterator.path.contains('nature_prevalence'))
+    {
+      test['projType'] = 'Nature Prevalence';
+      natPrev.add(test);
+    }
+      if (testIterator.path.contains('spatial_boundaries'))
+    {
+      test['projType'] = 'Spatial Boundaries';
+      spatBound.add(test);
+    }
+    if (testIterator.path.contains('acoustic_profile'))                                                         
+    {
+      test['projType'] = 'Acoustic Profile';
+      acouProf.add(test);
+    }
   }
+  sortedTests.addAll(peopInMot + peopInPlace + spatBound + lightProf + natPrev + absOfOrder + acouProf + identAccess + secCut);
+  // ** End Bucket Sorting, now allocated into a singular large 'bucket'
+
+    
+  // ** Gathers the data from each test
+  for (int testNum = 0; testNum < sortedTests.length; testNum++)
+  {
+    List data = [], labels = [];
+    List<List<dynamic>> combined = [];
+
+   
+    if (sortedTests[testNum]['projType'] == 'Section Cutter') 
+    {
+      continue; // TODO: Section Cutter
+      // note: Might need Dom's help with this one... Picture rendering
+    } else
+    if (sortedTests[testNum]['projType'] == 'Absence Of Order') 
+    {
+      continue; // TODO: Absence of Order
+    } else 
+    if (sortedTests[testNum]['projType'] == 'People In Motion') 
+    {
+      continue; // TODO: People In Motion
+    } else 
+    if (sortedTests[testNum]['projType'] == 'People In Place') 
+    {
+      continue; // TODO: People In Place
+    } else 
+    if (sortedTests[testNum]['projType'] == 'Lighting Profile')                         // ** LIGHTING PROFILE DATA
+    {
+      continue; // Done for testing purposes
+      labels.add('Task');
+      if (sortedTests[testNum]['data']['task'] != null || sortedTests[testNum]['data']['task'].length != 0)
+      {
+        data.add(sortedTests[testNum]['data']['task'].length);
+      } 
+      else {data.add(0);}
+
+      labels.add('Rythmic');
+      if (sortedTests[testNum]['data']['rhythmic'] != null|| sortedTests[testNum]['data']['rhythmic'].length != 0) 
+      {
+        data.add(sortedTests[testNum]['data']['rhythmic'].length);
+      } else {data.add(0);}
+
+      labels.add('Building');
+      if (sortedTests[testNum]['data']['building'] != null|| sortedTests[testNum]['data']['building'].length != 0) 
+      {
+        data.add(sortedTests[testNum]['data']['building'].length);
+      } else {data.add(0);}
+
+      for (int i = 0; i < labels.length; i++) {
+        combined.add([labels[i], data[i]]);
+      }                                                                               // ** END LIGHTING PROFILE DATA
+
+    } else 
+    if (sortedTests[testNum]['projType'] == 'Nature Prevalence') 
+    {
+      continue; // TODO: Nature Prevalence
+    } else 
+    if (sortedTests[testNum]['projType'] == 'Spatial Boundaries') // TODO: I did not get any data for the test I was working with
+    {
+      continue; //Temporary for my testing purposes
+    } else 
+    if (sortedTests[testNum]['projType'] == 'Acoustic Profile') 
+    {
+      continue;// TODO: Acoustic Profile
+    }
+
+
+
+// Loop through sorted tests and add a page for each test
+for (int i = 0; i < sortedTests.length; i++) {
+  document.addPage(
+    pw.Page(
+      pageFormat: pageFormat,
+      theme: theme,
+      build: (context) {
+        return pw.Column(
+          children: [
+            pw.Text(
+              '${sortedTests[i]['projType']} - ${sortedTests[i]['scheduledTime']}',
+              style: const pw.TextStyle(
+                color: baseColor,
+                fontSize: 20,
+              ),
+            ),
+            pw.Divider(thickness: 4),
+            // Add chart or other content dynamically
+            pw.Column(
+              children: [
+                pw.Row(
+                  children: [
+                    pw.Expanded(
+                      child: pw.SizedBox(
+                        // child: _generateChart(sortedTests[i]), // Generate the chart dynamically
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    ),
+  );
 }
+
+  }
   return document.save();
-}
+} // End of generateReport()
 
 // Function to generate all the charts
 pw.Widget _generateChart(List<dynamic> data) {
-  final chartData = [
-    pw.PointChartValue(0, data[1].toDouble()),
-    pw.PointChartValue(1, data[2].toDouble()),
-  ];
+
+          List<pw.PointChartValue> chartValues = List.generate(data.length, (index) {
+            return pw.PointChartValue(index.toDouble(), data[index].toDouble());
+          });
 
   return pw.Chart(
     grid: pw.CartesianGrid(
@@ -237,15 +331,8 @@ pw.Widget _generateChart(List<dynamic> data) {
     datasets: [
       pw.BarDataSet(
         color: PdfColors.blue,
-        legend: 'Expense',
         width: 15,
-        data: chartData,
-      ),
-      pw.BarDataSet(
-        color: PdfColors.green,
-        legend: 'Budget',
-        width: 15,
-        data: chartData,
+        data: chartValues,
       ),
     ],
   );

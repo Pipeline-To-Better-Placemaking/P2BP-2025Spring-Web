@@ -15,12 +15,14 @@ import 'db_schema_classes.dart';
   /// All [Test] subclass's register methods should be called here.
   void registerTestTypes() {
     AbsenceOfOrderTest.register();
-    LightingProfileTest.register();
-    SectionCutterTest.register();
+    //AcousticProfileTest.register();
     IdentifyingAccessTest.register();
-    //PeopleInPlaceTest.register();
-    //PeopleInMotionTest.register();
+    LightingProfileTest.register();
     NaturePrevalenceTest.register();
+    PeopleInMotionTest.register();
+    PeopleInPlaceTest.register();
+    SectionCutterTest.register();
+    SpatialBoundariesTest.register();
   }
 
   void main() async {

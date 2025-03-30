@@ -8,7 +8,7 @@ import 'firestore_functions.dart';
 
 class StandingPointsPage extends StatefulWidget {
   final Project activeProject;
-  final List? currentStandingPoints;
+  final List<StandingPoint>? currentStandingPoints;
   const StandingPointsPage(
       {super.key, required this.activeProject, this.currentStandingPoints});
 
@@ -36,9 +36,9 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
       "Select the standing points you want to use in this test. Then click confirm.";
   Set<Polygon> _polygons = {}; // Set of polygons
   Set<Marker> _markers = {}; // Set of markers for points
-  List _standingPoints = [];
+  List<StandingPoint> _standingPoints = [];
   Marker? _currentMarker;
-  double _bottomSheetHeight = 300;
+  static const double _bottomSheetHeight = 300;
   MapType _currentMapType = MapType.satellite; // Default map type
   final List<bool> _checkboxValues = [];
   Project? project;
@@ -58,10 +58,12 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
       // Take some latitude away to center considering bottom sheet.
       _location = LatLng(_location.latitude * .999999, _location.longitude);
       // TODO: dynamic zooming
-      _markers = _setMarkersFromPoints(widget.activeProject.standingPoints);
-      _standingPoints = widget.activeProject.standingPoints;
+      _markers =
+          _setMarkersFromStandingPoints(widget.activeProject.standingPoints);
+      _standingPoints = widget.activeProject.standingPoints.toList();
       if (widget.currentStandingPoints != null) {
-        final List? currentStandingPoints = widget.currentStandingPoints;
+        final List<StandingPoint> currentStandingPoints =
+            widget.currentStandingPoints!;
         _loadCurrentStandingPoints(currentStandingPoints);
       }
       _isLoading = false;
@@ -70,30 +72,35 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
 
   /// Takes a list of points and creates the default markers from their title
   /// and position.
-  Set<Marker> _setMarkersFromPoints(List points) {
+  Set<Marker> _setMarkersFromStandingPoints(
+      List<StandingPoint> standingPoints) {
     Set<Marker> markers = {};
-    for (Map point in points) {
-      final markerId = MarkerId(point.toString());
+    for (final standingPoint in standingPoints) {
+      final markerId = MarkerId(standingPoint.toString());
       _checkboxValues.add(false);
       markers.add(
         Marker(
-            markerId: markerId,
-            position: (point['point'] as GeoPoint).toLatLng(),
-            icon: disabledIcon,
-            infoWindow: InfoWindow(
-              title: point['title'],
-              snippet:
-                  '${point['point'].latitude.toStringAsFixed(5)}, ${point['point'].latitude.toStringAsFixed(5)}',
-            ),
-            onTap: () {
-              final Marker thisMarker =
-                  _markers.singleWhere((marker) => marker.markerId == markerId);
-              final int listIndex = _standingPoints.indexWhere((namePointMap) =>
-                  namePointMap['point'] == thisMarker.position.toGeoPoint());
-              _currentMarker = thisMarker;
-              _checkboxValues[listIndex] = !_checkboxValues[listIndex];
-              _toggleMarker();
-            }),
+          markerId: markerId,
+          position: standingPoint.location,
+          icon: disabledIcon,
+          infoWindow: InfoWindow(
+            title: standingPoint.title,
+            snippet: '${standingPoint.location.latitude.toStringAsFixed(5)},'
+                ' ${standingPoint.location.latitude.toStringAsFixed(5)}',
+          ),
+          onTap: () {
+            // Get matching marker from id and point index from marker point
+            final Marker thisMarker =
+                _markers.singleWhere((marker) => marker.markerId == markerId);
+            final int listIndex = _standingPoints.indexWhere((standingPoint) =>
+                standingPoint.location == thisMarker.position);
+
+            // Update current marker and toggle this point's checkbox
+            _currentMarker = thisMarker;
+            _checkboxValues[listIndex] = !_checkboxValues[listIndex];
+            _toggleMarker();
+          },
+        ),
       );
     }
     return markers;
@@ -120,13 +127,12 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
     _currentMarker = null;
   }
 
-  void _loadCurrentStandingPoints(List? currentStandingPoints) {
-    if (currentStandingPoints == null) return;
-    for (Map point in currentStandingPoints) {
-      final Marker thisMarker = _markers.singleWhere(
-          (marker) => point['point'] == marker.position.toGeoPoint());
-      final int listIndex = _standingPoints.indexWhere((namePointMap) =>
-          namePointMap['point'] == thisMarker.position.toGeoPoint());
+  void _loadCurrentStandingPoints(List<StandingPoint> currentStandingPoints) {
+    for (final standingPoint in currentStandingPoints) {
+      final Marker thisMarker = _markers
+          .singleWhere((marker) => standingPoint.location == marker.position);
+      final int listIndex = _standingPoints
+          .indexWhere((point) => point.location == thisMarker.position);
       _currentMarker = thisMarker;
       _checkboxValues[listIndex] = !_checkboxValues[listIndex];
       _toggleMarker();
@@ -214,7 +220,9 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
                           alignment: Alignment.bottomLeft,
                           child: Padding(
                             padding: EdgeInsets.only(
-                                left: 10.0, bottom: _bottomSheetHeight + 50),
+                              left: 10.0,
+                              bottom: _bottomSheetHeight + 50,
+                            ),
                             child: FloatingActionButton(
                               heroTag: null,
                               onPressed: _toggleMapType,
@@ -254,17 +262,18 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
                           index == 0 ? Divider() : SizedBox(),
                           CheckboxListTile(
                             title: Text(
-                              "${_standingPoints[index]['title']}",
+                              _standingPoints[index].title,
                               style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   overflow: TextOverflow.fade),
                             ),
                             subtitle: Text(
-                                "${_standingPoints[index]['point'].latitude.toStringAsFixed(5)}, ${_standingPoints[index]['point'].longitude.toStringAsFixed(5)}"),
+                                '${_standingPoints[index].location.latitude.toStringAsFixed(5)},'
+                                ' ${_standingPoints[index].location.longitude.toStringAsFixed(5)}'),
                             value: _checkboxValues[index],
                             onChanged: _isLoading
                                 ? null
-                                : (bool? value) {
+                                : (value) {
                                     setState(() {
                                       _checkboxValues[index] =
                                           !_checkboxValues[index];
@@ -272,9 +281,7 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
                                     _currentMarker = _markers.singleWhere(
                                         (marker) =>
                                             marker.position ==
-                                            (_standingPoints[index]['point']
-                                                    as GeoPoint)
-                                                .toLatLng());
+                                            (_standingPoints[index].location));
                                     _location = _currentMarker!.position;
                                     _moveToLocation();
                                     _toggleMarker();
@@ -320,7 +327,7 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
                               setState(() {
                                 _isLoading = true;
                               });
-                              List enabledPoints = [];
+                              List<StandingPoint> enabledPoints = [];
                               for (int i = 0; i < _standingPoints.length; i++) {
                                 if (_checkboxValues[i]) {
                                   enabledPoints.add(_standingPoints[i]);

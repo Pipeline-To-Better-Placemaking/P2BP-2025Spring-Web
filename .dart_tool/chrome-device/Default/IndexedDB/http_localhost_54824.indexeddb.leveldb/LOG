@@ -1,0 +1,42 @@
+2025/03/18-22:51:43.884 a807 Creating DB /private/var/folders/sq/tzc2627x05zcrcs_hn4jngrr0000gn/T/flutter_tools.G3254w/flutter_tools_chrome_device.AMoRxu/Default/IndexedDB/http_localhost_54824.indexeddb.leveldb since it was missing.
+2025/03/18-22:51:43.895 a807 Reusing MANIFEST /private/var/folders/sq/tzc2627x05zcrcs_hn4jngrr0000gn/T/flutter_tools.G3254w/flutter_tools_chrome_device.AMoRxu/Default/IndexedDB/http_localhost_54824.indexeddb.leveldb/MANIFEST-000001
+2025/03/18-22:51:43.906 8303 Level-0 table #5: started
+2025/03/18-22:51:43.907 8303 Level-0 table #5: 1311 bytes OK
+2025/03/18-22:51:43.908 8303 Delete type=0 #3
+2025/03/18-22:51:43.908 8303 Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/03/18-23:00:08.526 fb03 Level-0 table #7: started
+2025/03/18-23:00:08.535 fb03 Level-0 table #7: 2161 bytes OK
+2025/03/18-23:00:08.537 fb03 Delete type=0 #4
+2025/03/18-23:00:08.537 a807 Manual compaction at level-0 from '\x00\x04\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x05\x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/03/18-23:09:37.084 fb03 Level-0 table #9: started
+2025/03/18-23:09:37.102 fb03 Level-0 table #9: 943 bytes OK
+2025/03/18-23:09:37.103 fb03 Delete type=0 #6
+2025/03/18-23:09:37.103 a807 Manual compaction at level-0 from '\x00\x05\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x06\x00\x00\x00' @ 0 : 0; will stop at '\x00\x05\x00\x00\x05' @ 177 : 1
+2025/03/18-23:09:37.103 a807 Compacting 1@0 + 1@1 files
+2025/03/18-23:09:37.104 a807 Generated table #10@0: 60 keys, 1412 bytes
+2025/03/18-23:09:37.104 a807 Compacted 1@0 + 1@1 files => 1412 bytes
+2025/03/18-23:09:37.105 a807 compacted to: files[ 0 1 1 0 0 0 0 ]
+2025/03/18-23:09:37.105 a807 Delete type=2 #9
+2025/03/18-23:09:37.105 a807 Manual compaction at level-0 from '\x00\x05\x00\x00\x05' @ 177 : 1 .. '\x00\x06\x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/03/18-23:17:48.829 fb03 Level-0 table #12: started
+2025/03/18-23:17:48.846 fb03 Level-0 table #12: 948 bytes OK
+2025/03/18-23:17:48.848 fb03 Delete type=2 #7
+2025/03/18-23:17:48.848 fb03 Delete type=0 #8
+2025/03/18-23:17:48.848 a807 Manual compaction at level-0 from '\x00\x06\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at '\x00\x06\x00\x00\x05' @ 210 : 1
+2025/03/18-23:17:48.848 a807 Compacting 1@0 + 1@1 files
+2025/03/18-23:17:48.849 a807 Generated table #13@0: 68 keys, 1502 bytes
+2025/03/18-23:17:48.849 a807 Compacted 1@0 + 1@1 files => 1502 bytes
+2025/03/18-23:17:48.850 a807 compacted to: files[ 0 1 1 0 0 0 0 ]
+2025/03/18-23:17:48.850 a807 Delete type=2 #12
+2025/03/18-23:17:48.850 a807 Manual compaction at level-0 from '\x00\x06\x00\x00\x05' @ 210 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/03/18-23:19:30.555 fb03 Level-0 table #15: started
+2025/03/18-23:19:30.569 fb03 Level-0 table #15: 946 bytes OK
+2025/03/18-23:19:30.570 fb03 Delete type=0 #11
+2025/03/18-23:19:30.571 fb03 Delete type=2 #10
+2025/03/18-23:19:30.572 a807 Manual compaction at level-0 from '\x00\x07\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x08\x00\x00\x00' @ 0 : 0; will stop at '\x00\x07\x00\x00\x05' @ 243 : 1
+2025/03/18-23:19:30.572 a807 Compacting 1@0 + 1@1 files
+2025/03/18-23:19:30.573 a807 Generated table #16@0: 76 keys, 1557 bytes
+2025/03/18-23:19:30.573 a807 Compacted 1@0 + 1@1 files => 1557 bytes
+2025/03/18-23:19:30.574 a807 compacted to: files[ 0 1 1 0 0 0 0 ]
+2025/03/18-23:19:30.574 a807 Delete type=2 #15
+2025/03/18-23:19:30.574 a807 Manual compaction at level-0 from '\x00\x07\x00\x00\x05' @ 243 : 1 .. '\x00\x08\x00\x00\x00' @ 0 : 0; will stop at (end)

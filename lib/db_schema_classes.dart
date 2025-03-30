@@ -3,18 +3,21 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'absence_of_order_test.dart';
-import 'google_maps_functions.dart';
-import 'lighting_profile_test.dart';
-import 'section_cutter_test.dart';
 import 'theme.dart';
 import 'firestore_functions.dart';
 import 'package:flutter/material.dart';
+import 'google_maps_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
 
 import 'identifying_access_test.dart';
 import 'nature_prevalence_test.dart';
+import 'absence_of_order_test.dart';
+import 'lighting_profile_test.dart';
+import 'section_cutter_test.dart';
+import 'spatial_boundaries_test.dart';
+import 'people_in_place_test.dart';
+import 'people_in_motion_test.dart';
 
 final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -60,11 +63,11 @@ class Project {
   String projectID = '';
   String title = '';
   String description = '';
-  List polygonPoints = [];
+  List<LatLng> polygonPoints = [];
   num polygonArea = 0;
   List<DocumentReference> testRefs = [];
   List<Test>? tests;
-  List standingPoints = [];
+  List<StandingPoint> standingPoints = [];
 
   Project({
     this.creationTime,
@@ -97,6 +100,49 @@ class Project {
   }
 }
 
+/// Comparison function for tests. Used in [.sort].
+///
+/// Sorts based on scheduled time.
+/// The tests are split further into two categories completed and not completed.
+/// For completed tests, simply sort by scheduled time.
+/// For non-completed tests, sort first by whether the date has passed. This gives two more groups.
+/// Sort both by their scheduled time.
+int testTimeComparison(Test a, Test b) {
+  Timestamp currentTime = Timestamp.now();
+  if (a.isComplete) {
+    // If a and b are both complete
+    if (b.isComplete) {
+      return a.scheduledTime.compareTo(b.scheduledTime);
+    }
+    // If a is complete and b is not
+    else {
+      return 2;
+    }
+  }
+  // If a is not complete and b is
+  else if (b.isComplete) {
+    return -2;
+  }
+  // If both a and b are not complete
+  else {
+    // If a's time has passed
+    if (a.scheduledTime.compareTo(currentTime) > 0) {
+      // If b's time has also passed
+      if (b.scheduledTime.compareTo(currentTime) > 0) {
+        return a.scheduledTime.compareTo(b.scheduledTime);
+      }
+      // Else if a's time has not passed, but b's has
+      else {
+        return -3;
+      }
+    }
+    // Else if a's time has passed
+    else {
+      return 3;
+    }
+  }
+}
+
 // *--------------------------------------------------------------------------*
 // | Important: When adding a test, make sure to implement the requisite      |
 // | fields and functions. When done, make sure to implement it in the        |
@@ -104,22 +150,6 @@ class Project {
 // | to the initials list on project_details.dart. If it it implements        |
 // | standing points and a timer, add it to the following lists.              |
 // *--------------------------------------------------------------------------*
-
-/// List containing all tests that make use of standing points.
-///
-/// Used to check for test creation and saving.
-///
-/// Note: Section Cutter is considered a standing points test even though
-/// it uses a section line, not points.
-const Set<String> standingPointsTests = {
-  IdentifyingAccessTest.collectionIDStatic,
-  SectionCutterTest.collectionIDStatic,
-};
-
-/// List containing all tests that make use of standing points.
-///
-/// Used to check for test creation and saving.
-const Set<String> timerTests = {NaturePrevalenceTest.collectionIDStatic};
 
 /// Parent class extended by every specific test class.
 ///
@@ -225,7 +255,18 @@ abstract class Test<T> {
 
   /// Maps from [Type] assumed to extend [Test] to the function used to
   /// save that [Test] instance to Firestore.
-  static final Map<Type, void Function(Test)> _saveToFirestoreFunctions = {};
+  static final Map<Type, Future<void> Function(Test)>
+      _saveToFirestoreFunctions = {};
+
+  /// Set used internally to determine whether a [Test] subclass uses
+  /// standing points. Subclasses that do are expected to register themselves
+  /// into this set.
+  static final Set<String> _standingPointTestCollectionIDs = {};
+
+  /// Set containing all tests that make use of timers.
+  ///
+  /// Used to check for test creation and saving.
+  static final Set<String> _timerTestCollectionIDs = {};
 
   /// Returns a new instance of the [Test] subclass associated with
   /// [collectionID].
@@ -285,13 +326,19 @@ abstract class Test<T> {
     throw Exception('No registered page for test type: $runtimeType');
   }
 
-  void saveToFirestore() {
+  Future<void> saveToFirestore() {
     final saveFunction = _saveToFirestoreFunctions[runtimeType];
     if (saveFunction != null) {
       return saveFunction(this);
     }
     throw Exception(
         'No registered saveToFirestore function for test type: $runtimeType');
+  }
+
+  /// Returns whether [Test] subclass with given [collectionID] is
+  /// registered as a standing points test.
+  static bool isStandingPointTest(String? collectionID) {
+    return _standingPointTestCollectionIDs.contains(collectionID);
   }
 
   @override
@@ -319,38 +366,111 @@ abstract class Test<T> {
   void submitData(T data);
 }
 
+class StandingPoint with JsonToString {
+  late final LatLng location;
+  late final String title;
+
+  StandingPoint({required this.location, required this.title});
+
+  StandingPoint.fromJson(Map<String, dynamic> data) {
+    if (data.containsKey('point') && data['point'] is GeoPoint) {
+      location = (data['point'] as GeoPoint).toLatLng();
+    }
+    if (data.containsKey('title') && data['title'] is String) {
+      title = data['title'] as String;
+    }
+  }
+
+  @override
+  Map<String, Object> toJson() {
+    return {
+      'point': location.toGeoPoint(),
+      'title': title,
+    };
+  }
+
+  static List<StandingPoint> fromJsonList(List points) {
+    List<StandingPoint> output = [];
+    for (final point in points) {
+      if (point is Map<String, dynamic>) {
+        output.add(StandingPoint.fromJson(point));
+      }
+    }
+    return output;
+  }
+
+  static List<Map<String, Object>> toJsonList(List<StandingPoint> points) {
+    List<Map<String, Object>> json = [];
+    for (final point in points) {
+      json.add(point.toJson());
+    }
+    return json;
+  }
+}
+
+/// Mixin to add toString functionality to any class with a toJson() method.
+mixin JsonToString {
+  @override
+  String toString() {
+    return toJson().toString();
+  }
+
+  Map<String, Object?> toJson();
+}
+
 /// Types of light for lighting profile test.
 enum LightType { rhythmic, building, task }
 
-// Author's note: I hate the names I used for both of these typedefs but I've
-// already changed it/them so many times and I still cannot think of a better
-// or shorter naming scheme for them so it is what it is.
-/// Convenience alias for `LightingProfileTest` format used for `data`
-/// locally (in Flutter/Dart).
-typedef LightToLatLngMap = Map<LightType, Set<LatLng>>;
+class Light {
+  final LightType lightType;
+  final LatLng point;
 
-/// Convenience alias for `LightingProfileTest` format used for `data`
-/// retrieved from Firestore.
-typedef StringToGeoPointMap = Map<String, List<GeoPoint>>;
+  Light({
+    required this.lightType,
+    required this.point,
+  });
+}
 
-/// Class for Lighting Profile Test info and methods.
-class LightingProfileTest extends Test<LightToLatLngMap> {
-  /// Returns a new instance of the initial data structure used for
-  /// Lighting Profile Test.
-  ///
-  /// Initial data structure needs to be setup similar to this as
-  /// just assigning a Map normally assigns by reference and will
-  /// either overwrite the variable holding that initial structure
-  /// or throw an Exception because you attempted to modify an
-  /// immutable value if it was const.
-  static LightToLatLngMap newInitialDataDeepCopy() {
-    LightToLatLngMap newInitial = {};
-    newInitial[LightType.rhythmic] = <LatLng>{};
-    newInitial[LightType.building] = <LatLng>{};
-    newInitial[LightType.task] = <LatLng>{};
-    return newInitial;
+class LightingProfileData with JsonToString {
+  List<Light> lights = [];
+
+  LightingProfileData();
+
+  LightingProfileData.fromJson(Map<String, dynamic> data) {
+    List<LightType> types = LightType.values;
+    for (final type in types) {
+      if (data.containsKey(type.name) && (data[type.name] as List).isNotEmpty) {
+        for (final light in data[type.name]) {
+          if (light is GeoPoint) {
+            lights.add(Light(
+              point: light.toLatLng(),
+              lightType: type,
+            ));
+          }
+        }
+      }
+    }
   }
 
+  @override
+  Map<String, Object> toJson() {
+    // Create base map with each light type mapping to empty list
+    List<LightType> types = LightType.values;
+    Map<String, List> json = {
+      for (final type in types) type.name: [],
+    };
+
+    // Loop through all lights and add to map based on type
+    for (final light in lights) {
+      json[light.lightType.name]!.add(light.point.toGeoPoint());
+    }
+
+    return json;
+  }
+}
+
+/// Class for Lighting Profile Test info and methods.
+class LightingProfileTest extends Test<LightingProfileData> with JsonToString {
   /// Static constant definition of collection ID for this test type.
   static const String collectionIDStatic = 'lighting_profile_tests';
 
@@ -388,21 +508,11 @@ class LightingProfileTest extends Test<LightToLatLngMap> {
           scheduledTime: scheduledTime,
           projectRef: projectRef,
           collectionID: collectionID,
-          data: newInitialDataDeepCopy(),
+          data: LightingProfileData(),
         );
     // Register for recreating a Lighting Profile Test from Firestore
     Test._recreateTestConstructors[collectionIDStatic] = (testDoc) {
-      return LightingProfileTest._(
-        title: testDoc['title'],
-        testID: testDoc['id'],
-        scheduledTime: testDoc['scheduledTime'],
-        projectRef: testDoc['project'],
-        collectionID: testDoc.reference.parent.id,
-        data: convertDataFromFirestore(testDoc['data']),
-        creationTime: testDoc['creationTime'],
-        maxResearchers: testDoc['maxResearchers'],
-        isComplete: testDoc['isComplete'],
-      );
+      return LightingProfileTest.fromJson(testDoc.data()!);
     };
     // Register for building a Lighting Profile Test page
     Test._pageBuilders[LightingProfileTest] =
@@ -412,73 +522,63 @@ class LightingProfileTest extends Test<LightToLatLngMap> {
             );
     // Register a function for saving to Firestore
     Test._saveToFirestoreFunctions[LightingProfileTest] = (test) async {
-      await _firestore.collection(test.collectionID).doc(test.testID).set({
-        'title': test.title,
-        'id': test.testID,
-        'scheduledTime': test.scheduledTime,
-        'project': test.projectRef,
-        'data': convertDataToFirestore(test.data),
-        'creationTime': test.creationTime,
-        'maxResearchers': test.maxResearchers,
-        'isComplete': false,
-      }, SetOptions(merge: true));
+      final testRef = _firestore
+          .collection(test.collectionID)
+          .doc(test.testID)
+          .withConverter<LightingProfileTest>(
+            fromFirestore: (snapshot, _) =>
+                LightingProfileTest.fromJson(snapshot.data()!),
+            toFirestore: (test, _) => test.toJson(),
+          );
+      await testRef.set(test as LightingProfileTest, SetOptions(merge: true));
     };
   }
 
   @override
-  void submitData(LightToLatLngMap data) async {
+  void submitData(LightingProfileData data) async {
     try {
-      // Adds all points of each type from submitted data to overall data
-      StringToGeoPointMap firestoreData = convertDataToFirestore(data);
-
       // Updates data in Firestore
       await _firestore.collection(collectionID).doc(testID).update({
-        'data': firestoreData,
+        'data': data.toJson(),
         'isComplete': true,
       });
 
       this.data = data;
       isComplete = true;
 
-      print(
-          'Success! In LightingProfileTest.submitData. data = $firestoreData');
+      print('Success! In LightingProfileTest.submitData. data = $data');
     } catch (e, stacktrace) {
       print("Exception in LightingProfileTest.submitData(): $e");
       print("Stacktrace: $stacktrace");
     }
   }
 
-  /// Transforms data retrieved from Firestore test instance to
-  /// [LightToLatLngMap] for local manipulation.
-  static LightToLatLngMap convertDataFromFirestore(Map<String, dynamic> data) {
-    LightToLatLngMap output = newInitialDataDeepCopy();
-    List<LightType> types = LightType.values;
-    // Adds all data to output one type at a time
-    for (final type in types) {
-      if (data.containsKey(type.name)) {
-        for (final GeoPoint geopoint in data[type.name]!) {
-          output[type]?.add(geopoint.toLatLng());
-        }
-      }
-    }
-    return output;
+  static LightingProfileTest fromJson(Map<String, dynamic> doc) {
+    return LightingProfileTest._(
+      title: doc['title'],
+      testID: doc['id'],
+      scheduledTime: doc['scheduledTime'],
+      projectRef: doc['project'],
+      collectionID: collectionIDStatic,
+      data: LightingProfileData.fromJson(doc['data']),
+      creationTime: doc['creationTime'],
+      maxResearchers: doc['maxResearchers'],
+      isComplete: doc['isComplete'],
+    );
   }
 
-  /// Transforms data stored locally as [LightToLatLngMap] to
-  /// Firestore format (represented by [StringToGeoPointMap])
-  /// with String keys and any other needed changes.
-  static StringToGeoPointMap convertDataToFirestore(LightToLatLngMap data) {
-    StringToGeoPointMap output = {};
-    List<LightType> types = LightType.values;
-    for (final type in types) {
-      output[type.name] = [];
-      if (data.containsKey(type) && data[type] is Set) {
-        for (final latlng in data[type]!) {
-          output[type.name]?.add(latlng.toGeoPoint());
-        }
-      }
-    }
-    return output;
+  @override
+  Map<String, Object> toJson() {
+    return {
+      'title': title,
+      'id': testID,
+      'scheduledTime': scheduledTime,
+      'project': projectRef,
+      'data': data.toJson(),
+      'creationTime': creationTime,
+      'maxResearchers': maxResearchers,
+      'isComplete': isComplete,
+    };
   }
 }
 
@@ -496,7 +596,7 @@ abstract class DataPoint {
 
 /// Class for points representing instances of Behavior Misconduct in
 /// [AbsenceOfOrderTest].
-class BehaviorPoint extends DataPoint {
+class BehaviorPoint extends DataPoint with JsonToString {
   bool boisterousVoice;
   bool dangerousWildlife;
   bool livingInPublic;
@@ -549,6 +649,7 @@ class BehaviorPoint extends DataPoint {
   /// Converts the [location] to [GeoPoint] since that is the type
   /// used in Firestore. This leads to [location] not being as easily
   /// converted to a String as the rest of the properties.
+  @override
   Map<String, Object?> toJson() {
     return {
       'location': location?.toGeoPoint(),
@@ -561,16 +662,11 @@ class BehaviorPoint extends DataPoint {
       'other': other,
     };
   }
-
-  @override
-  String toString() {
-    return toJson().toString();
-  }
 }
 
 /// Class for points representing instances of Maintenance Misconduct in
 /// [AbsenceOfOrderTest].
-class MaintenancePoint extends DataPoint {
+class MaintenancePoint extends DataPoint with JsonToString {
   bool brokenEnvironment;
   bool dirtyOrUnmaintained;
   bool littering;
@@ -623,6 +719,7 @@ class MaintenancePoint extends DataPoint {
   /// Converts the [location] to [GeoPoint] since that is the type
   /// used in Firestore. This leads to [location] not being as easily
   /// converted to a String as the rest of the properties.
+  @override
   Map<String, Object?> toJson() {
     return {
       'location': location?.toGeoPoint(),
@@ -635,20 +732,15 @@ class MaintenancePoint extends DataPoint {
       'other': other,
     };
   }
-
-  @override
-  String toString() {
-    return toJson().toString();
-  }
 }
 
 /// Class representing the data format used for [AbsenceOfOrderTest].
 ///
 /// This is used as the generic type in the definition
 /// of [AbsenceOfOrderTest].
-class AbsenceOfOrderData {
-  List<BehaviorPoint> behaviorList = [];
-  List<MaintenancePoint> maintenanceList = [];
+class AbsenceOfOrderData with JsonToString {
+  final List<BehaviorPoint> behaviorList = [];
+  final List<MaintenancePoint> maintenanceList = [];
 
   AbsenceOfOrderData();
 
@@ -677,23 +769,19 @@ class AbsenceOfOrderData {
   /// Used when submitting a new [AbsenceOfOrderData] object from
   /// a completed [AbsenceOfOrderTest] to get the correct format for
   /// Firestore.
+  @override
   Map<String, Object> toJson() {
     Map<String, List<Map<String, dynamic>?>> json = {
       'behaviorPoints': [],
       'maintenancePoints': [],
     };
     for (final behavior in behaviorList) {
-      json['behaviorPoints']?.add(behavior.toJson());
+      json['behaviorPoints']!.add(behavior.toJson());
     }
     for (final maintenance in maintenanceList) {
-      json['maintenancePoints']?.add(maintenance.toJson());
+      json['maintenancePoints']!.add(maintenance.toJson());
     }
     return json;
-  }
-
-  @override
-  String toString() {
-    return toJson().toString();
   }
 
   /// Adds given [dataPoint] to the appropriate List in this data set.
@@ -726,7 +814,7 @@ class AbsenceOfOrderData {
 }
 
 /// Class for Absence of Order Test info and methods.
-class AbsenceOfOrderTest extends Test<AbsenceOfOrderData> {
+class AbsenceOfOrderTest extends Test<AbsenceOfOrderData> with JsonToString {
   static const String collectionIDStatic = 'absence_of_order_tests';
 
   /// Creates a new [AbsenceOfOrderTest] instance from the given arguments.
@@ -832,6 +920,311 @@ class AbsenceOfOrderTest extends Test<AbsenceOfOrderData> {
   ///
   /// Typically used when saving or updating this object to get the
   /// correct format for Firestore.
+  @override
+  Map<String, Object> toJson() {
+    return {
+      'title': title,
+      'id': testID,
+      'scheduledTime': scheduledTime,
+      'project': projectRef,
+      'data': data.toJson(),
+      'creationTime': creationTime,
+      'maxResearchers': maxResearchers,
+      'isComplete': isComplete,
+    };
+  }
+}
+
+enum BoundaryType { constructed, material, shelter }
+
+enum ConstructedBoundaryType {
+  curb,
+  buildingWall,
+  fence,
+  planter,
+  partialWall,
+}
+
+enum MaterialBoundaryType {
+  pavers,
+  concrete,
+  tile,
+  natural,
+  decking,
+}
+
+enum ShelterBoundaryType {
+  canopy,
+  tree,
+  furniture,
+  temporary,
+  constructed,
+}
+
+class ConstructedBoundary {
+  static Color polylineColor = Colors.purpleAccent;
+  late final Polyline polyline;
+  late final double polylineLength;
+  final ConstructedBoundaryType constructedType;
+
+  ConstructedBoundary({
+    required this.polyline,
+    required this.constructedType,
+  }) : polylineLength = polyline.getLengthInFeet();
+
+  ConstructedBoundary.recreate({
+    required this.polyline,
+    required this.polylineLength,
+    required this.constructedType,
+  });
+}
+
+class MaterialBoundary {
+  late final Polygon polygon;
+  late final double polygonArea;
+  final MaterialBoundaryType materialType;
+
+  MaterialBoundary({
+    required this.polygon,
+    required this.materialType,
+  }) : polygonArea = polygon.getAreaInSquareFeet();
+
+  MaterialBoundary.recreate({
+    required this.polygon,
+    required this.polygonArea,
+    required this.materialType,
+  });
+}
+
+class ShelterBoundary {
+  late final Polygon polygon;
+  late final double polygonArea;
+  final ShelterBoundaryType shelterType;
+
+  ShelterBoundary({
+    required this.polygon,
+    required this.shelterType,
+  }) : polygonArea = polygon.getAreaInSquareFeet();
+
+  ShelterBoundary.recreate({
+    required this.polygon,
+    required this.polygonArea,
+    required this.shelterType,
+  });
+}
+
+class SpatialBoundariesData with JsonToString {
+  final List<ConstructedBoundary> constructed = [];
+  final List<MaterialBoundary> material = [];
+  final List<ShelterBoundary> shelter = [];
+
+  SpatialBoundariesData();
+
+  SpatialBoundariesData.fromJson(Map<String, dynamic> data) {
+    if (data.containsKey(BoundaryType.constructed.name) &&
+        (data[BoundaryType.constructed.name] as Map).isNotEmpty) {
+      final constructedData = data[BoundaryType.constructed.name];
+      List<ConstructedBoundaryType> types = ConstructedBoundaryType.values;
+      for (final type in types) {
+        if (constructedData.containsKey(type.name) &&
+            (constructedData[type.name] as List).isNotEmpty) {
+          for (final boundary in (constructedData[type.name] as List)) {
+            // Try to create polyline from existing and only add if successful
+            List points = boundary['polyline'];
+            Polyline? polyline = createPolyline(
+                points.toLatLngList(), ConstructedBoundary.polylineColor);
+            if (polyline != null) {
+              constructed.add(ConstructedBoundary.recreate(
+                polyline: polyline,
+                polylineLength: boundary['polylineLength'],
+                constructedType: type,
+              ));
+            }
+          }
+        }
+      }
+    }
+    if (data.containsKey(BoundaryType.material.name) &&
+        (data[BoundaryType.material.name] as Map).isNotEmpty) {
+      final materialData = data[BoundaryType.material.name];
+      List<MaterialBoundaryType> types = MaterialBoundaryType.values;
+      for (final type in types) {
+        if (materialData.containsKey(type.name) &&
+            (materialData[type.name] as List).isNotEmpty) {
+          for (final boundary in (materialData[type.name] as List)) {
+            List points = boundary['polygon'];
+            Polygon polygon = Polygon(
+              polygonId:
+                  PolygonId(DateTime.now().millisecondsSinceEpoch.toString()),
+              points: points.toLatLngList(),
+            );
+            material.add(MaterialBoundary.recreate(
+              polygon: polygon,
+              polygonArea: boundary['polygonArea'],
+              materialType: type,
+            ));
+          }
+        }
+      }
+    }
+    if (data.containsKey(BoundaryType.shelter.name) &&
+        (data[BoundaryType.shelter.name] as Map).isNotEmpty) {
+      final shelterData = data[BoundaryType.shelter.name];
+      List<ShelterBoundaryType> types = ShelterBoundaryType.values;
+      for (final type in types) {
+        if (shelterData.containsKey(type.name) &&
+            (shelterData[type.name] as List).isNotEmpty) {
+          for (final boundary in (shelterData[type.name] as List)) {
+            List points = boundary['polygon'];
+            Polygon polygon = Polygon(
+              polygonId:
+                  PolygonId(DateTime.now().millisecondsSinceEpoch.toString()),
+              points: points.toLatLngList(),
+            );
+            shelter.add(ShelterBoundary.recreate(
+              polygon: polygon,
+              polygonArea: boundary['polygonArea'],
+              shelterType: type,
+            ));
+          }
+        }
+      }
+    }
+  }
+
+  @override
+  Map<String, Object> toJson() {
+    List<ConstructedBoundaryType> constructedTypes =
+        ConstructedBoundaryType.values;
+    List<MaterialBoundaryType> materialTypes = MaterialBoundaryType.values;
+    List<ShelterBoundaryType> shelterTypes = ShelterBoundaryType.values;
+    Map<String, Map<String, List>> json = {
+      BoundaryType.constructed.name: {
+        for (final type in constructedTypes) type.name: []
+      },
+      BoundaryType.material.name: {
+        for (final type in materialTypes) type.name: []
+      },
+      BoundaryType.shelter.name: {
+        for (final type in shelterTypes) type.name: []
+      },
+    };
+
+    for (final boundary in constructed) {
+      json[BoundaryType.constructed.name]![boundary.constructedType.name]?.add({
+        'polyline': boundary.polyline.toGeoPointList(),
+        'polylineLength': boundary.polylineLength,
+      });
+    }
+    for (final boundary in material) {
+      json[BoundaryType.material.name]![boundary.materialType.name]?.add({
+        'polygon': boundary.polygon.toGeoPointList(),
+        'polygonArea': boundary.polygonArea,
+      });
+    }
+    for (final boundary in shelter) {
+      json[BoundaryType.shelter.name]![boundary.shelterType.name]?.add({
+        'polygon': boundary.polygon.toGeoPointList(),
+        'polygonArea': boundary.polygonArea,
+      });
+    }
+
+    return json;
+  }
+}
+
+class SpatialBoundariesTest extends Test<SpatialBoundariesData>
+    with JsonToString {
+  static const String collectionIDStatic = 'spatial_boundaries_tests';
+
+  SpatialBoundariesTest._({
+    required super.title,
+    required super.testID,
+    required super.scheduledTime,
+    required super.projectRef,
+    required super.collectionID,
+    required super.data,
+    super.creationTime,
+    super.maxResearchers,
+    super.isComplete,
+  }) : super._();
+
+  /// Registers this class within the Maps required by class [Test].
+  static void register() {
+    // Register for creating new Spatial Boundaries Tests
+    Test._newTestConstructors[collectionIDStatic] = ({
+      required String title,
+      required String testID,
+      required Timestamp scheduledTime,
+      required DocumentReference projectRef,
+      required String collectionID,
+      List? standingPoints,
+    }) =>
+        SpatialBoundariesTest._(
+          title: title,
+          testID: testID,
+          scheduledTime: scheduledTime,
+          projectRef: projectRef,
+          collectionID: collectionID,
+          data: SpatialBoundariesData(),
+        );
+    // Register for recreating a Spatial Boundaries Test from Firestore
+    Test._recreateTestConstructors[collectionIDStatic] = (testDoc) {
+      return SpatialBoundariesTest.fromJson(testDoc.data()!);
+    };
+    // Register for building a Spatial Boundaries Test page
+    Test._pageBuilders[SpatialBoundariesTest] =
+        (project, test) => SpatialBoundariesTestPage(
+              activeProject: project,
+              activeTest: test as SpatialBoundariesTest,
+            );
+    // Register a function for saving to Firestore
+    Test._saveToFirestoreFunctions[SpatialBoundariesTest] = (test) async {
+      final testRef = _firestore
+          .collection(test.collectionID)
+          .doc(test.testID)
+          .withConverter<SpatialBoundariesTest>(
+            fromFirestore: (snapshot, _) =>
+                SpatialBoundariesTest.fromJson(snapshot.data()!),
+            toFirestore: (test, _) => test.toJson(),
+          );
+      await testRef.set(test as SpatialBoundariesTest, SetOptions(merge: true));
+    };
+  }
+
+  @override
+  void submitData(SpatialBoundariesData data) async {
+    try {
+      await _firestore.collection(collectionID).doc(testID).update({
+        'data': data.toJson(),
+        'isComplete': true,
+      });
+
+      this.data = data;
+      isComplete = true;
+
+      print('Success! In SpatialBoundariesTest.submitData. data = $data');
+    } catch (e, stacktrace) {
+      print("Exception in SpatialBoundariesTest.submitData(): $e");
+      print("Stacktrace: $stacktrace");
+    }
+  }
+
+  static SpatialBoundariesTest fromJson(Map<String, dynamic> doc) {
+    return SpatialBoundariesTest._(
+      title: doc['title'],
+      testID: doc['id'],
+      scheduledTime: doc['scheduledTime'],
+      projectRef: doc['project'],
+      collectionID: collectionIDStatic,
+      data: SpatialBoundariesData.fromJson(doc['data']),
+      creationTime: doc['creationTime'],
+      maxResearchers: doc['maxResearchers'],
+      isComplete: doc['isComplete'],
+    );
+  }
+
+  @override
   Map<String, Object> toJson() {
     return {
       'title': title,
@@ -850,27 +1243,36 @@ class AbsenceOfOrderTest extends Test<AbsenceOfOrderData> {
 ///
 /// Contains a [sectionLink] variable which refers to the section drawing
 /// stored in Firebase. Contains a function for converting to Firebase.
-class Section {
+class Section with JsonToString {
   final String sectionLink;
 
   Section({required this.sectionLink});
+
+  Section.empty()
+      : sectionLink = 'Empty sectionLink. SectionLink has not been set yet.';
+
+  static Section fromJson(Map<String, dynamic> data) {
+    Section? output;
+    if (data.containsKey('sectionLink') && data['sectionLink'] is String) {
+      output = Section(sectionLink: data['sectionLink']);
+    }
+    return output ??
+        Section(sectionLink: 'Error retrieving file. File not retrieved.');
+  }
+
+  @override
+  Map<String, String> toJson() {
+    return {'sectionLink': sectionLink};
+  }
 }
 
 /// Class for section cutter test info and methods.
-class SectionCutterTest extends Test<Section> {
-  /// Default structure for Section Cutter test. Simply a [Map<String, String>],
-  /// where the first string is the field and the second is the reference which
-  /// refers to the path of the section drawing.
-  static Section newInitialDataDeepCopy() {
-    return Section(
-        sectionLink: 'Empty sectionLink. SectionLink has not been set yet.');
-  }
-
+class SectionCutterTest extends Test<Section> with JsonToString {
   /// Static constant definition of collection ID for this test type.
   static const String collectionIDStatic = 'section_cutter_tests';
 
   /// Line used for taking section. Standing point equivalent for this test.
-  List linePoints;
+  List<LatLng> linePoints;
 
   /// Creates a new [SectionCutterTest] instance from the given arguments.
   ///
@@ -907,23 +1309,13 @@ class SectionCutterTest extends Test<Section> {
           scheduledTime: scheduledTime,
           projectRef: projectRef,
           collectionID: collectionID,
-          data: newInitialDataDeepCopy(),
-          linePoints: standingPoints ?? [],
+          data: Section.empty(),
+          linePoints: (standingPoints as List<LatLng>?) ?? [],
         );
     // Register for Map for Test.recreateFromDoc
-    Test._recreateTestConstructors[collectionIDStatic] =
-        (testDoc) => SectionCutterTest._(
-              title: testDoc['title'],
-              testID: testDoc['id'],
-              scheduledTime: testDoc['scheduledTime'],
-              projectRef: testDoc['project'],
-              collectionID: testDoc.reference.parent.id,
-              data: convertDataFromFirestore(testDoc['data']),
-              creationTime: testDoc['creationTime'],
-              maxResearchers: testDoc['maxResearchers'],
-              isComplete: testDoc['isComplete'],
-              linePoints: testDoc['linePoints'],
-            );
+    Test._recreateTestConstructors[collectionIDStatic] = (testDoc) {
+      return SectionCutterTest.fromJson(testDoc.data()!);
+    };
     // Register for Map for Test.getPage
     Test._pageBuilders[SectionCutterTest] = (project, test) => SectionCutter(
           projectData: project,
@@ -933,27 +1325,25 @@ class SectionCutterTest extends Test<Section> {
     // Standing points are saved under line, as they will be made to create
     // a polyline, instead of displayed as individual points.
     Test._saveToFirestoreFunctions[SectionCutterTest] = (test) async {
-      await _firestore.collection(test.collectionID).doc(test.testID).set({
-        'title': test.title,
-        'id': test.testID,
-        'scheduledTime': test.scheduledTime,
-        'project': test.projectRef,
-        'data': convertDataToFirestore(test.data),
-        'creationTime': test.creationTime,
-        'maxResearchers': test.maxResearchers,
-        'isComplete': false,
-        'linePoints': (test as SectionCutterTest).linePoints,
-      }, SetOptions(merge: true));
+      final testRef = _firestore
+          .collection(test.collectionID)
+          .doc(test.testID)
+          .withConverter<SectionCutterTest>(
+            fromFirestore: (snapshot, _) =>
+                SectionCutterTest.fromJson(snapshot.data()!),
+            toFirestore: (test, _) => test.toJson(),
+          );
+      await testRef.set(test as SectionCutterTest, SetOptions(merge: true));
     };
+    Test._standingPointTestCollectionIDs.add(collectionIDStatic);
   }
 
   @override
   void submitData(Section data) async {
     try {
-      Map<String, String> firestoreData = convertDataToFirestore(data);
       // Updates data in Firestore
       await _firestore.collection(collectionID).doc(testID).update({
-        'data': firestoreData,
+        'data': data.toJson(),
         'isComplete': true,
       });
 
@@ -967,8 +1357,34 @@ class SectionCutterTest extends Test<Section> {
     }
   }
 
-  static Map<String, String> convertDataToFirestore(Section data) {
-    return {'sectionLink': data.sectionLink};
+  static SectionCutterTest fromJson(Map<String, dynamic> doc) {
+    return SectionCutterTest._(
+      title: doc['title'],
+      testID: doc['id'],
+      scheduledTime: doc['scheduledTime'],
+      projectRef: doc['project'],
+      collectionID: collectionIDStatic,
+      data: Section.fromJson(doc['data']),
+      creationTime: doc['creationTime'],
+      maxResearchers: doc['maxResearchers'],
+      isComplete: doc['isComplete'],
+      linePoints: (doc['linePoints'] as List).toLatLngList(),
+    );
+  }
+
+  @override
+  Map<String, Object> toJson() {
+    return {
+      'title': title,
+      'id': testID,
+      'scheduledTime': scheduledTime,
+      'project': projectRef,
+      'data': data.toJson(),
+      'creationTime': creationTime,
+      'maxResearchers': maxResearchers,
+      'isComplete': isComplete,
+      'linePoints': linePoints.toGeoPointList(),
+    };
   }
 
   /// Saves given [XFile] under the test's project reference.
@@ -995,15 +1411,6 @@ class SectionCutterTest extends Test<Section> {
     // Section should only be null if the file fails to save to Firebase.
     return section ??
         Section(sectionLink: 'Error saving file. File not saved.');
-  }
-
-  static Section convertDataFromFirestore(Map<String, dynamic> data) {
-    Section? output;
-    if (data.containsKey('sectionLink') && data['sectionLink'] is String) {
-      output = Section(sectionLink: data['sectionLink']);
-    }
-    return output ??
-        Section(sectionLink: 'Error retrieving file. File not retrieved.');
   }
 }
 
@@ -1070,7 +1477,8 @@ class BikeRack implements AccessTypes {
 
   BikeRack({required this.spots, required this.polyline})
       : pathLength = mp.SphericalUtil.computeLength(polyline.toMPLatLngList())
-            .toDouble();
+                .toDouble() *
+            feetPerMeter;
 
   @override
   Map<String, dynamic> convertToFirestoreData() {
@@ -1095,7 +1503,8 @@ class TaxiAndRideShare implements AccessTypes {
 
   TaxiAndRideShare({required this.polyline})
       : pathLength = mp.SphericalUtil.computeLength(polyline.toMPLatLngList())
-            .toDouble();
+                .toDouble() *
+            feetPerMeter;
 
   @override
   Map<String, dynamic> convertToFirestoreData() {
@@ -1121,7 +1530,8 @@ class Parking implements AccessTypes {
 
   Parking({required this.spots, required this.polyline, required this.polygon})
       : pathLength = mp.SphericalUtil.computeLength(polyline.toMPLatLngList())
-            .toDouble(),
+                .toDouble() *
+            feetPerMeter,
         polygonArea = (mp.SphericalUtil.computeArea(polygon.toMPLatLngList()) *
                 pow(feetPerMeter, 2))
             .toDouble();
@@ -1154,7 +1564,8 @@ class TransportStation implements AccessTypes {
 
   TransportStation({required this.routeNumber, required this.polyline})
       : pathLength = mp.SphericalUtil.computeLength(polyline.toMPLatLngList())
-            .toDouble();
+                .toDouble() *
+            feetPerMeter;
 
   @override
   Map<String, dynamic> convertToFirestoreData() {
@@ -1180,9 +1591,6 @@ class IdentifyingAccessTest extends Test<AccessData> {
   /// Static constant definition of collection ID for this test type.
   static const String collectionIDStatic = 'identifying_access_tests';
 
-  /// Temporary list of standing points for testing purposes (TODO)
-  List standingPoints;
-
   /// Creates a new [IdentifyingAccessTest] instance from the given arguments.
   IdentifyingAccessTest._({
     required super.title,
@@ -1191,7 +1599,6 @@ class IdentifyingAccessTest extends Test<AccessData> {
     required super.projectRef,
     required super.collectionID,
     required super.data,
-    required this.standingPoints,
     super.creationTime,
     super.maxResearchers,
     super.isComplete,
@@ -1215,7 +1622,6 @@ class IdentifyingAccessTest extends Test<AccessData> {
           projectRef: projectRef,
           collectionID: collectionID,
           data: newInitialDataDeepCopy(),
-          standingPoints: standingPoints ?? [],
         );
     // Register for recreating a Identifying Access Test from Firestore
     Test._recreateTestConstructors[collectionIDStatic] = (testDoc) {
@@ -1230,7 +1636,6 @@ class IdentifyingAccessTest extends Test<AccessData> {
         creationTime: testDoc['creationTime'],
         maxResearchers: testDoc['maxResearchers'],
         isComplete: testDoc['isComplete'],
-        standingPoints: testDoc['standingPoints'],
       );
     };
     // Register for building a Identifying Access Test page
@@ -1250,7 +1655,6 @@ class IdentifyingAccessTest extends Test<AccessData> {
         'creationTime': test.creationTime,
         'maxResearchers': test.maxResearchers,
         'isComplete': false,
-        'standingPoints': (test as IdentifyingAccessTest).standingPoints,
       }, SetOptions(merge: true));
     };
   }
@@ -1434,6 +1838,7 @@ class NatureData implements NatureTypes {
   List<Animal> animals = [];
   List<WaterBody> waterBodies = [];
   List<Vegetation> vegetation = [];
+  WeatherData? weather;
 
   @override
   Map<String, Map> convertToFirestoreData() {
@@ -1464,7 +1869,14 @@ class NatureData implements NatureTypes {
       WaterBodyType.river.name: [],
       WaterBodyType.swamp.name: [],
     };
+    Map<String, dynamic> weatherData = {};
     try {
+      if (weather == null) {
+        throw Exception(
+            "Weather not set in NatureType.convertToFirestoreData()!");
+      } else {
+        weatherData = weather!.convertToFirestoreData();
+      }
       for (Animal animal in animals) {
         // Checks that the set contains the correct fields as needed, included
         // domestication designation and name, then adds the data accordingly.
@@ -1488,6 +1900,7 @@ class NatureData implements NatureTypes {
             ?.add(vegetation.convertToFirestoreData());
       }
       firestoreData = {
+        'weather': weatherData,
         NatureType.animal.name: animalData,
         NatureType.vegetation.name: vegetationData,
         NatureType.waterBody.name: waterBodyData,
@@ -1497,6 +1910,41 @@ class NatureData implements NatureTypes {
       print("Stacktrace $stacktrace");
     }
 
+    return firestoreData;
+  }
+}
+
+/// Types of weather for Nature Prevalence. Types include [sunny], [cloudy],
+/// [rainy], [windy], and [stormy].
+enum Weather { sunny, cloudy, rainy, windy, stormy }
+
+/// Class for weather in Nature Prevalence Test. Implements enum type
+/// [weather].
+class WeatherData implements NatureTypes {
+  final List<Weather> weatherTypes;
+  final double temp;
+
+  WeatherData({required this.weatherTypes, required this.temp});
+
+  @override
+  Map<String, dynamic> convertToFirestoreData() {
+    Map<String, dynamic> firestoreData = {};
+    Map<String, bool> weatherMap = {};
+    try {
+      // Initialize a map for Firestore with true or false depending on weather.
+      for (Weather weatherType in Weather.values) {
+        weatherTypes.contains(weatherType)
+            ? weatherMap[weatherType.name] = true
+            : weatherMap[weatherType.name] = false;
+      }
+      firestoreData = {
+        'weatherTypes': weatherMap,
+        'temperature': temp,
+      };
+    } catch (e, stacktrace) {
+      print("Error in Vegetation.convertToFirestoreData(): $e");
+      print("Stacktrace: $stacktrace");
+    }
     return firestoreData;
   }
 }
@@ -1688,7 +2136,6 @@ class NaturePrevalenceTest extends Test<NatureData> {
         );
     // Register for recreating a Nature Prevalence Test from Firestore
     Test._recreateTestConstructors[collectionIDStatic] = (testDoc) {
-      print(testDoc['data']);
       return NaturePrevalenceTest._(
         title: testDoc['title'],
         testID: testDoc['id'],
@@ -1720,6 +2167,7 @@ class NaturePrevalenceTest extends Test<NatureData> {
         'isComplete': false,
       }, SetOptions(merge: true));
     };
+    Test._timerTestCollectionIDs.add(collectionIDStatic);
   }
 
   @override
@@ -1753,8 +2201,22 @@ class NaturePrevalenceTest extends Test<NatureData> {
     List<Animal> animalList = [];
     List<WaterBody> waterBodyList = [];
     List<Vegetation> vegetationList = [];
+    WeatherData? weatherData;
+    List<Weather> weatherTypes = [];
 
     try {
+      if (data.containsKey('weather')) {
+        for (Weather weatherType in Weather.values) {
+          if (data['weather'].containsKey(weatherType) &&
+              data['weather'][weatherType] == true) {
+            weatherTypes.add(weatherType);
+          }
+        }
+        if (data['weather'].containsKey('temperature')) {
+          weatherData = WeatherData(
+              weatherTypes: weatherTypes, temp: data['weather']['temperature']);
+        }
+      }
       // Getting data from animal in Firestore
       if (data.containsKey(NatureType.animal.name)) {
         // For every animal type
@@ -1864,8 +2326,14 @@ class NaturePrevalenceTest extends Test<NatureData> {
       output.animals = animalList;
       output.vegetation = vegetationList;
       output.waterBodies = waterBodyList;
+      if (weatherData == null) {
+        throw Exception(
+            "Weather is not defined in Firestore in Nature Prevalence test .");
+      } else {
+        output.weather = weatherData;
+      }
     } catch (e, stacktrace) {
-      print("Error in NaturePrevalenceTest.convertDataFromFirestore(): $e");
+      print("Warning in NaturePrevalenceTest.convertDataFromFirestore(): $e");
       print("Stacktrace: $stacktrace");
     }
 
@@ -1876,5 +2344,504 @@ class NaturePrevalenceTest extends Test<NatureData> {
   /// the appropriate Firestore representation.
   static Map<String, Map> convertDataToFirestore(NatureData data) {
     return data.convertToFirestoreData();
+  }
+}
+
+abstract interface class DisplayNameEnum {
+  final String displayName;
+
+  DisplayNameEnum({required this.displayName});
+
+  /// Returns the enumerated type with the matching displayName.
+  factory DisplayNameEnum.byDisplayName(String displayName) {
+    throw UnimplementedError();
+  }
+}
+
+enum AgeRangeType implements DisplayNameEnum {
+  age0to14(displayName: '0-14'),
+  age15to21(displayName: '15-21'),
+  age22to30(displayName: '22-30'),
+  age31to50(displayName: '31-50'),
+  age51to65(displayName: '51-65'),
+  age66andAbove(displayName: '66+');
+
+  const AgeRangeType({required this.displayName});
+
+  @override
+  final String displayName;
+
+  /// Returns the enumerated type with the matching displayName.
+  factory AgeRangeType.byDisplayName(String displayName) {
+    try {
+      for (final type in AgeRangeType.values) {
+        if (type.displayName == displayName) return type;
+      }
+      throw Exception('Invalid AgeRangeType displayName');
+    } catch (e, s) {
+      throw Exception('Error: $e\nStacktrace: $s');
+    }
+  }
+}
+
+enum GenderType implements DisplayNameEnum {
+  male(displayName: 'Male'),
+  female(displayName: 'Female'),
+  nonbinary(displayName: 'Nonbinary'),
+  unspecified(displayName: 'Unspecified');
+
+  const GenderType({required this.displayName});
+
+  @override
+  final String displayName;
+
+  /// Returns the enumerated type with the matching displayName.
+  factory GenderType.byDisplayName(String displayName) {
+    try {
+      for (final type in GenderType.values) {
+        if (type.displayName == displayName) return type;
+      }
+      throw Exception('Invalid GenderType displayName');
+    } catch (e, s) {
+      throw Exception('Error: $e\nStacktrace: $s');
+    }
+  }
+}
+
+enum ActivityTypeInPlace implements DisplayNameEnum {
+  socializing(displayName: 'Socializing'),
+  waiting(displayName: 'Waiting'),
+  recreation(displayName: 'Recreation'),
+  eating(displayName: 'Eating'),
+  solitary(displayName: 'Solitary');
+
+  const ActivityTypeInPlace({required this.displayName});
+
+  @override
+  final String displayName;
+
+  /// Returns the enumerated type with the matching displayName.
+  factory ActivityTypeInPlace.byDisplayName(String displayName) {
+    try {
+      for (final type in ActivityTypeInPlace.values) {
+        if (type.displayName == displayName) return type;
+      }
+      throw Exception('Invalid ActivityTypeInPlace displayName');
+    } catch (e, s) {
+      throw Exception('Error: $e\nStacktrace: $s');
+    }
+  }
+}
+
+enum PostureType implements DisplayNameEnum {
+  standing(displayName: 'Standing', color: Color(0xFF4285f4)),
+  sitting(displayName: 'Sitting', color: Color(0xFF28a745)),
+  layingDown(displayName: 'Laying Down', color: Color(0xFFc41484)),
+  squatting(displayName: 'Squatting', color: Color(0xFF6f42c1));
+
+  const PostureType({required this.displayName, required this.color});
+
+  @override
+  final String displayName;
+  final Color color;
+
+  /// Returns the enumerated type with the matching displayName.
+  factory PostureType.byDisplayName(String displayName) {
+    try {
+      for (final type in PostureType.values) {
+        if (type.displayName == displayName) return type;
+      }
+      throw Exception('Invalid PostureType displayName');
+    } catch (e, s) {
+      throw Exception('Error: $e\nStacktrace: $s');
+    }
+  }
+}
+
+class PersonInPlace with JsonToString {
+  late final LatLng location;
+  late final AgeRangeType ageRange;
+  late final GenderType gender;
+  late final Set<ActivityTypeInPlace> activities;
+  late final PostureType posture;
+
+  PersonInPlace({
+    required this.location,
+    required this.ageRange,
+    required this.gender,
+    required this.activities,
+    required this.posture,
+  });
+
+  PersonInPlace.fromJson(Map<String, dynamic> data) {
+    if (data.containsKey('location') && data['location'] is GeoPoint) {
+      location = (data['location'] as GeoPoint).toLatLng();
+    }
+    if (data.containsKey('ageRange') && data['ageRange'] is String) {
+      String ageString = data['ageRange'] as String;
+      ageRange = AgeRangeType.values.byName(ageString);
+    }
+    if (data.containsKey('gender') && data['gender'] is String) {
+      String genderString = data['gender'] as String;
+      gender = GenderType.values.byName(genderString);
+    }
+    if (data.containsKey('activities') &&
+        data['activities'] is List &&
+        data['activities'].first is String) {
+      List activityStrings = data['activities'];
+      activities = {
+        for (final string in activityStrings)
+          ActivityTypeInPlace.values.byName(string)
+      };
+    }
+    if (data.containsKey('posture') && data['posture'] is String) {
+      String postureString = data['posture'] as String;
+      posture = PostureType.values.byName(postureString);
+    }
+  }
+
+  @override
+  Map<String, Object> toJson() {
+    return {
+      'location': location.toGeoPoint(),
+      'ageRange': ageRange.name,
+      'gender': gender.name,
+      'activities': <String>[for (final activity in activities) activity.name],
+      'posture': posture.name,
+    };
+  }
+}
+
+class PeopleInPlaceData with JsonToString {
+  final List<PersonInPlace> persons = [];
+
+  PeopleInPlaceData();
+
+  PeopleInPlaceData.fromJson(Map<String, dynamic> data) {
+    if (data.containsKey('persons') &&
+        (data['persons'] as List).isNotEmpty &&
+        data['persons'].first is Map) {
+      List personsJsonList = data['persons'];
+      for (final personJson in personsJsonList) {
+        persons.add(PersonInPlace.fromJson(personJson));
+      }
+    }
+    print(this);
+  }
+
+  @override
+  Map<String, Object> toJson() {
+    return {'persons': persons.map((person) => person.toJson()).toList()};
+  }
+}
+
+class PeopleInPlaceTest extends Test<PeopleInPlaceData> with JsonToString {
+  static const String collectionIDStatic = 'people_in_place_tests';
+
+  final List<StandingPoint> standingPoints;
+
+  PeopleInPlaceTest._({
+    required super.title,
+    required super.testID,
+    required super.scheduledTime,
+    required super.projectRef,
+    required super.collectionID,
+    required super.data,
+    required this.standingPoints,
+    super.creationTime,
+    super.maxResearchers,
+    super.isComplete,
+  }) : super._();
+
+  static void register() {
+    Test._newTestConstructors[collectionIDStatic] = ({
+      required String title,
+      required String testID,
+      required Timestamp scheduledTime,
+      required DocumentReference projectRef,
+      required String collectionID,
+      List? standingPoints,
+    }) =>
+        PeopleInPlaceTest._(
+          title: title,
+          testID: testID,
+          scheduledTime: scheduledTime,
+          projectRef: projectRef,
+          collectionID: collectionID,
+          data: PeopleInPlaceData(),
+          standingPoints: (standingPoints as List<StandingPoint>?) ?? [],
+        );
+    Test._recreateTestConstructors[collectionIDStatic] = (testDoc) {
+      return PeopleInPlaceTest.fromJson(testDoc.data()!);
+    };
+    Test._pageBuilders[PeopleInPlaceTest] =
+        (project, test) => PeopleInPlaceTestPage(
+              activeProject: project,
+              activeTest: test as PeopleInPlaceTest,
+            );
+    Test._saveToFirestoreFunctions[PeopleInPlaceTest] = (test) async {
+      final testRef = _firestore
+          .collection(test.collectionID)
+          .doc(test.testID)
+          .withConverter(
+            fromFirestore: (snapshot, _) =>
+                PeopleInPlaceTest.fromJson(snapshot.data()!),
+            toFirestore: (test, _) => test.toJson(),
+          );
+      await testRef.set(test as PeopleInPlaceTest, SetOptions(merge: true));
+    };
+    Test._standingPointTestCollectionIDs.add(collectionIDStatic);
+  }
+
+  @override
+  void submitData(PeopleInPlaceData data) async {
+    try {
+      await _firestore.collection(collectionID).doc(testID).update({
+        'data': data.toJson(),
+        'isComplete': true,
+      });
+
+      this.data = data;
+      isComplete = true;
+
+      print('Success! In PeopleInPlaceTest.submitData. data = $data');
+    } catch (e, stacktrace) {
+      print("Exception in PeopleInPlaceTest.submitData(): $e");
+      print("Stacktrace: $stacktrace");
+    }
+  }
+
+  static PeopleInPlaceTest fromJson(Map<String, dynamic> doc) {
+    return PeopleInPlaceTest._(
+      title: doc['title'],
+      testID: doc['id'],
+      scheduledTime: doc['scheduledTime'],
+      projectRef: doc['project'],
+      collectionID: collectionIDStatic,
+      data: PeopleInPlaceData.fromJson(doc['data']),
+      creationTime: doc['creationTime'],
+      maxResearchers: doc['maxResearchers'],
+      isComplete: doc['isComplete'],
+      standingPoints: StandingPoint.fromJsonList(doc['standingPoints']),
+    );
+  }
+
+  @override
+  Map<String, Object> toJson() {
+    return {
+      'title': title,
+      'id': testID,
+      'scheduledTime': scheduledTime,
+      'project': projectRef,
+      'data': data.toJson(),
+      'creationTime': creationTime,
+      'maxResearchers': maxResearchers,
+      'isComplete': isComplete,
+      'standingPoints': StandingPoint.toJsonList(standingPoints),
+    };
+  }
+}
+
+enum ActivityTypeInMotion implements DisplayNameEnum {
+  walking(displayName: 'Walking', color: Colors.teal),
+  running(displayName: 'Running', color: Colors.red),
+  swimming(displayName: 'Swimming', color: Colors.cyan),
+  activityOnWheels(displayName: 'Activity on Wheels', color: Colors.orange),
+  handicapAssistedWheels(
+      displayName: 'Handicap Assisted Wheels', color: Colors.purple);
+
+  const ActivityTypeInMotion({
+    required this.displayName,
+    required this.color,
+  });
+
+  @override
+  final String displayName;
+  final Color color;
+
+  factory ActivityTypeInMotion.byDisplayName(String displayName) {
+    try {
+      for (final type in ActivityTypeInMotion.values) {
+        if (type.displayName == displayName) return type;
+      }
+      throw Exception('Invalid ActivityTypeInMotion displayName');
+    } catch (e, s) {
+      throw Exception('Error: $e\nStacktrace: $s');
+    }
+  }
+}
+
+class PersonInMotion {
+  late final Polyline polyline;
+  late final double polylineLength;
+  late final ActivityTypeInMotion activity;
+
+  PersonInMotion({required this.polyline, required this.activity})
+      : polylineLength = polyline.getLengthInFeet();
+
+  PersonInMotion.recreate({
+    required this.polyline,
+    required this.polylineLength,
+    required this.activity,
+  });
+}
+
+class PeopleInMotionData with JsonToString {
+  final List<PersonInMotion> persons = [];
+
+  PeopleInMotionData();
+
+  PeopleInMotionData.fromJson(Map<String, dynamic> data) {
+    for (final type in ActivityTypeInMotion.values) {
+      if (data.containsKey(type.name) && (data[type.name] as List).isNotEmpty) {
+        for (final person in data[type.name] as List) {
+          List points = person['polyline'];
+          Polyline? polyline =
+              createPolyline(points.toLatLngList(), type.color);
+          if (polyline != null) {
+            persons.add(PersonInMotion.recreate(
+              polyline: polyline,
+              polylineLength: person['polylineLength'],
+              activity: type,
+            ));
+          }
+        }
+      }
+    }
+    print(this);
+  }
+
+  @override
+  Map<String, Object> toJson() {
+    // Initialize map with a field for each activity type with empty list
+    Map<String, List<Map<String, Object>>> json = {
+      for (final type in ActivityTypeInMotion.values) type.name: []
+    };
+
+    // Add each person data stored in persons to the appropriate list.
+    for (final person in persons) {
+      json[person.activity.name]!.add({
+        'polyline': person.polyline.toGeoPointList(),
+        'polylineLength': person.polylineLength,
+      });
+    }
+
+    return json;
+  }
+}
+
+class PeopleInMotionTest extends Test<PeopleInMotionData> with JsonToString {
+  /// Static constant definition of collection ID for this test type.
+  static const String collectionIDStatic = 'people_in_motion_tests';
+
+  final List<StandingPoint> standingPoints;
+
+  /// Private constructor for PeopleInMotionTest.
+  PeopleInMotionTest._({
+    required super.title,
+    required super.testID,
+    required super.scheduledTime,
+    required super.projectRef,
+    required super.collectionID,
+    required super.data,
+    required this.standingPoints,
+    super.creationTime,
+    super.maxResearchers,
+    super.isComplete,
+  }) : super._();
+
+  /// Registers this test type in the Test class system.
+  static void register() {
+    // Register for creating new instances
+    Test._newTestConstructors[collectionIDStatic] = ({
+      required String title,
+      required String testID,
+      required Timestamp scheduledTime,
+      required DocumentReference projectRef,
+      required String collectionID,
+      List? standingPoints,
+    }) =>
+        PeopleInMotionTest._(
+          title: title,
+          testID: testID,
+          scheduledTime: scheduledTime,
+          projectRef: projectRef,
+          collectionID: collectionID,
+          data: PeopleInMotionData(),
+          standingPoints: (standingPoints as List<StandingPoint>?) ?? [],
+        );
+    // Register for recreating from Firestore
+    Test._recreateTestConstructors[collectionIDStatic] = (testDoc) {
+      return PeopleInMotionTest.fromJson(testDoc.data()!);
+    };
+    // Register the test's UI page
+    Test._pageBuilders[PeopleInMotionTest] =
+        (project, test) => PeopleInMotionTestPage(
+              activeProject: project,
+              activeTest: test as PeopleInMotionTest,
+            );
+    // Register the save function
+    Test._saveToFirestoreFunctions[PeopleInMotionTest] = (test) async {
+      final testRef = _firestore
+          .collection(test.collectionID)
+          .doc(test.testID)
+          .withConverter<PeopleInMotionTest>(
+            fromFirestore: (snapshot, _) =>
+                PeopleInMotionTest.fromJson(snapshot.data()!),
+            toFirestore: (test, _) => test.toJson(),
+          );
+      await testRef.set(test as PeopleInMotionTest, SetOptions(merge: true));
+    };
+    Test._standingPointTestCollectionIDs.add(collectionIDStatic);
+  }
+
+  /// Handles data submission to Firestore when the test is completed.
+  @override
+  void submitData(PeopleInMotionData data) async {
+    try {
+      // Update Firestore with the test data and mark it as complete
+      await _firestore.collection(collectionID).doc(testID).update({
+        'data': data.toJson(),
+        'isComplete': true,
+      });
+
+      this.data = data;
+      isComplete = true;
+
+      print('Success! PeopleInMotionTest data submitted. data = $data');
+    } catch (e, stacktrace) {
+      print("Exception in PeopleInMotionTest.submitData(): $e");
+      print("Stacktrace: $stacktrace");
+    }
+  }
+
+  static PeopleInMotionTest fromJson(Map<String, dynamic> doc) {
+    return PeopleInMotionTest._(
+      title: doc['title'],
+      testID: doc['id'],
+      scheduledTime: doc['scheduledTime'],
+      projectRef: doc['project'],
+      collectionID: collectionIDStatic,
+      data: PeopleInMotionData.fromJson(doc['data']),
+      creationTime: doc['creationTime'],
+      maxResearchers: doc['maxResearchers'],
+      isComplete: doc['isComplete'],
+      standingPoints: StandingPoint.fromJsonList(doc['standingPoints']),
+    );
+  }
+
+  @override
+  Map<String, Object> toJson() {
+    return {
+      'title': title,
+      'id': testID,
+      'scheduledTime': scheduledTime,
+      'project': projectRef,
+      'data': data.toJson(),
+      'creationTime': creationTime,
+      'maxResearchers': maxResearchers,
+      'isComplete': isComplete,
+      'standingPoints': StandingPoint.toJsonList(standingPoints),
+    };
   }
 }

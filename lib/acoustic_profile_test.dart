@@ -1,71 +1,29 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'
-    show
-        CameraPosition,
-        CameraUpdate,
-        GoogleMap,
-        GoogleMapController,
-        LatLng,
-        LatLngBounds,
-        MapType,
-        Marker,
-        Polygon,
-        createLocalImageConfiguration;
-import 'package:geolocator/geolocator.dart';
-import 'package:maps_toolkit/maps_toolkit.dart' as mp;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'acoustic_instructions.dart';
+import 'assets.dart';
 import 'db_schema_classes.dart';
 import 'firestore_functions.dart';
 import 'google_maps_functions.dart';
-import 'people_in_place_instructions.dart'; // for _showInstructionOverlay
-import 'project_details_page.dart';
-
-// Data model to store one acoustic measurement
-class AcousticMeasurement {
-  final double decibel;
-  final List<String> soundTypes;
-  final String mainSoundType;
-  final DateTime timestamp;
-
-  AcousticMeasurement({
-    required this.decibel,
-    required this.soundTypes,
-    required this.mainSoundType,
-    required this.timestamp,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'decibel': decibel,
-      'soundTypes': soundTypes,
-      'mainSoundType': mainSoundType,
-      'timestamp': timestamp.toIso8601String(),
-    };
-  }
-}
-
-// Converts a list of AcousticMeasurement objects into a list of JSON maps.
-List<Map<String, dynamic>> acousticMeasurementsToJson(
-    List<AcousticMeasurement> measurements) {
-  return measurements.map((m) => m.toJson()).toList();
-}
+import 'theme.dart';
+import 'widgets.dart';
 
 /// AcousticProfileTestPage displays a Google Map (with the project polygon)
 /// in the background and uses a timer to prompt the researcher for sound
 /// measurements at fixed intervals.
 class AcousticProfileTestPage extends StatefulWidget {
   final Project activeProject;
-  final dynamic
-      activeTest; // Depending on your schema, this might be a specific test type
+  final AcousticProfileTest activeTest;
 
   const AcousticProfileTestPage({
-    Key? key,
+    super.key,
     required this.activeProject,
     required this.activeTest,
-  }) : super(key: key);
+  });
 
   @override
   State<AcousticProfileTestPage> createState() =>
@@ -73,120 +31,233 @@ class AcousticProfileTestPage extends StatefulWidget {
 }
 
 class _AcousticProfileTestPageState extends State<AcousticProfileTestPage> {
+  bool _isIntervalCycleRunning = false;
+  bool _isErrorTextShown = false;
+  bool _isTestComplete = false;
+  bool _directionsVisible = true;
+
   late GoogleMapController mapController;
-  LatLng _currentLocation = defaultLocation; // Default location
-  bool _isLoading = true;
-  Timer? _intervalTimer;
-  int _currentInterval = 0;
-  Set<Polygon> _polygons = {};
-  final int _maxIntervals = 15; // Total number of intervals
-  // List to store acoustic measurements for each interval.
-  List<AcousticMeasurement> _measurements = [];
-  // Timer (in seconds) for each interval (e.g. 4 seconds).
-  final int _intervalDuration = 4;
-  // Controls whether the test is running.
-  bool _isTestRunning = false;
-  // For simplicity, we remove marker/point-tap functionality.
-  MapType _currentMapType = MapType.normal;
-  // Firestore instance.
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  bool _showErrorMessage = false;
+  LatLng _location = defaultLocation;
+  double _zoom = 18;
+  MapType _currentMapType = MapType.satellite;
+
+  final Set<Polygon> _polygons = {};
+  final Set<Circle> _circles = <Circle>{};
+  Set<Marker> _markers = {};
+  late final List<StandingPoint> _standingPoints;
+
+  Timer? _timer;
+  int _intervalDuration = -1;
+  int _intervalCount = -1;
   int _remainingSeconds = 0;
-  bool _isBottomSheetOpen = false;
+  int _intervalsRemaining = 0;
+
+  // List to store acoustic measurements for each interval.
+  final Map<MarkerId, bool> _standingPointCompletionStatus = {};
+  Marker? _activeMarker;
+
+  final AcousticProfileData _newData = AcousticProfileData.empty();
 
   @override
   void initState() {
     super.initState();
-    // Center the map based on the project polygon.
-    _initProjectArea();
-    _checkAndFetchLocation();
-    // Delay starting the interval timer until the map is ready.
-    WidgetsBinding.instance.addPostFrameCallback((_) {});
+    _polygons.add(getProjectPolygon(widget.activeProject.polygonPoints));
+    _location = getPolygonCentroid(_polygons.first);
+    _zoom = getIdealZoom(
+      _polygons.first.toMPLatLngList(),
+      _location.toMPLatLng(),
+    );
+    _intervalDuration = widget.activeTest.intervalDuration;
+    _intervalCount = widget.activeTest.intervalCount;
+    _intervalsRemaining = _intervalCount;
+    _standingPoints = widget.activeTest.standingPoints.toList();
+    // Create an AcousticDataPoint in _newData for each standing point.
+    for (final point in _standingPoints) {
+      _newData.dataPoints.add(AcousticDataPoint(
+        standingPoint: point,
+        measurements: [],
+      ));
+    }
+    _markers = _buildStandingPointMarkers();
+  }
+
+  /// Creates a marker for each standing point and returns that set of markers.
+  Set<Marker> _buildStandingPointMarkers() {
+    Set<Marker> markers = {};
+    for (final point in _standingPoints) {
+      final markerId = MarkerId(point.location.toString());
+      _standingPointCompletionStatus[markerId] = false;
+
+      markers.add(
+        Marker(
+          markerId: markerId,
+          position: point.location,
+          icon: standingPointDisabledIcon,
+          infoWindow: InfoWindow(
+            title: point.title,
+            snippet: '${point.location.latitude.toStringAsFixed(5)},'
+                ' ${point.location.longitude.toStringAsFixed(5)}',
+          ),
+          onTap: () {
+            // Only allow selection if this point is incomplete.
+            if (_standingPointCompletionStatus[markerId] == false) {
+              final Marker thisMarker = _markers
+                  .singleWhere(((marker) => marker.markerId == markerId));
+              _setActiveMarker(thisMarker);
+            }
+          },
+        ),
+      );
+    }
+    return markers;
   }
 
   @override
   void dispose() {
-    _intervalTimer?.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 
-  /// Initializes the project area by calculating the polygon’s centroid.
-  void _initProjectArea() {
-    if (widget.activeProject.polygonPoints.isNotEmpty) {
-      _polygons = getProjectPolygon(widget.activeProject.polygonPoints);
-      if (_polygons.isNotEmpty) {
-        _currentLocation = getPolygonCentroid(_polygons.first);
-      }
-    }
-  }
-
-  /// Checks for location permissions and fetches the current location.
-  Future<void> _checkAndFetchLocation() async {
-    try {
-      _currentLocation = await checkAndFetchLocation();
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
-      // Show instructions once the map loads.
-      _showInstructionOverlay();
-    } catch (e, stacktrace) {
-      print('Error fetching location: $e');
-      print('Stacktrace: $stacktrace');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              'Map failed to load. Error retrieving location permissions.')));
-      Navigator.pop(context);
-    }
-  }
-
-  // Helper method to format elapsed seconds into mm:ss
-  String _formatTime(int seconds) {
-    final minutes = seconds ~/ 60;
-    final secs = seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-  }
-
-  /// Starts the interval timer. Every [_intervalDuration] seconds, this timer
-  /// pauses and launches the acoustic measurement sequence.
-  void _startIntervalTimer() {
+  /// Toggle the map type between normal and satellite view.
+  void _toggleMapType() {
     setState(() {
-      _isTestRunning = true;
-      _currentInterval = 0;
-    });
-    _intervalTimer =
-        Timer.periodic(Duration(seconds: _intervalDuration), (timer) async {
-      // Pause timer at the end of each interval to record acoustic data.
-      timer.cancel();
-      await _showAcousticBottomSheetSequence();
-      _currentInterval++;
-      // If we haven't reached the maximum intervals, restart the timer.
-      if (_currentInterval < _maxIntervals) {
-        _startIntervalTimer();
-      } else {
-        // Test complete.
-        await _endTest();
-      }
-      setState(() {});
+      _currentMapType = (_currentMapType == MapType.normal
+          ? MapType.satellite
+          : MapType.normal);
     });
   }
 
-  /// Displays a series of bottom sheets in sequence:
-  /// 1. Sound Decibel Level input.
-  /// 2. Sound Types multi-select.
-  /// 3. Main Sound Type single-select.
+  void _onMapCreated(GoogleMapController controller) {
+    mapController = controller;
+    _moveToLocation();
+  }
+
+  /// Moves camera to project location.
+  void _moveToLocation() {
+    mapController.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: _location, zoom: _zoom),
+      ),
+    );
+  }
+
+  /// Sets given marker as [_activeMarker] as long as it is incomplete.
   ///
-  /// Each step collects data which is then stored as an AcousticMeasurement.
-  Future<void> _showAcousticBottomSheetSequence() async {
+  /// This includes exchanging the marker's icon for the [_activeIcon].
+  void _setActiveMarker(Marker marker) {
+    if (marker.icon == standingPointDisabledIcon) {
+      // If activeMarker already set then change icon back to incomplete.
+      if (_activeMarker != null) {
+        final newMarker =
+            _activeMarker!.copyWith(iconParam: standingPointDisabledIcon);
+        setState(() {
+          _markers.add(newMarker);
+          _markers.remove(_activeMarker);
+        });
+      }
+      // Change selected marker icon to active icon and assign to _activeMarker.
+      final newActiveMarker =
+          marker.copyWith(iconParam: standingPointActiveIcon);
+      setState(() {
+        _markers.add(newActiveMarker);
+        _activeMarker = newActiveMarker;
+        _markers.remove(marker);
+      });
+    } else if (marker.icon == standingPointEnabledIcon) {
+      print('_setActiveMarker called on complete marker');
+      return;
+    } else if (marker.icon == standingPointActiveIcon) {
+      print('_setActiveMarker called on active marker');
+      return;
+    }
+  }
+
+  void _startIntervalCycles() async {
+    // Find dataPoint connected to selected marker.
+    final thisDataPoint = _newData.dataPoints.singleWhere((dataPoint) =>
+        dataPoint.standingPoint.location == _activeMarker!.position);
+
     setState(() {
-      _isBottomSheetOpen = true;
+      _isIntervalCycleRunning = true;
+      _intervalsRemaining = _intervalCount;
+      _remainingSeconds = _intervalDuration;
     });
 
+    while (_intervalsRemaining > 0) {
+      setState(() {
+        _intervalsRemaining--;
+        _remainingSeconds = _intervalDuration;
+      });
+
+      // Start timer and wait for it to end before proceeding.
+      _timer = _startIntervalTimer();
+      while (_timer!.isActive) {
+        await Future.delayed(Duration(seconds: 1));
+      }
+      if (!mounted) return;
+
+      final measurement = await _doBottomSheetSequence();
+
+      // If user closed a sheet without entering data then show error
+      // and restart interval.
+      if (measurement == null) {
+        setState(() {
+          _isErrorTextShown = true;
+          _intervalsRemaining++;
+        });
+        continue;
+      } else {
+        setState(() {
+          _isErrorTextShown = false;
+        });
+      }
+
+      // Add measurement to _newData.
+      if (thisDataPoint.measurements.length < _intervalCount) {
+        thisDataPoint.measurements.add(measurement);
+        print('_newData: $_newData');
+      } else {
+        throw Exception('More measurements than intervals somehow');
+      }
+    }
+
+    // Reset values related to cycle and then change this marker to complete.
+    setState(() {
+      _isIntervalCycleRunning = false;
+      _intervalsRemaining = _intervalCount;
+      _remainingSeconds = 0;
+    });
+    final newMarker =
+        _activeMarker!.copyWith(iconParam: standingPointEnabledIcon);
+    _standingPointCompletionStatus[_activeMarker!.markerId] = true;
+    setState(() {
+      _markers.add(newMarker);
+      _markers.remove(_activeMarker);
+      _activeMarker = null;
+    });
+
+    if (_standingPointCompletionStatus.values.every((status) => status)) {
+      _endTest();
+    }
+  }
+
+  Timer _startIntervalTimer() {
+    return Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        _remainingSeconds--;
+      });
+      if (_remainingSeconds <= 0) {
+        setState(() {
+          timer.cancel();
+        });
+      }
+    });
+  }
+
+  Future<AcousticMeasurement?> _doBottomSheetSequence() async {
     // 1. Bottom sheet for Sound Decibel Level.
-    double? decibel;
-    if (!mounted) return;
-    decibel = await showModalBottomSheet<double>(
+    if (!mounted) return null;
+    final decibels = await showModalBottomSheet<double>(
       context: context,
       isScrollControlled: true,
       isDismissible: false,
@@ -194,313 +265,79 @@ class _AcousticProfileTestPageState extends State<AcousticProfileTestPage> {
       backgroundColor: const Color(0xFFDDE6F2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       builder: (context) {
-        final TextEditingController decibelController = TextEditingController();
         return Padding(
-          padding: MediaQuery.of(context).viewInsets,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Sound Decibel Level',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: decibelController,
-                  keyboardType: TextInputType.number,
-                  decoration:
-                      const InputDecoration(labelText: 'Enter decibel value'),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: () {
-                    double? value =
-                        double.tryParse(decibelController.text.trim());
-                    if (value != null) {
-                      Navigator.pop(context, value);
-                    }
-                  },
-                  child: const Text('Submit'),
-                ),
-              ],
-            ),
-          ),
+          padding: MediaQuery.viewInsetsOf(context) + const EdgeInsets.all(16),
+          child: _DecibelLevelForm(),
         );
       },
     );
-
-    // If no decibel value was entered, default to 0.
-    decibel ??= 0.0;
+    if (decibels == null) return null;
 
     // 2. Bottom sheet for Sound Types (multi-select).
-    List<String> selectedSoundTypes = [];
-    selectedSoundTypes = await showModalBottomSheet<List<String>>(
-          context: context,
-          isScrollControlled: true,
-          isDismissible: false,
-          barrierColor: Colors.black.withValues(alpha: 0.5),
-          backgroundColor: const Color(0xFFDDE6F2),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          builder: (context) {
-            // List of available sound types.
-            final List<String> soundOptions = [
-              'Water',
-              'Traffic',
-              'People',
-              'Animals',
-              'Wind',
-              'Music'
-            ];
-            // Use a local set to track selection.
-            final Set<String> selections = {};
-            return StatefulBuilder(
-              builder: (context, setState) {
-                return Padding(
-                  padding: MediaQuery.of(context).viewInsets,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'Sound Types',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Select all of the sounds you heard during the measurement',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 12),
-                        GridView.count(
-                          crossAxisCount: 3, // Three columns
-                          shrinkWrap: true,
-                          physics:
-                              const NeverScrollableScrollPhysics(), // Prevent scrolling inside the sheet
-                          mainAxisSpacing: 1,
-                          crossAxisSpacing: 2,
-                          padding: const EdgeInsets.only(bottom: 8),
-                          childAspectRatio:
-                              2, // Adjust to change the height/width ratio of each cell
-                          children: soundOptions.map((option) {
-                            final bool isSelected = selections.contains(option);
-                            return ChoiceChip(
-                              label: Text(option),
-                              selected: isSelected,
-                              onSelected: (selected) {
-                                setState(() {
-                                  if (selected) {
-                                    selections.add(option);
-                                  } else {
-                                    selections.remove(option);
-                                  }
-                                });
-                              },
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(20), // Pill shape
-                                side: BorderSide(
-                                  color: isSelected
-                                      ? Colors.blue
-                                      : Colors
-                                          .grey, // Distinct border when selected
-                                  width: 2.0,
-                                ),
-                              ),
-                              selectedColor: Colors.blue
-                                  .shade100, // Background color when selected
-                              backgroundColor: Colors
-                                  .grey.shade200, // Default background color
-                            );
-                          }).toList(),
-                        ),
-                        // Other option text field and select button.
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                decoration: const InputDecoration(
-                                  labelText: 'Other',
-                                ),
-                                onSubmitted: (value) {
-                                  if (value.isNotEmpty) {
-                                    selections.add(value);
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: () {
-                                // For simplicity, just do nothing extra here.
-                              },
-                              child: const Text('Select'),
-                            )
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context, selections.toList());
-                          },
-                          child: const Text('Submit'),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ) ??
-        [];
+    if (!mounted) return null;
+    final soundTypeDescription =
+        await showModalBottomSheet<(Set<SoundType>, String)>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      backgroundColor: const Color(0xFFDDE6F2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      builder: (context) {
+        return Padding(
+          padding: MediaQuery.viewInsetsOf(context) + const EdgeInsets.all(16),
+          child: _SoundTypeForm(),
+        );
+      },
+    );
+    if (soundTypeDescription == null) return null;
+    final Set<SoundType> selectedSoundTypes = soundTypeDescription.$1;
+    final String otherText = soundTypeDescription.$2;
 
     // 3. Bottom sheet for Main Sound Type (single-select).
-    String? mainSoundType;
-    mainSoundType = await showModalBottomSheet<String>(
+    if (!mounted) return null;
+    final mainSoundType = await showModalBottomSheet<SoundType>(
       context: context,
       isDismissible: false,
       isScrollControlled: true,
       backgroundColor: const Color(0xFFDDE6F2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       builder: (context) {
-        final List<String> soundOptions = [
-          'Water Feature',
-          'Traffic',
-          'People Sounds',
-          'Animals',
-          'Wind',
-          'Music'
-        ];
-        String? selectedOption;
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Padding(
-              padding: MediaQuery.of(context).viewInsets,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Main Sound Type',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Select the main source of sound that you heard during the measurement',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: soundOptions.map((option) {
-                        return ChoiceChip(
-                          label: Text(option),
-                          selected: selectedOption == option,
-                          onSelected: (selected) {
-                            setState(() {
-                              selectedOption = selected ? option : null;
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 12),
-                    // Other option row.
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            decoration: const InputDecoration(
-                              labelText: 'Other',
-                            ),
-                            onSubmitted: (value) {
-                              if (value.isNotEmpty) {
-                                setState(() {
-                                  selectedOption = value;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () {},
-                          child: const Text('Select'),
-                        )
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (selectedOption != null) {
-                          Navigator.pop(context, selectedOption);
-                        }
-                      },
-                      child: const Text('Submit'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+        return Padding(
+          padding: MediaQuery.viewInsetsOf(context) + const EdgeInsets.all(16),
+          child: _MainSoundTypeForm(selectedSoundTypes),
         );
       },
     );
-
-    setState(() {
-      _isBottomSheetOpen = false;
-    });
+    if (mainSoundType == null) return null;
 
     // Construct an AcousticMeasurement using the collected data.
-    final measurement = AcousticMeasurement(
-      decibel: decibel,
+    return AcousticMeasurement(
+      decibels: decibels,
       soundTypes: selectedSoundTypes,
-      mainSoundType: mainSoundType ?? '',
-      timestamp: DateTime.now(),
+      mainSoundType: mainSoundType,
+      other: otherText,
     );
-    _measurements.add(measurement);
   }
 
-  /// Ends the test, saves the acoustic measurement data to Firestore, and
-  /// navigates back to the project details page.
+  /// Finalize the interval cycle by stopping the test-running state.
+  /// Process and aggregate the measurement data for each standing point:
+  /// - Calculate average decibel values.
+  /// - Draw a circle around the point representing the data as a 'heat map'
+  /// Update the completed status of each standing point
+  /// If all points are completed, navigate to the Project Details Page
   Future<void> _endTest() async {
-    setState(() {
-      _isTestRunning = false;
-    });
-    try {
-      // await _firestore
-      //     .collection(widget.activeTest.collectionID)
-      //     .doc(widget.activeTest.testID)
-      //     .update({
-      //   'data': acousticMeasurementsToJson(_measurements),
-      //   'isComplete': true,
-      // });
-      print("Acoustic Profile test data submitted successfully.");
-    } catch (e, stacktrace) {
-      print("Error submitting Acoustic Profile test data: $e");
-      print("Stacktrace: $stacktrace");
-    }
-    // Navigate back to the Project Details page.
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            ProjectDetailsPage(projectData: widget.activeProject),
-      ),
-    );
+    _timer?.cancel();
+    widget.activeTest.submitData(_newData);
+    _isTestComplete = true;
+    await Future.delayed(Duration(seconds: 3));
+    if (!mounted) return;
+    Navigator.pop(context);
   }
 
-  /// Displays the same instruction overlay as People In Place.
+  /// Displays an instruction overlay that explains how Acoustic Profile works.
+  /// This overlay is shown immediately when the screen loads.
   void _showInstructionOverlay() {
-    // For now, reusing the People In Place instructions.
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -522,9 +359,9 @@ class _AcousticProfileTestPageState extends State<AcousticProfileTestPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  peopleInPlaceInstructions(),
-                  const SizedBox(height: 10),
+                  acousticInstructions(),
                   buildLegends(),
+                  const SizedBox(height: 10),
                 ],
               ),
             ),
@@ -551,248 +388,455 @@ class _AcousticProfileTestPageState extends State<AcousticProfileTestPage> {
     );
   }
 
-  // Overlay widget to display a centered message.
-  Widget _buildCenterMessage() {
-    // Only display if no bottom sheet is open.
-    if (_isBottomSheetOpen) return SizedBox.shrink();
-    // Choose message based on whether the test has started.
-    String message = !_isTestRunning
-        ? "Do not leave the application once the activity has started"
-        : "Listen carefully to your surroundings";
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.75),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            message,
-            style: const TextStyle(color: Colors.white, fontSize: 18),
-            textAlign: TextAlign.center,
-          ),
+  String _getDirections() {
+    if (!_isTestComplete) {
+      if (_isErrorTextShown) {
+        return 'No information given. Please do '
+            'not close bottom pane without submitting.';
+      } else {
+        if (_activeMarker == null) {
+          return 'Tap one of the marked standing points to begin '
+              'measurements at that location.';
+        } else {
+          if (!_isIntervalCycleRunning) {
+            return 'Press Start once you have arrived at the selected location.';
+          } else {
+            return 'Listen carefully to your surroundings.';
+          }
+        }
+      }
+    } else {
+      return 'Test completed! Now returning to previous screen.';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: (_currentMapType == MapType.normal)
+          ? SystemUiOverlayStyle.dark.copyWith(
+              statusBarColor: Colors.transparent,
+            )
+          : SystemUiOverlayStyle.light.copyWith(
+              statusBarColor: Colors.transparent,
+            ),
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        extendBody: true,
+        body: Stack(
+          children: [
+            SizedBox(
+              height: MediaQuery.sizeOf(context).height,
+              child: GoogleMap(
+                onMapCreated: _onMapCreated,
+                initialCameraPosition: CameraPosition(
+                  target: _location,
+                  zoom: _zoom,
+                ),
+                markers: _markers,
+                polygons: _polygons,
+                circles: _circles,
+                mapType: _currentMapType,
+                myLocationButtonEnabled: false,
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Column(
+                      spacing: 10,
+                      children: <Widget>[
+                        TimerButtonAndDisplay(
+                          onPressed: (!_isIntervalCycleRunning &&
+                                  _activeMarker != null)
+                              ? () {
+                                  setState(() {
+                                    if (_isIntervalCycleRunning) {
+                                      setState(() {
+                                        _isIntervalCycleRunning = false;
+                                        _timer?.cancel();
+                                      });
+                                    } else {
+                                      _startIntervalCycles();
+                                    }
+                                  });
+                                }
+                              : null,
+                          isTestRunning: _isIntervalCycleRunning,
+                          remainingSeconds: _remainingSeconds,
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${_intervalCount - _intervalsRemaining} / $_intervalCount',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(width: 15),
+                    Expanded(
+                      child: _directionsVisible
+                          ? DirectionsText(
+                              onTap: () {
+                                setState(() {
+                                  _directionsVisible = !_directionsVisible;
+                                });
+                              },
+                              text: _getDirections(),
+                            )
+                          : SizedBox(),
+                    ),
+                    SizedBox(width: 15),
+                    Column(
+                      spacing: 10,
+                      children: <Widget>[
+                        DirectionsButton(
+                          onTap: () {
+                            setState(() {
+                              _directionsVisible = !_directionsVisible;
+                            });
+                          },
+                        ),
+                        CircularIconMapButton(
+                          backgroundColor:
+                              const Color(0xFF7EAD80).withValues(alpha: 0.9),
+                          borderColor: Color(0xFF2D6040),
+                          onPressed: _toggleMapType,
+                          icon: Icon(
+                            Icons.layers,
+                            color: Color(0xFF2D6040),
+                          ),
+                        ),
+                        CircularIconMapButton(
+                          backgroundColor:
+                              Color(0xFFBACFEB).withValues(alpha: 0.9),
+                          borderColor: Color(0xFF37597D),
+                          onPressed: _showInstructionOverlay,
+                          icon: Icon(
+                            FontAwesomeIcons.info,
+                            color: Color(0xFF37597D),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _DecibelLevelForm extends StatefulWidget {
+  @override
+  State<_DecibelLevelForm> createState() => _DecibelLevelFormState();
+}
+
+class _DecibelLevelFormState extends State<_DecibelLevelForm> {
+  final TextEditingController decibelController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    decibelController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Sound Decibel Level',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: SizedBox(
+              width: 250,
+              child: TextFormField(
+                textAlign: TextAlign.center,
+                controller: decibelController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(fontSize: 24),
+                decoration: InputDecoration(
+                  label: Center(child: Text('Enter decibel value')),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a value';
+                  }
+                  if (double.tryParse(value.trim()) == null) {
+                    return 'Enter a valid number';
+                  }
+                  return null;
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: p2bpBlue),
+            onPressed: () {
+              if (_formKey.currentState!.validate()) {
+                Navigator.pop(
+                    context, double.parse(decibelController.text.trim()));
+              }
+            },
+            child: const Text(
+              'Submit',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SoundTypeForm extends StatefulWidget {
+  @override
+  State<_SoundTypeForm> createState() => _SoundTypeFormState();
+}
+
+class _SoundTypeFormState extends State<_SoundTypeForm> {
+  final Set<SoundType> _selections = {};
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _otherController = TextEditingController();
+  static final List<SoundType> _chipSoundTypeList = List.generate(
+      SoundType.values.length - 1, (index) => SoundType.values[index]);
+  bool _isOtherSelected = false;
+
+  void _submitDescription() {
+    // Validate the "Other" field if its chip is selected.
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    Navigator.pop(
+      context,
+      (
+        _selections,
+        (_selections.contains(SoundType.other))
+            ? _otherController.text.trim()
+            : '',
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        systemOverlayStyle:
-            const SystemUiOverlayStyle(statusBarBrightness: Brightness.light),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leadingWidth: 100,
-        // Start/End button (for this test, we rely solely on the interval timer)
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 20),
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
-              backgroundColor: _isTestRunning ? Colors.red : Colors.green,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            onPressed: () {
-              if (!_isTestRunning) {
-                setState(() {
-                  _isTestRunning = true;
-                  _startIntervalTimer(); // Start the countdown timer when pressed
-                });
-              } else {
-                Navigator.pop(context); // Exit the test if End is displayed
-              }
-            },
-            child: Text(
-              _isTestRunning ? 'End' : 'Start',
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-            ),
-          ),
-        ),
-        // Centered message reminding the user not to leave the app.
-        title: Column(
+    _isOtherSelected = _selections.contains(SoundType.other);
+    return Form(
+      key: _formKey,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: // Interval counter (e.g. "Interval 3/15")
-                  Text(
-                '${_currentInterval + 1} / $_maxIntervals',
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-              ),
+            const Text(
+              'Sound Types',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Select all of the sounds you heard during the measurement',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            GridView.count(
+              crossAxisCount: 3, // Three columns
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 1,
+              crossAxisSpacing: 2,
+              padding: const EdgeInsets.only(bottom: 8),
+              childAspectRatio:
+                  2, // Adjust to change the height/width ratio of each cell
+              children: _chipSoundTypeList.map((type) {
+                final bool isSelected = _selections.contains(type);
+                return ChoiceChip(
+                  // TODO why not FilterChip?
+                  label: Text(type.displayName),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _selections.add(type);
+                      } else {
+                        _selections.remove(type);
+                      }
+                    });
+                  },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20), // Pill shape
+                    side: BorderSide(
+                      color: isSelected ? p2bpBlue : Color(0xFFB0C4DE),
+                      width: 2.0,
+                    ),
+                  ),
+                  selectedColor: p2bpBlue.shade100,
+                  backgroundColor: Color(0xFFE3EBF4),
+                );
+              }).toList(),
+            ),
+            // Other option text field and select button.
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _otherController,
+                    enabled: _isOtherSelected,
+                    decoration: InputDecoration(
+                      labelText: 'Other',
+                      suffixIcon: _otherController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _otherController.clear();
+                                });
+                              },
+                            )
+                          : null,
+                    ),
+                    // Validate only if the chip is selected
+                    validator: (value) {
+                      if (_isOtherSelected &&
+                          (value == null || value.trim().isEmpty)) {
+                        return 'Please enter a value';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Always display the chip; disable it if there's no text.
+                ChoiceChip(
+                  label: Text('Other'),
+                  selected: _isOtherSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _selections.add(SoundType.other);
+                      } else {
+                        _selections.remove(SoundType.other);
+                      }
+                    });
+                  },
+                  backgroundColor: Color(0xFFE3EBF4),
+                  disabledColor: Color(0xFFE3EBF4),
+                  selectedColor: p2bpBlue.shade100,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: _isOtherSelected ? p2bpBlue : Color(0xFFB0C4DE),
+                      width: 2.0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: p2bpBlue),
+              onPressed: (_selections.isNotEmpty) ? _submitDescription : null,
+              child:
+                  const Text('Submit', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
-        centerTitle: true,
-        // Timer display on the right (shows remaining seconds for current interval)
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 20),
-            child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _formatTime(_remainingSeconds),
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Full-screen map displaying the project polygon.
-          GoogleMap(
-            onMapCreated: _onMapCreated,
-            initialCameraPosition:
-                CameraPosition(target: _currentLocation, zoom: 14.0),
-            polygons: _polygons,
-            mapType: _currentMapType,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-          ),
-          // Optionally, display an error message if the user taps outside the polygon.
-          if (_showErrorMessage)
-            Positioned(
-              bottom: 100.0,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'Please place points inside the boundary.',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                ),
-              ),
-            ),
-          // Floating button for toggling map type.
-          Positioned(
-            top: MediaQuery.of(context).padding.top + kToolbarHeight + 8.0,
-            right: 20.0,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF7EAD80).withValues(alpha: 0.9),
-                border: Border.all(color: const Color(0xFF2D6040), width: 2),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 6.0,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: IconButton(
-                icon: Center(
-                  child: Icon(Icons.layers, color: const Color(0xFF2D6040)),
-                ),
-                onPressed: _toggleMapType,
-              ),
-            ),
-          ),
-          // Floating button for toggling instructions.
-          if (!_isLoading)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + kToolbarHeight + 70.0,
-              right: 20,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFBACFEB).withValues(alpha: 0.9),
-                  border: Border.all(color: const Color(0xFF37597D), width: 2),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 6.0,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: Icon(FontAwesomeIcons.info,
-                      color: const Color(0xFF37597D)),
-                  onPressed: _showInstructionOverlay,
-                ),
-              ),
-            ),
-          if (!_isBottomSheetOpen) _buildCenterMessage(),
-        ],
       ),
     );
   }
+}
 
-  LatLngBounds _getPolygonBounds(List<LatLng> points) {
-    double minLat = points.first.latitude;
-    double maxLat = points.first.latitude;
-    double minLng = points.first.longitude;
-    double maxLng = points.first.longitude;
+class _MainSoundTypeForm extends StatefulWidget {
+  final Set<SoundType> selectedSoundTypes;
 
-    for (final point in points) {
-      if (point.latitude < minLat) minLat = point.latitude;
-      if (point.latitude > maxLat) maxLat = point.latitude;
-      if (point.longitude < minLng) minLng = point.longitude;
-      if (point.longitude > maxLng) maxLng = point.longitude;
-    }
+  const _MainSoundTypeForm(this.selectedSoundTypes);
 
-    return LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
-    );
-  }
+  @override
+  State<_MainSoundTypeForm> createState() => _MainSoundTypeFormState();
+}
 
-  void _moveToCurrentLocation() {
-    if (mapController != null) {
-      mapController.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: _currentLocation, zoom: 14.0),
+class _MainSoundTypeFormState extends State<_MainSoundTypeForm> {
+  SoundType? selectedMainSound;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'Main Sound Type',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-      );
-    }
-  }
-
-  /// Toggle the map type between normal and satellite view.
-  void _toggleMapType() {
-    setState(() {
-      _currentMapType = (_currentMapType == MapType.normal
-          ? MapType.satellite
-          : MapType.normal);
-    });
-  }
-
-  /// Callback when the map is created. Saves the controller for later use.
-  void _onMapCreated(GoogleMapController controller) {
-    mapController = controller;
-    setState(() {
-      if (widget.activeProject.polygonPoints.isNotEmpty) {
-        _polygons = getProjectPolygon(widget.activeProject.polygonPoints);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final bounds = _getPolygonBounds(widget.activeProject.polygonPoints);
-          mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
-        });
-      } else {
-        _moveToCurrentLocation(); // Ensure the map is centered on the current location
-      }
-    });
+        const SizedBox(height: 8),
+        const Text(
+          'Select the main source of sound that you heard during the measurement',
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 3, // Three columns
+          shrinkWrap: true,
+          physics:
+              const NeverScrollableScrollPhysics(), // Prevent scrolling inside the sheet
+          mainAxisSpacing: 1,
+          crossAxisSpacing: 2,
+          padding: const EdgeInsets.only(bottom: 8),
+          childAspectRatio:
+              2, // Adjust to change the height/width ratio of each cell
+          children: widget.selectedSoundTypes.map((type) {
+            final bool isSelected = selectedMainSound == type;
+            return ChoiceChip(
+              label: Text(type.displayName),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  selectedMainSound = selected ? type : null;
+                });
+              },
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isSelected ? p2bpBlue : Color(0xFFB0C4DE),
+                  width: 2.0,
+                ),
+              ),
+              selectedColor: p2bpBlue.shade100,
+              backgroundColor: Color(0xFFE3EBF4),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 24),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: p2bpBlue),
+          onPressed: (selectedMainSound != null)
+              ? () {
+                  Navigator.pop(context, selectedMainSound);
+                }
+              : null,
+          child: const Text('Submit', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    );
   }
 }

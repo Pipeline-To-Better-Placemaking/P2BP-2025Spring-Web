@@ -6,6 +6,7 @@ import 'dart:math';
 
 class VisualizedResults {
   bool isVisible;
+  bool isComplete;
   String testID;
   String collectionID;
   String testName;
@@ -18,6 +19,7 @@ class VisualizedResults {
     required this.collectionID,
     required this.testName,
     this.isVisible = false,
+    this.isComplete = false,
     this.markers = const {},
     this.polylines = const {},
     this.polygons = const {},
@@ -130,6 +132,7 @@ class VisualizedResults {
       testID: testID,
       collectionID: collectionID,
       testName: data['title'],
+      isComplete: data['isComplete'] ?? false,
       markers: _parseMarkers([
         /// Absence of Order Test
         /// Extracting behaviorPoints

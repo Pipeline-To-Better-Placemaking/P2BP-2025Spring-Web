@@ -22,7 +22,7 @@ class _SectionCreationPageState extends State<SectionCreationPage> {
   LatLng _location = defaultLocation; // Default location
   bool _isLoading = true;
   String _directions = "Create your section by marking two points by tapping the outside of the polygon area. Then click the check button to confirm.";
-  Set<Polygon> _polygons = {}; // Set of polygons
+  final Set<Polygon> _polygons = {}; // Set of polygons
   Set<Marker> _markers = {}; // Set of markers for points
   MapType _currentMapType = MapType.satellite; // Default map type
   Project? project;
@@ -44,7 +44,7 @@ class _SectionCreationPageState extends State<SectionCreationPage> {
   /// centers the map over it.
   void initProjectArea() {
     setState(() {
-      _polygons = getProjectPolygon(widget.activeProject.polygonPoints);
+      _polygons.add(getProjectPolygon(widget.activeProject.polygonPoints));
       _location = getPolygonCentroid(_polygons.first);
       // Take some latitude away to center considering bottom sheet.
       _location = LatLng(_location.latitude * .999999, _location.longitude);

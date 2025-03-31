@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'custom_material_colors.dart';
 
 // Color constants:
 /// Default color used when test buttons are disabled.
 const Color disabledGrey = Color(0xCD6C6C6C);
+
+/// Disabled button color with no transparency.
+const Color disabledGreyAlt = Color(0xFF5A5A5A);
 
 /// Transparency for test hint text (or, the directions at the top of the
 /// test map screen).
@@ -30,12 +34,30 @@ class WaterBodyColors {
   static const Color nullBlue = Color(0x934800FF);
 }
 
-const LinearGradient defaultGrad = LinearGradient(
+/// Primary blue color used across the app
+final MaterialColor p2bpBlue = generateMaterialColor(const Color(0xFF2F6DCF));
+
+/// Primary accent color, used for buttons on screens with default gradient background
+final MaterialColor p2bpBlueAccent =
+    generateMaterialColor(const Color(0xFF62B6FF));
+
+/// Dark blue color used for default gradient
+final MaterialColor p2bpDarkBlue =
+    generateMaterialColor(const Color(0xFF0A2A88));
+
+/// Primary yellow color used across the app
+final MaterialColor p2bpYellow = generateMaterialColor(const Color(0xFFFFCC00));
+
+/// Primary bottom sheet background color when a gradient is not used
+final MaterialColor bottomSheetBlue =
+    generateMaterialColor(const Color(0xFFDDE6F2));
+
+final LinearGradient defaultGrad = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
   colors: <Color>[
-    Color(0xFF0A2A88),
-    Color(0xFF62B6FF),
+    p2bpDarkBlue,
+    p2bpBlueAccent,
   ],
 );
 
@@ -43,8 +65,17 @@ final LinearGradient verticalBlueGrad = LinearGradient(
   begin: Alignment.topCenter,
   end: Alignment.bottomCenter,
   colors: <Color>[
-    Colors.blue[900]!,
-    Colors.blueAccent,
+    p2bpDarkBlue,
+    p2bpBlueAccent,
+  ],
+);
+
+const LinearGradient formGradient = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [
+    Color(0xFFDDE6F2),
+    Color(0xFFBACFEB),
   ],
 );
 
@@ -53,11 +84,13 @@ final LinearGradient verticalBlueGrad = LinearGradient(
 final ButtonStyle testButtonStyle = FilledButton.styleFrom(
   padding: const EdgeInsets.symmetric(horizontal: 15),
   foregroundColor: Colors.black,
-  backgroundColor: Colors.white,
+  backgroundColor: Color(0xFFE3EBF4),
   disabledBackgroundColor: Color(0xCD6C6C6C),
   iconColor: Colors.black,
   shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(15),
+    side: BorderSide.none,
+    // BorderSide(color: Color(0xFFB0C4DE), width: 2)
   ),
   textStyle: TextStyle(fontSize: 14),
 );

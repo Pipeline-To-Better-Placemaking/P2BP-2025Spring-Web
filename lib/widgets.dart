@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme.dart';
+
+import 'google_maps_functions.dart';
 
 /// Bar Indicator for the Sliding Up Panels (Edit Project, Results)
 class BarIndicator extends StatelessWidget {
@@ -82,6 +86,7 @@ class EditButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Color iconColor;
   final IconAlignment iconAlignment;
+  final OutlinedBorder? shape;
 
   const EditButton({
     super.key,
@@ -92,6 +97,7 @@ class EditButton extends StatelessWidget {
     this.icon,
     this.iconColor = Colors.white,
     this.iconAlignment = IconAlignment.end,
+    this.shape,
   });
 
   @override
@@ -99,9 +105,7 @@ class EditButton extends StatelessWidget {
     return FilledButton.icon(
       style: FilledButton.styleFrom(
         padding: const EdgeInsets.only(left: 15, right: 15),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10.0),
-        ),
+        shape: shape,
         foregroundColor: foregroundColor,
         backgroundColor: backgroundColor,
         iconColor: iconColor,
@@ -284,12 +288,6 @@ class PasswordTextFormField extends StatelessWidget {
   }
 }
 
-/// Text form field used for dialog boxes.
-///
-/// Enter an [errorMessage] for error validation. Put in a form for validation.
-/// Takes a [maxLength], [labelText] and optional [errorMessage], [icon], and
-/// [onChanged]. Optional [minChars] parameter to specify the minimum number of
-/// characters for validation (default: 3)
 class DialogTextBox extends StatelessWidget {
   final int? maxLength;
   final String labelText;
@@ -300,7 +298,14 @@ class DialogTextBox extends StatelessWidget {
   final Icon? icon;
   final String? errorMessage;
   final int? minChars;
+  final TextAlign? textAlign;
 
+  /// Text form field used for dialog boxes.
+  ///
+  /// Enter an [errorMessage] for error validation. Put in a form for validation.
+  /// Takes a [maxLength], [labelText] and optional [errorMessage], [icon], and
+  /// [onChanged]. Optional [minChars] parameter to specify the minimum number of
+  /// characters for validation (default: 3)
   const DialogTextBox({
     super.key,
     this.maxLength,
@@ -312,6 +317,7 @@ class DialogTextBox extends StatelessWidget {
     this.keyboardType,
     this.inputFormatter,
     this.autofocus,
+    this.textAlign,
   });
   @override
   Widget build(BuildContext context) {
@@ -322,6 +328,7 @@ class DialogTextBox extends StatelessWidget {
               selectionColor: Colors.blue, selectionHandleColor: Colors.blue),
         ),
         child: TextFormField(
+          textAlign: textAlign ?? TextAlign.left,
           onChanged: onChanged,
           keyboardType: keyboardType,
           inputFormatters: inputFormatter,
@@ -377,13 +384,114 @@ class DialogTextBox extends StatelessWidget {
   }
 }
 
-/// Circular button used on top of `GoogleMap` widget.
+class TimerButtonAndDisplay extends StatelessWidget {
+  const TimerButtonAndDisplay({
+    super.key,
+    required this.onPressed,
+    required this.isTestRunning,
+    required this.remainingSeconds,
+  });
+
+  final void Function()? onPressed;
+  final bool isTestRunning;
+  final int remainingSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 75,
+      child: Column(
+        children: <Widget>[
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                disabledBackgroundColor: disabledGreyAlt,
+                disabledForegroundColor: Colors.grey,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                backgroundColor: isTestRunning ? Colors.red : Colors.green,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              ),
+              onPressed: onPressed,
+              child: Text(
+                isTestRunning ? 'Stop' : 'Start',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+          ),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                textAlign: TextAlign.center,
+                formatTime(remainingSeconds),
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class TimerEndDialog extends StatelessWidget {
+  /// Dialog displayed when timer runs out.
+  const TimerEndDialog(
+      {required this.onSubmit, required this.onBack, super.key});
+  final VoidCallback? onSubmit;
+  final VoidCallback? onBack;
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      scrollable: true,
+      title: Center(
+          child: Text(
+        "Time's Up!",
+        style: TextStyle(fontWeight: FontWeight.bold),
+      )),
+      content: Center(
+          child: Text(
+        "Would you like to submit your data?",
+        style: TextStyle(fontSize: 15),
+      )),
+      actions: <Widget>[
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Flexible(
+              child: TextButton(
+                onPressed: onBack,
+                child: Text("No, take me back."),
+              ),
+            ),
+            Flexible(
+              child: TextButton(
+                onPressed: onSubmit,
+                child: Text("Yes, submit."),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class CircularIconMapButton extends StatelessWidget {
   final Color backgroundColor;
   final Color borderColor;
   final Widget icon;
   final void Function() onPressed;
 
+  /// Circular button used on top of `GoogleMap` widget.
   const CircularIconMapButton({
     super.key,
     required this.backgroundColor,
@@ -415,8 +523,8 @@ class CircularIconMapButton extends StatelessWidget {
   }
 }
 
-/// Warning used when point placed outside project polygon on test.
 class OutsideBoundsWarning extends StatelessWidget {
+  /// Warning used when point placed outside project polygon on test.
   const OutsideBoundsWarning({
     super.key,
   });
@@ -444,11 +552,11 @@ class OutsideBoundsWarning extends StatelessWidget {
   }
 }
 
-/// A row with a small circle of [color] followed by [Text(label)].
 class ColorLegendItem extends StatelessWidget {
   final String label;
   final Color color;
 
+  /// A row with a small circle of [color] followed by [Text(label)].
   const ColorLegendItem({
     super.key,
     required this.label,
@@ -506,9 +614,9 @@ class DataEditMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * (heightMultiplier ?? 0.5),
+      height: MediaQuery.sizeOf(context).height * (heightMultiplier ?? 0.5),
       decoration: BoxDecoration(
-        color: Color(0xFFDDE6F2).withValues(alpha: 0.9),
+        color: Color(0xFFC5CFDD).withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: Color(0xFF2F6DCF),
@@ -519,18 +627,35 @@ class DataEditMenu extends StatelessWidget {
       child: Stack(
         children: [
           Align(
-            // Slightly closer to center than topRight alignment.
+            // Slightly closer to center than topRight alignment
             alignment: Alignment(0.95, -0.95),
-            child: IconButton(
-              onPressed: onPressedCloseMenu,
-              icon: Icon(Icons.close_outlined),
-              style: ButtonStyle(
-                backgroundColor: WidgetStatePropertyAll(Colors.red),
-                shape: WidgetStatePropertyAll(
-                  RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: Color(0xFFD1D7E1).withValues(alpha: 0.95),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Color(0xFF2F6DCF),
+                  width: 1.5,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    spreadRadius: 0.5,
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                iconSize: 16,
+                icon: Icon(
+                  Icons.close,
+                  color: Color(0xFF2F6DCF),
+                ),
+                onPressed: onPressedCloseMenu,
               ),
             ),
           ),
@@ -601,12 +726,12 @@ class DataEditMenu extends StatelessWidget {
   }
 }
 
-/// Dialog for test finish confirmation.
-///
-/// Takes only an [onNext] parameter. This should contain the function to be
-/// called when finish the test (i.e. saving the data, pushing to the next
-/// page).
 class TestFinishDialog extends StatelessWidget {
+  /// Dialog for test finish confirmation.
+  ///
+  /// Takes only an [onNext] parameter. This should contain the function to be
+  /// called when finish the test (i.e. saving the data, pushing to the next
+  /// page).
   const TestFinishDialog({
     super.key,
     required this.onNext,
@@ -638,106 +763,104 @@ class TestFinishDialog extends StatelessWidget {
             onPressed: () {
               Navigator.pop(context);
             },
-            child: Text("Cancel")),
-        TextButton(onPressed: onNext, child: Text("Next"))
+            child: Text("No, take me back.")),
+        TextButton(onPressed: onNext, child: Text("Yes, finish."))
       ],
     );
   }
 }
 
-/// Directions widget used for tests.
-///
-/// Pass through a [visibility] variable. This should be of type [bool] and
-/// control the visibility of the directions. The [onTap] function passed
-/// should toggle the [visibility] boolean in a [setState]. It may do other
-/// things on top of this if desired. The [text] should be the directions
-/// variable which controls the text to display.
-class DirectionsWidget extends StatelessWidget {
-  const DirectionsWidget({
+class DirectionsButton extends StatelessWidget {
+  /// Directions widget used for tests.
+  ///
+  /// Pass through a [visibility] variable. This should be of type [bool] and
+  /// control the visibility of the directions. The [onTap] function passed
+  /// should toggle the [visibility] boolean in a [setState]. It may do other
+  /// things on top of this if desired.
+  /// Should be placed in a Column w/ other widgets (delete mode, map type)
+  const DirectionsButton({
+    super.key,
+    required this.onTap,
+  });
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+          borderRadius: const BorderRadius.all(Radius.circular(50)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          gradient: defaultGrad,
+          color: directionsTransparency),
+      child: IconButton(
+          color: Colors.white,
+          onPressed: onTap,
+          icon: Icon(
+            Icons.help_outline,
+            size: 35,
+          )),
+    );
+  }
+}
+
+class DirectionsText extends StatelessWidget {
+  const DirectionsText({
     super.key,
     required this.onTap,
     required this.text,
-    required this.visibility,
   });
 
   final VoidCallback? onTap;
   final String text;
-  final bool visibility;
 
   @override
   Widget build(BuildContext context) {
-    return visibility
-        ? Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 20.0, horizontal: 25.0),
-              child: InkWell(
-                onTap: onTap,
-                child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: directionsTransparency,
-                      gradient: defaultGrad,
-                      borderRadius: const BorderRadius.all(Radius.circular(10)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      text,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    )),
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          decoration: BoxDecoration(
+            color: directionsTransparency,
+            gradient: defaultGrad,
+            borderRadius: const BorderRadius.all(Radius.circular(10)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
+            ],
+          ),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            maxLines: 5,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
             ),
-          )
-        : Align(
-            alignment: Alignment.topRight,
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Container(
-                decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.all(Radius.circular(50)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                    gradient: defaultGrad,
-                    color: directionsTransparency),
-                child: IconButton(
-                    color: Colors.white,
-                    onPressed: onTap,
-                    icon: Icon(
-                      Icons.help_outline,
-                      size: 35,
-                    )),
-              ),
-            ),
-          );
+          )),
+    );
   }
 }
 
-/// Visibility switch widget for tests page.
-///
-/// Toggles visibility for the old shapes on test pages. Takes in a [visibility]
-/// variable and an [onChanged] function. The [onChanged] function is of type
-/// [Function(bool)?]. It takes a [bool] parameter and should change the
-/// [visibility] variable to the value of the [bool] parameter. Should be in a
-/// [setState].
 class VisibilitySwitch extends StatelessWidget {
+  /// Visibility switch widget for tests page.
+  ///
+  /// Toggles visibility for the old shapes on test pages. Takes in a [visibility]
+  /// variable and an [onChanged] function. The [onChanged] function is of type
+  /// [Function(bool)?]. It takes a [bool] parameter and should change the
+  /// [visibility] variable to the value of the [bool] parameter. Should be in a
+  /// [setState].
   const VisibilitySwitch({
     super.key,
     required bool visibility,
@@ -914,24 +1037,27 @@ void showTestModalGeneric(BuildContext context,
       });
 }
 
-/// Error text for test pages.
-///
-/// Displays a text error at bottom of screen with the text specified by the
-/// [text] parameter. Defaults to point placed outside of polygon error text.
 class TestErrorText extends StatelessWidget {
+  /// Error text for test pages.
+  ///
+  /// Displays a text error at bottom of screen with the text specified by the
+  /// [text] parameter. Defaults to point placed outside of polygon error text.
   const TestErrorText({
-    this.text,
     super.key,
+    this.text,
+    this.padding,
   });
 
   final String? text;
+  final EdgeInsets? padding;
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 30.0, horizontal: 100.0),
+        padding: padding ??
+            const EdgeInsets.symmetric(vertical: 20.0, horizontal: 50.0),
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
           decoration: BoxDecoration(
@@ -947,6 +1073,7 @@ class TestErrorText extends StatelessWidget {
           ),
           child: Text(
             text ?? 'You have placed a point outside of the project area!',
+            textAlign: TextAlign.center,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -958,5 +1085,29 @@ class TestErrorText extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Conditionally wraps its child in a SafeArea depending on the platform.
+///
+/// On Android, it wraps its child widget in a SafeArea to prevent system UI elements
+/// (like the status bar or navigation buttons) from overlapping your content.
+/// On iOS, it simply returns the child without extra padding, so you don't get unwanted
+/// blank spaces at the top or bottom.
+///
+/// Example:
+/// ```dart
+/// AdaptiveSafeArea(
+///   child: YourWidget(),
+/// );
+/// ```
+class AdaptiveSafeArea extends StatelessWidget {
+  final Widget child;
+  const AdaptiveSafeArea({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    // Wrap with SafeArea only on Android
+    return Platform.isAndroid ? SafeArea(child: child) : child;
   }
 }

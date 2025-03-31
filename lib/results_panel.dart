@@ -24,7 +24,6 @@ class _ResultsPageState extends State<ResultsPage> {
   Set<Polygon> _visiblePolygons = {};
   Set<Polyline> _visiblePolylines = {};
   Map<String, bool> _testVisibility = {};
-
   bool isDrawerOpen = false;
 
   // New property to store the project polygon
@@ -40,7 +39,6 @@ class _ResultsPageState extends State<ResultsPage> {
   /// **Fetch test data from Firestore**
   Future<void> _loadTestData() async {
     try {
-      FirebaseService firebaseService = FirebaseService();
       List<VisualizedResults> testData = [];
 
       for (var testReference in widget.projectData.testRefs) {
@@ -223,7 +221,7 @@ class _ResultsPageState extends State<ResultsPage> {
               decoration: BoxDecoration(color: Colors.blue),
               child: Text('Results Panel'),
             ),
-            for (var test in _testData)
+            for (var test in _testData.where((test) => test.isComplete && !test.collectionID.startsWith("section_cutter_tests/"))) 
               ListTile(
                 title: Text(test.testName),
                 trailing: Switch(

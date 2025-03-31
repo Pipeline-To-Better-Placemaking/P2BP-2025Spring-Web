@@ -135,7 +135,7 @@ Widget buildLegends() {
 
 Widget legendItem(IconData icon, String label, Color buttonColor,
     BoxShape buttonShape, Border border, Color iconColor, double width) {
-  return Container(
+  return SizedBox(
     width: width,
     child: Row(
       children: [

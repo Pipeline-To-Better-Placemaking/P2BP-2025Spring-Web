@@ -1,10 +1,18 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
-import 'firestore_functions.dart';
-import 'theme.dart';
+import 'assets.dart';
+
 import 'db_schema_classes.dart';
+import 'firestore_functions.dart';
 import 'google_maps_functions.dart';
+import 'spatial_boundaries_instructions.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 class SpatialBoundariesTestPage extends StatefulWidget {
@@ -23,22 +31,30 @@ class SpatialBoundariesTestPage extends StatefulWidget {
 }
 
 class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
-  bool _isLoading = true;
   bool _polygonMode = false;
   bool _polylineMode = false;
   bool _outsidePoint = false;
+  bool _boundariesVisible = true;
+  bool _isTestRunning = false;
+  bool _directionsVisible = true;
 
+  int _remainingSeconds = -1;
+  Timer? _timer;
+  Timer? _outsidePointTimer;
+
+  double _zoom = 18;
   late GoogleMapController mapController;
   LatLng _location = defaultLocation;
-  MapType _currentMapType = MapType.satellite; // Default map type
+  MapType _currentMapType = MapType.satellite;
   List<mp.LatLng> _projectArea = [];
 
-  Set<Polygon> _polygons = {}; // Set of polygons
-  List<LatLng> _polygonPoints = []; // Points for the polygon
-  Set<Marker> _polygonMarkers = {}; // Set of markers for polygon creation
-  Set<Polyline> _polylines = {};
-  Set<Marker> _polylineMarkers = {};
-  List<LatLng> _polylinePoints = [];
+  late final Polygon _projectPolygon; // Set for project polygon
+  final Set<Polygon> _polygons = {};
+  final List<LatLng> _polygonPoints = [];
+  final Set<Marker> _polygonMarkers = {};
+  final Set<Polyline> _polylines = {};
+  final List<LatLng> _polylinePoints = [];
+  final Set<Marker> _polylineMarkers = {};
 
   final SpatialBoundariesData _newData = SpatialBoundariesData();
   BoundaryType? _boundaryType;
@@ -48,42 +64,45 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
 
   static const List<String> _directionsList = [
     'Select a type of boundary.',
-    'Outline the shape of the boundary with points, then click confirm shape when you are done.',
+    'Place points outlining the boundary and press confirm when you\'re done.',
   ];
   late String _directionsActive;
-  static const double _bottomSheetHeight = 320;
+  static final double _bottomSheetHeight = Platform.isIOS ? 250 : 220;
+
+  BitmapDescriptor? polyNodeMarker;
 
   @override
   void initState() {
     super.initState();
-    _initProjectArea();
+    _projectPolygon = getProjectPolygon(widget.activeProject.polygonPoints);
+    _location = getPolygonCentroid(_projectPolygon);
+    _projectArea = _projectPolygon.toMPLatLngList();
+    _zoom = getIdealZoom(_projectArea, _location.toMPLatLng());
+    _remainingSeconds = widget.activeTest.testDuration;
     _directionsActive = _directionsList[0];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print("PostFrameCallback fired");
+      _showInstructionOverlay();
+    });
   }
 
-  /// Gets the project polygon, adds it to the current polygon list, and
-  /// centers the map over it.
-  void _initProjectArea() {
-    setState(() {
-      _polygons = getProjectPolygon(widget.activeProject.polygonPoints);
-      _location = getPolygonCentroid(_polygons.first);
-      // Take some latitude away to center considering bottom sheet.
-      _location = LatLng(_location.latitude * .999999, _location.longitude);
-      _projectArea = _polygons.first.toMPLatLngList();
-      // TODO: dynamic zooming
-      _isLoading = false;
-    });
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _outsidePointTimer?.cancel();
+    super.dispose();
   }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
-    _moveToLocation(); // Ensure the map is centered on the current location
+    _moveToLocation();
   }
 
   /// Moves camera to project location.
   void _moveToLocation() {
     mapController.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(target: _location, zoom: 17.0),
+        CameraPosition(target: _location, zoom: _zoom),
       ),
     );
   }
@@ -98,23 +117,21 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
   }
 
   /// Called whenever map is tapped
-  Future<void> _togglePoint(LatLng point) async {
+  void _togglePoint(LatLng point) {
     try {
-      if (!mp.PolygonUtil.containsLocation(
-          mp.LatLng(point.latitude, point.longitude), _projectArea, true)) {
+      if (!isPointInsidePolygon(point, _projectPolygon)) {
         setState(() {
           _outsidePoint = true;
+        });
+        _outsidePointTimer?.cancel();
+        _outsidePointTimer = Timer(Duration(seconds: 3), () {
+          setState(() {
+            _outsidePoint = false;
+          });
         });
       }
       if (_polygonMode) _polygonTap(point);
       if (_polylineMode) _polylineTap(point);
-      if (_outsidePoint) {
-        // TODO: fix delay. delay will overlap with consecutive taps. this means taps do not necessarily refresh the timer and will end prematurely
-        await Future.delayed(const Duration(seconds: 2));
-        setState(() {
-          _outsidePoint = false;
-        });
-      }
     } catch (e, stacktrace) {
       print('Error in spatial_boundaries_test.dart, _togglePoint(): $e');
       print('Stacktrace: $stacktrace');
@@ -130,9 +147,10 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
         Marker(
           markerId: markerId,
           position: point,
+          icon: tempMarkerIcon,
           consumeTapEvents: true,
           onTap: () {
-            // If the marker is tapped again, it will be removed
+            // If the marker is tapped again, it will be removed.
             setState(() {
               _polygonPoints.remove(point);
               _polygonMarkers
@@ -150,17 +168,25 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
     try {
       // Create polygon and add it to the visible set of polygons.
       tempPolygon = finalizePolygon(_polygonPoints);
-      _polygons.add(tempPolygon.first);
+      final colors = getPolygonColors(_boundaryType!);
+      Polygon coloredPolygon = Polygon(
+        polygonId: tempPolygon.first.polygonId,
+        points: tempPolygon.first.points,
+        strokeColor: colors['stroke']!,
+        fillColor: colors['fill']!,
+        strokeWidth: tempPolygon.first.strokeWidth,
+      );
+      _polygons.add(coloredPolygon);
 
       if (_boundaryType == BoundaryType.material && _materialType != null) {
         _newData.material.add(MaterialBoundary(
-          polygon: tempPolygon.first,
+          polygon: coloredPolygon,
           materialType: _materialType!,
         ));
       } else if (_boundaryType == BoundaryType.shelter &&
           _shelterType != null) {
         _newData.shelter.add(ShelterBoundary(
-          polygon: tempPolygon.first,
+          polygon: coloredPolygon,
           shelterType: _shelterType!,
         ));
       } else {
@@ -176,6 +202,23 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
     }
   }
 
+  /// Returns stroke and fill colors for a boundary polygon based on its type.
+  Map<String, Color> getPolygonColors(BoundaryType type) {
+    if (type == BoundaryType.material) {
+      return {
+        'stroke': Color(0xFF00897B),
+        'fill': Color(0xFF4DB6AC).withValues(alpha: 0.3),
+      };
+    } else if (type == BoundaryType.shelter) {
+      return {
+        'stroke': Color(0xFFF57C00),
+        'fill': Color(0xFFFFB74D).withValues(alpha: 0.3),
+      };
+    } else {
+      throw Exception('Unexpected boundary type');
+    }
+  }
+
   /// Place marker to be used in making polyline.
   void _polylineTap(LatLng point) {
     final markerId = MarkerId(point.toString());
@@ -185,6 +228,7 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
         Marker(
           markerId: markerId,
           position: point,
+          icon: tempMarkerIcon,
           consumeTapEvents: true,
           onTap: () {
             // If the marker is tapped again, it will be removed
@@ -211,12 +255,24 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
       if (tempPolyline == null) {
         throw Exception('Failed to create Polyline from given points.');
       }
-      _polylines.add(tempPolyline);
+
+      // Get the correct color for this boundary type
+      final polylineColor = getPolylineColor(_boundaryType!);
+
+      // Create a new polyline with the appropriate color
+      Polyline coloredPolyline = Polyline(
+        polylineId: tempPolyline.polylineId,
+        points: tempPolyline.points,
+        color: polylineColor,
+        width: tempPolyline.width,
+      );
+
+      _polylines.add(coloredPolyline);
 
       if (_boundaryType == BoundaryType.constructed &&
           _constructedType != null) {
         _newData.constructed.add(ConstructedBoundary(
-          polyline: tempPolyline,
+          polyline: coloredPolyline,
           constructedType: _constructedType!,
         ));
       } else {
@@ -229,6 +285,15 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
     } catch (e, stacktrace) {
       print('Exception in _finalizePolyline(): $e');
       print('Stacktrace: $stacktrace');
+    }
+  }
+
+  /// Returns stroke color for a boundary polyline based on its type.
+  Color getPolylineColor(BoundaryType type) {
+    if (type == BoundaryType.constructed) {
+      return Color(0xFFD81B60);
+    } else {
+      throw Exception('Unexpected boundary value');
     }
   }
 
@@ -301,252 +366,379 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
     }
   }
 
+  /// Displays instructions for how to conduct Spatial Boundaries test.
+  void _showInstructionOverlay() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          insetPadding: const EdgeInsets.all(10),
+          actionsPadding: EdgeInsets.zero,
+          title: const Text(
+            'How It Works:',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: MediaQuery.sizeOf(context).width * 0.95,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  spatialBoundariesInstructions(),
+                  const SizedBox(height: 10),
+                  buildLegends(),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Row(
+                  children: const [
+                    Checkbox(value: false, onChanged: null),
+                    Text("Don't show this again next time"),
+                  ],
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _startTest() {
+    setState(() {
+      _isTestRunning = true;
+    });
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        _remainingSeconds--;
+        if (_remainingSeconds <= 0) {
+          _isTestRunning = false;
+          timer.cancel();
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) {
+              return TimerEndDialog(onSubmit: () {
+                Navigator.pop(context);
+                _endTest();
+              }, onBack: () {
+                setState(() {
+                  _remainingSeconds = widget.activeTest.testDuration;
+                });
+                Navigator.pop(context);
+              });
+            },
+          );
+        }
+      });
+    });
+  }
+
+  /// Method to end the test and timer.
+  void _endTest() {
+    _timer?.cancel();
+    _outsidePointTimer?.cancel();
+    widget.activeTest.submitData(_newData);
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: (_currentMapType == MapType.normal)
+          ? SystemUiOverlayStyle.dark.copyWith(
+              statusBarColor: Colors.transparent,
+            )
+          : SystemUiOverlayStyle.light.copyWith(
+              statusBarColor: Colors.transparent,
+            ),
       child: Scaffold(
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Center(
-                child: Stack(
+        resizeToAvoidBottomInset: false,
+        extendBody: true,
+        body: Stack(
+          children: <Widget>[
+            SizedBox(
+              height: MediaQuery.sizeOf(context).height,
+              child: GoogleMap(
+                padding: EdgeInsets.only(bottom: _bottomSheetHeight),
+                onMapCreated: _onMapCreated,
+                initialCameraPosition:
+                    CameraPosition(target: _location, zoom: _zoom),
+                markers: {..._polygonMarkers, ..._polylineMarkers},
+                polygons: {
+                  _projectPolygon,
+                  if (_boundariesVisible) ..._polygons,
+                },
+                polylines: _boundariesVisible ? _polylines : <Polyline>{},
+                onTap: (_polygonMode || _polylineMode) ? _togglePoint : null,
+                mapType: _currentMapType,
+                myLocationButtonEnabled: false,
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    SizedBox(
-                      height: MediaQuery.of(context).size.height,
-                      child: GoogleMap(
-                        padding: EdgeInsets.only(bottom: _bottomSheetHeight),
-                        onMapCreated: _onMapCreated,
-                        initialCameraPosition:
-                            CameraPosition(target: _location, zoom: 15),
-                        markers: {..._polygonMarkers, ..._polylineMarkers},
-                        polygons: _polygons,
-                        polylines: _polylines,
-                        onTap: _togglePoint,
-                        mapType: _currentMapType,
-                      ),
+                    TimerButtonAndDisplay(
+                      onPressed: () {
+                        setState(() {
+                          if (_isTestRunning) {
+                            setState(() {
+                              _isTestRunning = false;
+                              _timer?.cancel();
+                              _resetPlacementVariables();
+                            });
+                          } else {
+                            _startTest();
+                          }
+                        });
+                      },
+                      isTestRunning: _isTestRunning,
+                      remainingSeconds: _remainingSeconds,
                     ),
-                    Align(
-                      alignment: Alignment.bottomLeft,
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          left: 10,
-                          right: 10,
-                          bottom: _bottomSheetHeight + 30,
+                    SizedBox(width: 15),
+                    Expanded(
+                      child: _directionsVisible
+                          ? DirectionsText(
+                              onTap: () {
+                                setState(() {
+                                  _directionsVisible = !_directionsVisible;
+                                });
+                              },
+                              text: _directionsActive,
+                            )
+                          : SizedBox(),
+                    ),
+                    SizedBox(width: 15),
+                    Column(
+                      spacing: 10,
+                      children: [
+                        DirectionsButton(
+                          onTap: () {
+                            setState(() {
+                              _directionsVisible = !_directionsVisible;
+                            });
+                          },
                         ),
-                        child: FloatingActionButton(
-                          heroTag: null,
+                        CircularIconMapButton(
+                          backgroundColor:
+                              Color(0xFF7EAD80).withValues(alpha: 0.9),
+                          borderColor: Color(0xFF2D6040),
                           onPressed: _toggleMapType,
-                          backgroundColor: Colors.green,
-                          child: const Icon(Icons.map),
+                          icon: Icon(Icons.layers),
                         ),
-                      ),
+                        CircularIconMapButton(
+                          backgroundColor:
+                              Color(0xFFBACFEB).withValues(alpha: 0.9),
+                          borderColor: Color(0xFF37597D),
+                          onPressed: _showInstructionOverlay,
+                          icon: Icon(FontAwesomeIcons.info),
+                        ),
+                        CircularIconMapButton(
+                          backgroundColor:
+                              Color(0xFFE4E9EF).withValues(alpha: 0.9),
+                          borderColor: Color(0xFF4A5D75),
+                          onPressed: () {
+                            setState(() {
+                              _boundariesVisible = !_boundariesVisible;
+                            });
+                          },
+                          icon: Icon(
+                            _boundariesVisible
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            size: 30,
+                            color: Color(0xFF4A5D75),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-        bottomSheet: _isLoading
-            ? SizedBox()
-            : SizedBox(
-                height: _bottomSheetHeight,
-                child: Stack(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12.0, vertical: 10.0),
-                      decoration: BoxDecoration(
-                        gradient: defaultGrad,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(24.0),
-                          topRight: Radius.circular(24.0),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black,
-                            offset: Offset(0.0, 1.0), //(x,y)
-                            blurRadius: 6.0,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: <Widget>[
-                          Center(
-                            child: Text(
-                              'Spatial Boundaries',
-                              softWrap: true,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: placeYellow,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 5),
-                          Center(
-                            child: Text(
-                              _directionsActive,
-                              softWrap: true,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 5),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            spacing: 10,
-                            children: <Widget>[
-                              Expanded(
-                                flex: 11,
-                                child: FilledButton(
-                                  style: testButtonStyle,
-                                  onPressed: (_polygonMode || _polylineMode)
-                                      ? null
-                                      : () {
-                                          _doConstructedModal(context);
-                                        },
-                                  child: Text('Constructed'),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 8,
-                                child: FilledButton(
-                                  style: testButtonStyle,
-                                  onPressed: (_polygonMode || _polylineMode)
-                                      ? null
-                                      : () {
-                                          _doMaterialModal(context);
-                                        },
-                                  child: Text('Material'),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 7,
-                                child: FilledButton(
-                                  style: testButtonStyle,
-                                  onPressed: (_polygonMode || _polylineMode)
-                                      ? null
-                                      : () {
-                                          _doShelterModal(context);
-                                        },
-                                  child: Text('Shelter'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 15),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            spacing: 15,
-                            children: <Widget>[
-                              Expanded(
-                                flex: 9,
-                                child: EditButton(
-                                  text: 'Confirm Shape',
-                                  foregroundColor: Colors.green,
-                                  backgroundColor: Colors.white,
-                                  icon: const Icon(Icons.check),
-                                  iconColor: Colors.green,
-                                  onPressed: (_polygonMode &&
-                                          _polygonPoints.length >= 3)
-                                      ? _finalizePolygon
-                                      : (_polylineMode &&
-                                              _polylinePoints.length >= 2)
-                                          ? _finalizePolyline
-                                          : null,
-                                ),
-                              ),
-                              Expanded(
-                                flex: 6,
-                                child: EditButton(
-                                  text: 'Cancel',
-                                  foregroundColor: Colors.red,
-                                  backgroundColor: Colors.white,
-                                  icon: const Icon(Icons.cancel),
-                                  iconColor: Colors.red,
-                                  onPressed: (_polygonMode || _polylineMode)
-                                      ? _resetPlacementVariables
-                                      : null,
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 15),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            spacing: 10,
-                            children: <Widget>[
-                              Flexible(
-                                child: FilledButton.icon(
-                                  style: testButtonStyle,
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                  },
-                                  label: Text('Back'),
-                                  icon: Icon(Icons.chevron_left),
-                                  iconAlignment: IconAlignment.start,
-                                ),
-                              ),
-                              Flexible(
-                                child: FilledButton.icon(
-                                  style: testButtonStyle,
-                                  onPressed: (_polygonMode || _polylineMode)
-                                      ? null
-                                      : () {
-                                          widget.activeTest
-                                              .submitData(_newData);
-                                          Navigator.pop(context);
-                                        },
-                                  label: Text('Finish'),
-                                  icon: Icon(Icons.chevron_right),
-                                  iconAlignment: IconAlignment.end,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+            ),
+            if (_outsidePoint)
+              TestErrorText(
+                padding:
+                    EdgeInsets.fromLTRB(50, 0, 50, _bottomSheetHeight + 20),
+              ),
+          ],
+        ),
+        bottomSheet: SizedBox(
+          height: _bottomSheetHeight,
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+            decoration: BoxDecoration(
+              gradient: formGradient,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24.0),
+                topRight: Radius.circular(24.0),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black,
+                  offset: Offset(0.0, 1.0), //(x,y)
+                  blurRadius: 6.0,
+                ),
+              ],
+            ),
+            child: Column(
+              children: <Widget>[
+                Center(
+                  child: Text(
+                    'Spatial Boundaries',
+                    softWrap: true,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2F6DCF),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 5),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  spacing: 10,
+                  children: <Widget>[
+                    Expanded(
+                      flex: 11,
+                      child: FilledButton(
+                        style: testButtonStyle,
+                        onPressed:
+                            (_isTestRunning && !_polygonMode && !_polylineMode)
+                                ? () {
+                                    _doConstructedModal(context);
+                                  }
+                                : null,
+                        child: Text('Constructed'),
                       ),
                     ),
-                    _outsidePoint
-                        ? Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 30.0, horizontal: 100.0),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 15, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: Colors.red[900],
-                                  borderRadius: const BorderRadius.all(
-                                      Radius.circular(10)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.1),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  'You have placed a point outside of the project area!',
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.red[50],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                        : SizedBox(),
+                    Expanded(
+                      flex: 8,
+                      child: FilledButton(
+                        style: testButtonStyle,
+                        onPressed:
+                            (_isTestRunning && !_polygonMode && !_polylineMode)
+                                ? () {
+                                    _doMaterialModal(context);
+                                  }
+                                : null,
+                        child: Text('Material'),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 7,
+                      child: FilledButton(
+                        style: testButtonStyle,
+                        onPressed:
+                            (_isTestRunning && !_polygonMode && !_polylineMode)
+                                ? () {
+                                    _doShelterModal(context);
+                                  }
+                                : null,
+                        child: Text('Shelter'),
+                      ),
+                    ),
                   ],
                 ),
-              ),
+                SizedBox(height: 5),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  spacing: 15,
+                  children: <Widget>[
+                    Expanded(
+                      flex: 9,
+                      child: EditButton(
+                        text: 'Confirm Shape',
+                        foregroundColor: Colors.green,
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15)),
+                        icon: const Icon(Icons.check),
+                        iconColor: Colors.green,
+                        onPressed: (_polygonMode && _polygonPoints.length >= 3)
+                            ? _finalizePolygon
+                            : (_polylineMode && _polylinePoints.length >= 2)
+                                ? _finalizePolyline
+                                : null,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 6,
+                      child: EditButton(
+                        text: 'Cancel',
+                        foregroundColor: Colors.red,
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15)),
+                        icon: const Icon(Icons.cancel),
+                        iconColor: Colors.red,
+                        onPressed: (_polygonMode || _polylineMode)
+                            ? _resetPlacementVariables
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 15),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  spacing: 10,
+                  children: <Widget>[
+                    Flexible(
+                      child: FilledButton.icon(
+                        style: testButtonStyle,
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        label: Text('Back'),
+                        icon: Icon(Icons.chevron_left),
+                        iconAlignment: IconAlignment.start,
+                      ),
+                    ),
+                    Flexible(
+                      child: FilledButton.icon(
+                        style: testButtonStyle,
+                        onPressed:
+                            (!_polygonMode && !_polylineMode && !_isTestRunning)
+                                ? () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) =>
+                                          TestFinishDialog(onNext: () {
+                                        Navigator.pop(context);
+                                        _endTest();
+                                      }),
+                                    );
+                                  }
+                                : null,
+                        label: Text('Finish'),
+                        icon: Icon(Icons.chevron_right),
+                        iconAlignment: IconAlignment.end,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -565,175 +757,182 @@ class _ConstructedDescriptionFormState
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      child: Padding(
-        padding: MediaQuery.of(context).viewInsets,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: defaultGrad,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(24.0),
-              topRight: Radius.circular(24.0),
-            ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+        decoration: BoxDecoration(
+          gradient: formGradient,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24.0),
+            topRight: Radius.circular(24.0),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Column(
-              children: [
-                const BarIndicator(),
-                Center(
-                  child: Text(
-                    'Boundary Description',
-                    softWrap: true,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Column(
+            children: [
+              Center(
+                child: Text(
+                  'Boundary Description',
+                  softWrap: true,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2F6DCF),
+                  ),
+                ),
+              ),
+              SizedBox(height: 15),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 25),
+                child: Center(
+                  child: Text.rich(
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: placeYellow,
+                    softWrap: true,
+                    TextSpan(
+                      text: 'Choose the option that ',
+                      style: TextStyle(fontSize: 16, color: Colors.black),
+                      children: [
+                        TextSpan(
+                          text: 'best',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        TextSpan(text: ' describes your boundary.'),
+                      ],
                     ),
                   ),
                 ),
-                SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 25),
-                  child: Center(
-                    child: Text(
-                      'Select the best description for the boundary you marked.',
-                      softWrap: true,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey[400],
+              ),
+              SizedBox(height: 12),
+              Row(
+                spacing: 20,
+                children: <Widget>[
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ConstructedBoundaryType.curb,
+                        );
+                      },
+                      child: Text(
+                        'Curbs',
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 12),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            ConstructedBoundaryType.curb,
-                          );
-                        },
-                        child: Text(
-                          'Curbs',
-                          textAlign: TextAlign.center,
-                        ),
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ConstructedBoundaryType.buildingWall,
+                        );
+                      },
+                      child: Text(
+                        'Building Wall',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            ConstructedBoundaryType.buildingWall,
-                          );
-                        },
-                        child: Text(
-                          'Building Wall',
-                          textAlign: TextAlign.center,
-                        ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 4),
+              Row(
+                spacing: 20,
+                children: <Widget>[
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ConstructedBoundaryType.fence,
+                        );
+                      },
+                      child: Text(
+                        'Fences',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            ConstructedBoundaryType.fence,
-                          );
-                        },
-                        child: Text(
-                          'Fences',
-                          textAlign: TextAlign.center,
-                        ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ConstructedBoundaryType.planter,
+                        );
+                      },
+                      child: Text(
+                        'Planter',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            ConstructedBoundaryType.planter,
-                          );
-                        },
-                        child: Text(
-                          'Planter',
-                          textAlign: TextAlign.center,
-                        ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 4),
+              Row(
+                spacing: 20,
+                children: <Widget>[
+                  Spacer(flex: 1),
+                  Expanded(
+                    flex: 2,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ConstructedBoundaryType.partialWall,
+                        );
+                      },
+                      child: Text(
+                        'Partial Wall',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ],
+                  ),
+                  Spacer(flex: 1),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Divider(
+                  color: Color(0xFF7A8DA6),
                 ),
-                SizedBox(height: 4),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Spacer(flex: 1),
-                    Expanded(
-                      flex: 2,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            ConstructedBoundaryType.partialWall,
-                          );
-                        },
-                        child: Text(
-                          'Partial Wall',
-                          textAlign: TextAlign.center,
-                        ),
+              ),
+              Row(
+                children: [
+                  Spacer(flex: 4),
+                  Expanded(
+                    flex: 3,
+                    child: FilledButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        'Back',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Spacer(flex: 1),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Divider(),
-                ),
-                Row(
-                  children: [
-                    Spacer(flex: 4),
-                    Expanded(
-                      flex: 3,
-                      child: FilledButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: Text(
-                          'Back',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                    Spacer(flex: 4),
-                  ],
-                ),
-                SizedBox(height: 30),
-              ],
-            ),
+                  ),
+                  Spacer(flex: 4),
+                ],
+              ),
+              SizedBox(height: 30),
+            ],
           ),
         ),
       ),
@@ -756,172 +955,179 @@ class _MaterialDescriptionFormState extends State<_MaterialDescriptionForm> {
       child: Padding(
         padding: MediaQuery.of(context).viewInsets,
         child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
           decoration: BoxDecoration(
-            gradient: defaultGrad,
+            gradient: formGradient,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(24.0),
               topRight: Radius.circular(24.0),
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Column(
-              children: [
-                const BarIndicator(),
-                Center(
-                  child: Text(
-                    'Boundary Description',
-                    softWrap: true,
+          child: Column(
+            children: [
+              Center(
+                child: Text(
+                  'Boundary Description',
+                  softWrap: true,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2F6DCF),
+                  ),
+                ),
+              ),
+              SizedBox(height: 15),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 25),
+                child: Center(
+                  child: Text.rich(
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: placeYellow,
+                    softWrap: true,
+                    TextSpan(
+                      text: 'Choose the option that ',
+                      style: TextStyle(fontSize: 16, color: Colors.black),
+                      children: [
+                        TextSpan(
+                          text: 'best',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        TextSpan(text: ' describes your boundary.'),
+                      ],
                     ),
                   ),
                 ),
-                SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 25),
-                  child: Center(
-                    child: Text(
-                      'Select the best description for the boundary you marked.',
-                      softWrap: true,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey[400],
+              ),
+              SizedBox(height: 12),
+              Row(
+                spacing: 20,
+                children: <Widget>[
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          MaterialBoundaryType.pavers,
+                        );
+                      },
+                      child: Text(
+                        'Pavers',
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 12),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            MaterialBoundaryType.pavers,
-                          );
-                        },
-                        child: Text(
-                          'Pavers',
-                          textAlign: TextAlign.center,
-                        ),
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          MaterialBoundaryType.concrete,
+                        );
+                      },
+                      child: Text(
+                        'Concrete',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            MaterialBoundaryType.concrete,
-                          );
-                        },
-                        child: Text(
-                          'Concrete',
-                          textAlign: TextAlign.center,
-                        ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 4),
+              Row(
+                spacing: 20,
+                children: <Widget>[
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          MaterialBoundaryType.tile,
+                        );
+                      },
+                      child: Text(
+                        'Tile',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            MaterialBoundaryType.tile,
-                          );
-                        },
-                        child: Text(
-                          'Tile',
-                          textAlign: TextAlign.center,
-                        ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          MaterialBoundaryType.natural,
+                        );
+                      },
+                      child: Text(
+                        'Natural',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            MaterialBoundaryType.natural,
-                          );
-                        },
-                        child: Text(
-                          'Natural',
-                          textAlign: TextAlign.center,
-                        ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 4),
+              Row(
+                spacing: 20,
+                children: <Widget>[
+                  Spacer(flex: 1),
+                  Expanded(
+                    flex: 2,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          MaterialBoundaryType.decking,
+                        );
+                      },
+                      child: Text(
+                        'Decking',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ],
+                  ),
+                  Spacer(flex: 1),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Divider(
+                  color: Color(0xFF7A8DA6),
                 ),
-                SizedBox(height: 4),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Spacer(flex: 1),
-                    Expanded(
-                      flex: 2,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            MaterialBoundaryType.decking,
-                          );
-                        },
-                        child: Text(
-                          'Decking',
-                          textAlign: TextAlign.center,
-                        ),
+              ),
+              Row(
+                children: [
+                  Spacer(flex: 4),
+                  Expanded(
+                    flex: 3,
+                    child: FilledButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        'Back',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Spacer(flex: 1),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Divider(),
-                ),
-                Row(
-                  children: [
-                    Spacer(flex: 4),
-                    Expanded(
-                      flex: 3,
-                      child: FilledButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: Text(
-                          'Back',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                    Spacer(flex: 4),
-                  ],
-                ),
-                SizedBox(height: 30),
-              ],
-            ),
+                  ),
+                  Spacer(flex: 4),
+                ],
+              ),
+              SizedBox(height: 30),
+            ],
           ),
         ),
       ),
@@ -944,172 +1150,179 @@ class _ShelterDescriptionFormState extends State<_ShelterDescriptionForm> {
       child: Padding(
         padding: MediaQuery.of(context).viewInsets,
         child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
           decoration: BoxDecoration(
-            gradient: defaultGrad,
+            gradient: formGradient,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(24.0),
               topRight: Radius.circular(24.0),
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Column(
-              children: [
-                const BarIndicator(),
-                Center(
-                  child: Text(
-                    'Boundary Description',
-                    softWrap: true,
+          child: Column(
+            children: [
+              Center(
+                child: Text(
+                  'Boundary Description',
+                  softWrap: true,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2F6DCF),
+                  ),
+                ),
+              ),
+              SizedBox(height: 15),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 25),
+                child: Center(
+                  child: Text.rich(
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: placeYellow,
+                    softWrap: true,
+                    TextSpan(
+                      text: 'Choose the option that ',
+                      style: TextStyle(fontSize: 16, color: Colors.black),
+                      children: [
+                        TextSpan(
+                          text: 'best',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        TextSpan(text: ' describes your boundary.'),
+                      ],
                     ),
                   ),
                 ),
-                SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 25),
-                  child: Center(
-                    child: Text(
-                      'Select the best description for the boundary you marked.',
-                      softWrap: true,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey[400],
+              ),
+              SizedBox(height: 12),
+              Row(
+                spacing: 20,
+                children: <Widget>[
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ShelterBoundaryType.canopy,
+                        );
+                      },
+                      child: Text(
+                        'Canopy',
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 12),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            ShelterBoundaryType.canopy,
-                          );
-                        },
-                        child: Text(
-                          'Canopy',
-                          textAlign: TextAlign.center,
-                        ),
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ShelterBoundaryType.tree,
+                        );
+                      },
+                      child: Text(
+                        'Trees',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            ShelterBoundaryType.tree,
-                          );
-                        },
-                        child: Text(
-                          'Trees',
-                          textAlign: TextAlign.center,
-                        ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 4),
+              Row(
+                spacing: 20,
+                children: <Widget>[
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ShelterBoundaryType.furniture,
+                        );
+                      },
+                      child: Text(
+                        'Furniture',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            ShelterBoundaryType.furniture,
-                          );
-                        },
-                        child: Text(
-                          'Furniture',
-                          textAlign: TextAlign.center,
-                        ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ShelterBoundaryType.temporary,
+                        );
+                      },
+                      child: Text(
+                        'Temporary',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Expanded(
-                      flex: 1,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            ShelterBoundaryType.temporary,
-                          );
-                        },
-                        child: Text(
-                          'Temporary',
-                          textAlign: TextAlign.center,
-                        ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 4),
+              Row(
+                spacing: 20,
+                children: <Widget>[
+                  Spacer(flex: 1),
+                  Expanded(
+                    flex: 2,
+                    child: TextButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ShelterBoundaryType.constructed,
+                        );
+                      },
+                      child: Text(
+                        'Constructed',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ],
+                  ),
+                  Spacer(flex: 1),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Divider(
+                  color: Color(0xFF7A8DA6),
                 ),
-                SizedBox(height: 4),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Spacer(flex: 1),
-                    Expanded(
-                      flex: 2,
-                      child: TextButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            ShelterBoundaryType.constructed,
-                          );
-                        },
-                        child: Text(
-                          'Constructed',
-                          textAlign: TextAlign.center,
-                        ),
+              ),
+              Row(
+                children: [
+                  Spacer(flex: 4),
+                  Expanded(
+                    flex: 3,
+                    child: FilledButton(
+                      style: testButtonStyle,
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        'Back',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    Spacer(flex: 1),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Divider(),
-                ),
-                Row(
-                  children: [
-                    Spacer(flex: 4),
-                    Expanded(
-                      flex: 3,
-                      child: FilledButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: Text(
-                          'Back',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                    Spacer(flex: 4),
-                  ],
-                ),
-                SizedBox(height: 30),
-              ],
-            ),
+                  ),
+                  Spacer(flex: 4),
+                ],
+              ),
+              SizedBox(height: 30),
+            ],
           ),
         ),
       ),

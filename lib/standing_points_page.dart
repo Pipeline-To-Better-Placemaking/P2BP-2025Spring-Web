@@ -34,7 +34,7 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
   bool _isLoading = true;
   final String _directions =
       "Select the standing points you want to use in this test. Then click confirm.";
-  Set<Polygon> _polygons = {}; // Set of polygons
+  final Set<Polygon> _polygons = {}; // Set of polygons
   Set<Marker> _markers = {}; // Set of markers for points
   List<StandingPoint> _standingPoints = [];
   Marker? _currentMarker;
@@ -53,7 +53,7 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
   /// centers the map over it.
   void initProjectArea() {
     setState(() {
-      _polygons = getProjectPolygon(widget.activeProject.polygonPoints);
+      _polygons.add( getProjectPolygon(widget.activeProject.polygonPoints));
       _location = getPolygonCentroid(_polygons.first);
       // Take some latitude away to center considering bottom sheet.
       _location = LatLng(_location.latitude * .999999, _location.longitude);

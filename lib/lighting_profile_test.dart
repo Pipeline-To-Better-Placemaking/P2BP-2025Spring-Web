@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
 import 'firestore_functions.dart';
 import 'theme.dart';
-import 'google_maps_functions.dart';
+import 'widgets.dart';
+
 import 'db_schema_classes.dart';
+import 'google_maps_functions.dart';
 
 class LightingProfileTestPage extends StatefulWidget {
   final Project activeProject;
@@ -21,51 +26,54 @@ class LightingProfileTestPage extends StatefulWidget {
 }
 
 class _LightingProfileTestPageState extends State<LightingProfileTestPage> {
-  bool _isLoading = true;
   bool _isTypeSelected = false;
   bool _outsidePoint = false;
-  LightType? _selectedType;
+  bool _isTestRunning = false;
+  bool _directionsVisible = true;
 
+  LightType? _selectedType;
   late GoogleMapController mapController;
   LatLng _location = defaultLocation;
-  MapType _currentMapType = MapType.satellite; // Default map type
+  double _zoom = 18;
+  MapType _currentMapType = MapType.satellite;
   List<mp.LatLng> _projectArea = [];
+  final Set<Marker> _markers = {};
+  final Set<Polygon> _polygons = {};
 
-  final Set<Marker> _markers = {}; // Set of markers visible on map
-  Set<Polygon> _polygons = {}; // Set of polygons
   final LightingProfileData _newData = LightingProfileData();
 
-  static const double _bottomSheetHeight = 300;
+  Timer? _timer;
+  Timer? _outsidePointTimer;
+  int _remainingSeconds = -1;
+  static const double _bottomSheetHeight = 220;
 
   @override
   void initState() {
     super.initState();
-    _initProjectArea();
+    _polygons.add(getProjectPolygon(widget.activeProject.polygonPoints));
+    _location = getPolygonCentroid(_polygons.first);
+    _projectArea = _polygons.first.toMPLatLngList();
+    _zoom = getIdealZoom(_projectArea, _location.toMPLatLng());
+    _remainingSeconds = widget.activeTest.testDuration;
   }
 
-  /// Gets the project polygon, adds it to the current polygon list, and
-  /// centers the map over it.
-  void _initProjectArea() {
-    setState(() {
-      _polygons = getProjectPolygon(widget.activeProject.polygonPoints);
-      _location = getPolygonCentroid(_polygons.first);
-      // Take some latitude away to center considering bottom sheet.
-      _location = LatLng(_location.latitude * .999999, _location.longitude);
-      _projectArea = _polygons.first.toMPLatLngList();
-      // TODO: dynamic zooming
-      _isLoading = false;
-    });
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _outsidePointTimer?.cancel();
+    super.dispose();
   }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
-    _moveToLocation(); // Ensure the map is centered on the current location
+    _moveToLocation();
   }
 
+  /// Moves camera to project location.
   void _moveToLocation() {
     mapController.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(target: _location, zoom: 14.0),
+        CameraPosition(target: _location, zoom: _zoom),
       ),
     );
   }
@@ -86,10 +94,15 @@ class _LightingProfileTestPageState extends State<LightingProfileTestPage> {
   /// selected after this point is placed.
   Future<void> _togglePoint(LatLng point) async {
     try {
-      if (!mp.PolygonUtil.containsLocation(
-          mp.LatLng(point.latitude, point.longitude), _projectArea, true)) {
+      if (!isPointInsidePolygon(point, _polygons.first)) {
         setState(() {
           _outsidePoint = true;
+        });
+        _outsidePointTimer?.cancel();
+        _outsidePointTimer = Timer(Duration(seconds: 3), () {
+          setState(() {
+            _outsidePoint = false;
+          });
         });
       }
 
@@ -115,18 +128,48 @@ class _LightingProfileTestPageState extends State<LightingProfileTestPage> {
           ),
         );
       });
-
-      if (_outsidePoint) {
-        // TODO: fix delay. delay will overlap with consecutive taps. this means taps do not necessarily refresh the timer and will end prematurely
-        await Future.delayed(const Duration(seconds: 2));
-        setState(() {
-          _outsidePoint = false;
-        });
-      }
     } catch (e, stacktrace) {
       print('Error in lighting_profile_test.dart, _togglePoint(): $e');
       print('Stacktrace: $stacktrace');
     }
+  }
+
+  void _startTest() {
+    setState(() {
+      _isTestRunning = true;
+    });
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        _remainingSeconds--;
+        if (_remainingSeconds <= 0) {
+          _isTestRunning = false;
+          timer.cancel();
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) {
+              return TimerEndDialog(onSubmit: () {
+                Navigator.pop(context);
+                _endTest();
+              }, onBack: () {
+                setState(() {
+                  _remainingSeconds = widget.activeTest.testDuration;
+                });
+                Navigator.pop(context);
+              });
+            },
+          );
+        }
+      });
+    });
+  }
+
+  /// Cancels timer, submits data, and pops test page.
+  void _endTest() {
+    _timer?.cancel();
+    _outsidePointTimer?.cancel();
+    widget.activeTest.submitData(_newData);
+    Navigator.pop(context);
   }
 
   /// Sets [_selectedType] to parameter `type` and [_isTypeSelected] to
@@ -140,224 +183,228 @@ class _LightingProfileTestPageState extends State<LightingProfileTestPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: (_currentMapType == MapType.normal)
+          ? SystemUiOverlayStyle.dark.copyWith(
+              statusBarColor: Colors.transparent,
+            )
+          : SystemUiOverlayStyle.light.copyWith(
+              statusBarColor: Colors.transparent,
+            ),
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         extendBody: true,
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Center(
-                child: Stack(
-                  children: <Widget>[
-                    SizedBox(
-                      height: MediaQuery.of(context).size.height,
-                      child: GoogleMap(
-                        padding: EdgeInsets.only(bottom: _bottomSheetHeight),
-                        onMapCreated: _onMapCreated,
-                        initialCameraPosition:
-                            CameraPosition(target: _location, zoom: 14),
-                        markers: _markers,
-                        polygons: _polygons,
-                        onTap: _isTypeSelected ? _togglePoint : null,
-                        mapType: _currentMapType,
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.bottomLeft,
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          left: 10,
-                          right: 10,
-                          bottom: _bottomSheetHeight + 30,
-                        ),
-                        child: FloatingActionButton(
-                          heroTag: null,
-                          onPressed: _toggleMapType,
-                          backgroundColor: Colors.green,
-                          child: const Icon(Icons.map),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+        body: Stack(
+          children: <Widget>[
+            SizedBox(
+              height: MediaQuery.sizeOf(context).height,
+              child: GoogleMap(
+                padding: EdgeInsets.only(bottom: _bottomSheetHeight),
+                onMapCreated: _onMapCreated,
+                initialCameraPosition:
+                    CameraPosition(target: _location, zoom: _zoom),
+                markers: _markers,
+                polygons: _polygons,
+                onTap: _isTypeSelected ? _togglePoint : null,
+                mapType: _currentMapType,
               ),
-        bottomSheet: _isLoading
-            ? SizedBox()
-            : SizedBox(
-                height: _bottomSheetHeight,
-                child: Stack(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12.0, vertical: 10.0),
-                      decoration: BoxDecoration(
-                        gradient: defaultGrad,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(24.0),
-                          topRight: Radius.circular(24.0),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black,
-                            offset: Offset(0.0, 1.0), //(x,y)
-                            blurRadius: 6.0,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Center(
-                            child: Text(
-                              'Lighting Profile',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.yellow[600],
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 5),
-                          Center(
-                            child: Text(
-                              !_isTypeSelected
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    TimerButtonAndDisplay(
+                      onPressed: () {
+                        setState(() {
+                          if (_isTestRunning) {
+                            setState(() {
+                              _isTestRunning = false;
+                              _timer?.cancel();
+                              _setLightType(null);
+                            });
+                          } else {
+                            _startTest();
+                          }
+                        });
+                      },
+                      isTestRunning: _isTestRunning,
+                      remainingSeconds: _remainingSeconds,
+                    ),
+                    SizedBox(width: 15),
+                    Expanded(
+                      child: _directionsVisible
+                          ? DirectionsText(
+                              onTap: () {
+                                setState(() {
+                                  _directionsVisible = !_directionsVisible;
+                                });
+                              },
+                              text: !_isTypeSelected
                                   ? 'Select a type of light.'
                                   : 'Drop a pin where the light is.',
-                              style: TextStyle(
-                                fontSize: 24,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 5),
-                          Row(
-                            spacing: 10,
-                            children: <Widget>[
-                              Expanded(
-                                flex: 6,
-                                child: FilledButton(
-                                  style: testButtonStyle,
-                                  onPressed: (_isTypeSelected)
-                                      ? null
-                                      : () => _setLightType(LightType.rhythmic),
-                                  child: Text('Rhythmic'),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 6,
-                                child: FilledButton(
-                                  style: testButtonStyle,
-                                  onPressed: (_isTypeSelected)
-                                      ? null
-                                      : () => _setLightType(LightType.building),
-                                  child: Text('Building'),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 5,
-                                child: FilledButton(
-                                  style: testButtonStyle,
-                                  onPressed: (_isTypeSelected)
-                                      ? null
-                                      : () => _setLightType(LightType.task),
-                                  child: Text('Task'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 5),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            spacing: 10,
-                            children: <Widget>[
-                              Spacer(flex: 1),
-                              Expanded(
-                                flex: 8,
-                                child: FilledButton(
-                                  style: testButtonStyle,
-                                  onPressed: (_isTypeSelected)
-                                      ? () => _setLightType(null)
-                                      : null,
-                                  child: Text('Select New Light Type'),
-                                ),
-                              ),
-                              Spacer(flex: 1),
-                            ],
-                          ),
-                          SizedBox(height: 10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            spacing: 10,
-                            children: <Widget>[
-                              Flexible(
-                                child: FilledButton.icon(
-                                  style: testButtonStyle,
-                                  onPressed: () => Navigator.pop(context),
-                                  label: Text('Back'),
-                                  icon: Icon(Icons.chevron_left),
-                                  iconAlignment: IconAlignment.start,
-                                ),
-                              ),
-                              Flexible(
-                                child: FilledButton.icon(
-                                  style: testButtonStyle,
-                                  onPressed: (_isTypeSelected)
-                                      ? null
-                                      : () {
-                                          // TODO: check isComplete either before submitting or probably before starting test
-                                          widget.activeTest
-                                              .submitData(_newData);
-                                          Navigator.pop(context);
-                                        },
-                                  label: Text('Finish'),
-                                  icon: Icon(Icons.chevron_right),
-                                  iconAlignment: IconAlignment.end,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                            )
+                          : SizedBox(),
                     ),
-                    _outsidePoint
-                        ? Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 30.0, horizontal: 100.0),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 15, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: Colors.red[900],
-                                  borderRadius: const BorderRadius.all(
-                                      Radius.circular(10)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.1),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  'You have placed a point outside of the project area!',
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.red[50],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                        : SizedBox(),
+                    SizedBox(width: 15),
+                    Column(
+                      spacing: 10,
+                      children: <Widget>[
+                        DirectionsButton(
+                          onTap: () {
+                            setState(() {
+                              _directionsVisible = !_directionsVisible;
+                            });
+                          },
+                        ),
+                        CircularIconMapButton(
+                          backgroundColor: Colors.green,
+                          borderColor: Color(0xFF2D6040),
+                          onPressed: _toggleMapType,
+                          icon: const Icon(Icons.map),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
+            ),
+            if (_outsidePoint)
+              TestErrorText(
+                padding:
+                    EdgeInsets.fromLTRB(50, 0, 50, _bottomSheetHeight + 20),
+              ),
+          ],
+        ),
+        bottomSheet: SizedBox(
+          height: _bottomSheetHeight,
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+            decoration: BoxDecoration(
+              gradient: defaultGrad,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24.0),
+                topRight: Radius.circular(24.0),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black,
+                  offset: Offset(0.0, 1.0), //(x,y)
+                  blurRadius: 6.0,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Center(
+                  child: Text(
+                    'Lighting Profile',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.yellow[600],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 5),
+                Row(
+                  spacing: 10,
+                  children: <Widget>[
+                    Expanded(
+                      flex: 6,
+                      child: FilledButton(
+                        style: testButtonStyle,
+                        onPressed: (!_isTypeSelected && _isTestRunning)
+                            ? () => _setLightType(LightType.rhythmic)
+                            : null,
+                        child: Text('Rhythmic'),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 6,
+                      child: FilledButton(
+                        style: testButtonStyle,
+                        onPressed: (!_isTypeSelected && _isTestRunning)
+                            ? () => _setLightType(LightType.building)
+                            : null,
+                        child: Text('Building'),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 5,
+                      child: FilledButton(
+                        style: testButtonStyle,
+                        onPressed: (!_isTypeSelected && _isTestRunning)
+                            ? () => _setLightType(LightType.task)
+                            : null,
+                        child: Text('Task'),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 5),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  spacing: 10,
+                  children: <Widget>[
+                    Spacer(flex: 1),
+                    Expanded(
+                      flex: 8,
+                      child: FilledButton(
+                        style: testButtonStyle,
+                        onPressed: (_isTypeSelected)
+                            ? () => _setLightType(null)
+                            : null,
+                        child: Text('Select New Light Type'),
+                      ),
+                    ),
+                    Spacer(flex: 1),
+                  ],
+                ),
+                SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  spacing: 10,
+                  children: <Widget>[
+                    Flexible(
+                      child: FilledButton.icon(
+                        style: testButtonStyle,
+                        onPressed: () => Navigator.pop(context),
+                        label: Text('Back'),
+                        icon: Icon(Icons.chevron_left),
+                        iconAlignment: IconAlignment.start,
+                      ),
+                    ),
+                    Flexible(
+                      child: FilledButton.icon(
+                        style: testButtonStyle,
+                        onPressed: (!_isTypeSelected && !_isTestRunning)
+                            ? () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) =>
+                                      TestFinishDialog(onNext: () {
+                                    Navigator.pop(context);
+                                    _endTest();
+                                  }),
+                                );
+                              }
+                            : null,
+                        label: Text('Finish'),
+                        icon: Icon(Icons.chevron_right),
+                        iconAlignment: IconAlignment.end,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

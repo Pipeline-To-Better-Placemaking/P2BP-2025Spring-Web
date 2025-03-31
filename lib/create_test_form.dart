@@ -184,14 +184,13 @@ class _CreateTestFormState extends State<CreateTestForm> {
                     style: TextStyle(color: Color(0xFF2F6DCF)),
                   ),
                 ),
-                /*
                 DropdownMenuItem(
                   value: AcousticProfileTest.collectionIDStatic,
                   child: Text(
                     'Acoustic Profile',
                     style: TextStyle(color: Color(0xFF2F6DCF)),
                   ),
-                ), */
+                ),
                 DropdownMenuItem(
                   value: IdentifyingAccessTest.collectionIDStatic,
                   child: Text(

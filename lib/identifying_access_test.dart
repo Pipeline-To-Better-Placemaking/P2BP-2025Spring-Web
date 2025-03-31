@@ -2,13 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'firestore_functions.dart';
 import 'theme.dart';
 import 'widgets.dart';
-import 'project_details_page.dart';
+
 import 'db_schema_classes.dart';
-import 'firestore_functions.dart';
 import 'google_maps_functions.dart';
 import 'homepage.dart';
+import 'project_details_page.dart';
 
 class IdentifyingAccess extends StatefulWidget {
   final Project activeProject;
@@ -28,59 +29,49 @@ class IdentifyingAccess extends StatefulWidget {
 }
 
 class _IdentifyingAccessState extends State<IdentifyingAccess> {
-  bool _isLoading = true;
   bool _polygonMode = false;
   bool _pointMode = false;
   bool _polylineMode = false;
   bool _oldPolylinesToggle = true;
-  int _currentSpotsOrRoute = 0;
+
+  int? _currentSpotsOrRoute;
+  bool _deleteMode = false;
   AccessType? _type;
   String _directions = "Choose a category.";
-  final double _bottomSheetHeight = 300;
+  static const double _bottomSheetHeight = 315;
   late DocumentReference teamRef;
   late GoogleMapController mapController;
-  LatLng _location = defaultLocation; // Default location
-  Map<AccessType, List> _accessData = {
-    AccessType.bikeRack: [],
-    AccessType.taxiAndRideShare: [],
-    AccessType.parking: [],
-    AccessType.transportStation: [],
-  };
+  LatLng _location = defaultLocation;
+  double _zoom = 18;
 
+  final AccessData _accessData = AccessData();
+
+  late final Polygon _projectPolygon;
   Polyline? _currentPolyline;
   List<LatLng> _currentPolylinePoints = [];
-  Set<Polyline> _polylines = {};
+  final Set<Polyline> _polylines = {};
   Set<Marker> _polylineMarkers = {};
   Set<Marker> _visiblePolylineMarkers = {};
   Set<Polygon> _currentPolygon = {};
-  List<LatLng> _polygonPoints = []; // Points for the polygon
-  Set<Polygon> _polygons = {}; // Set of polygons
-  List<GeoPoint> _polygonAsGeoPoints =
-      []; // The current polygon represented as points (for Firestore).
-  Set<Marker> _markers = {}; // Set of markers for points
-  Set<Marker> _polygonMarkers = {}; // Set of markers for polygon creation
-
-  MapType _currentMapType = MapType.satellite; // Default map type
+  List<LatLng> _polygonPoints = [];
+  final Set<Polygon> _polygons = {};
+  final Set<Marker> _markers = {};
+  Set<Marker> _polygonMarkers = {};
+  bool _directionsVisible = true;
+  MapType _currentMapType = MapType.satellite;
 
   Project? project;
 
   @override
   void initState() {
     super.initState();
-    initProjectArea();
-  }
-
-  /// Gets the project polygon, adds it to the current polygon list, and
-  /// centers the map over it.
-  void initProjectArea() {
-    setState(() {
-      _polygons = getProjectPolygon(widget.activeProject.polygonPoints);
-      _location = getPolygonCentroid(_polygons.first);
-      // Take some latitude away to center considering bottom sheet.
-      _location = LatLng(_location.latitude * .999999, _location.longitude);
-      // TODO: dynamic zooming
-      _isLoading = false;
-    });
+    _projectPolygon = getProjectPolygon(widget.activeProject.polygonPoints);
+    _location = getPolygonCentroid(_projectPolygon);
+    _zoom = getIdealZoom(
+          _projectPolygon.toMPLatLngList(),
+          _location.toMPLatLng(),
+        ) -
+        0.1;
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -88,17 +79,17 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
     _moveToLocation(); // Ensure the map is centered on the current location
   }
 
+  /// Moves camera to project location.
   void _moveToLocation() {
     mapController.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(target: _location, zoom: 14),
+        CameraPosition(target: _location, zoom: _zoom),
       ),
     );
   }
 
   void _togglePoint(LatLng point) {
     try {
-      if (_pointMode) _pointTap(point);
       if (_polygonMode) _polygonTap(point);
       if (_polylineMode) _polylineTap(point);
     } catch (e, stacktrace) {
@@ -178,43 +169,12 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
         createPolyline([..._currentPolylinePoints, point], Colors.white);
   }
 
-  // TODO: Delete if proves to be unnecessary...
-  void _pointTap(LatLng point) {
-    if (_type == null) return;
-    final markerId = MarkerId('${_type!.name}_marker_${point.toString()}');
-    setState(() {
-      // TODO: create list of markers for test, add these to it (cat, dog, etc.)
-      _markers.add(
-        Marker(
-          markerId: markerId,
-          position: point,
-          consumeTapEvents: true,
-          icon: AssetMapBitmap(
-            'assets/test_markers/${_type!.name}_marker.png',
-            width: 30,
-            height: 30,
-          ),
-          onTap: () {
-            // If placing a point or polygon, don't remove point.
-            if (_polylineMode || _polygonMode) return;
-            // If the marker is tapped again, it will be removed
-            setState(() {
-              _markers.removeWhere((marker) => marker.markerId == markerId);
-              // TODO: create list of points for test
-            });
-          },
-        ),
-      );
-    });
-    _pointMode = false;
-  }
-
   void _finalizeShape() {
     if (_polygonMode) _finalizePolygon();
     if (_polylineMode) {
       // If parking, then make sure to save the polygon also.
       if (_type == AccessType.parking) {
-        _polygons = {..._polygons, ..._currentPolygon};
+        _polygons.addAll(_currentPolygon);
       }
       _finalizePolyline();
     }
@@ -230,23 +190,27 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
     } else {
       print("Polyline is null. Nothing to finalize.");
     }
+    // Save data to its respective type list.
     _saveLocalData();
+    // Update widgets accordingly
     setState(() {
       _polylineMarkers = {};
       _currentPolylinePoints = [];
       _currentPolyline = null;
       _visiblePolylineMarkers = {};
+      _currentPolygon = {};
       _directions = 'Choose a category. Or, click finish if done.';
     });
     _polylineMode = false;
-    _currentSpotsOrRoute = 0;
+    _currentSpotsOrRoute = null;
   }
 
   void _saveLocalData() {
     try {
-      if (_accessData[_type] == null) {
-        throw Exception(
-            "Data map for given type ($_type) is null in _saveLocalData()");
+      if (_type != AccessType.taxiAndRideShare &&
+          _currentSpotsOrRoute == null) {
+        throw Exception("Current spots/routes not set in _saveLocalData(). "
+            "Make sure a value is entered before continuing.");
       }
       if (_currentPolyline == null) {
         throw Exception("Current polyline is null in _saveLocalData()");
@@ -256,19 +220,19 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
           throw Exception(
               "_type is null in saveLocalData(). Make sure that type is set correctly when invoking _finalizeShape().");
         case AccessType.bikeRack:
-          _accessData[_type]?.add(BikeRack(
-              spots: _currentSpotsOrRoute, polyline: _currentPolyline!));
+          _accessData.bikeRacks.add(BikeRack(
+              spots: _currentSpotsOrRoute!, polyline: _currentPolyline!));
         case AccessType.taxiAndRideShare:
-          _accessData[_type]
-              ?.add(TaxiAndRideShare(polyline: _currentPolyline!));
+          _accessData.taxisAndRideShares
+              .add(TaxiAndRideShare(polyline: _currentPolyline!));
         case AccessType.parking:
-          _accessData[_type]?.add(Parking(
-              spots: _currentSpotsOrRoute,
+          _accessData.parkingStructures.add(Parking(
+              spots: _currentSpotsOrRoute!,
               polyline: _currentPolyline!,
               polygon: _currentPolygon.first));
         case AccessType.transportStation:
-          _accessData[_type]?.add(TransportStation(
-              routeNumber: _currentSpotsOrRoute, polyline: _currentPolyline!));
+          _accessData.transportStations.add(TransportStation(
+              routeNumber: _currentSpotsOrRoute!, polyline: _currentPolyline!));
       }
     } catch (e, stacktrace) {
       print(
@@ -281,12 +245,6 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
     try {
       // Create polygon.
       _currentPolygon = finalizePolygon(_polygonPoints);
-      // TODO: add to object;
-      // Cleans up current polygon representations.
-      _polygonAsGeoPoints = [];
-
-      // Gets list of polygon points for Firestore.
-      _polygonAsGeoPoints = _polygonPoints.toGeoPointList();
 
       // Clears polygon points and enter add points mode.
       _polygonPoints = [];
@@ -298,7 +256,7 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
         _polylineMode = false;
       });
 
-      _showDialog(
+      _showInputDialog(
         text: 'How Many Parking Spots?',
         hintText: 'Enter number of spots.',
         onNext: () {
@@ -325,136 +283,130 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: (_currentMapType == MapType.normal)
+          ? SystemUiOverlayStyle.dark.copyWith(
+              statusBarColor: Colors.transparent,
+            )
+          : SystemUiOverlayStyle.light.copyWith(
+              statusBarColor: Colors.transparent,
+            ),
       child: Scaffold(
-        resizeToAvoidBottomInset: false,
         extendBody: true,
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Center(
-                child: Stack(
-                  children: [
-                    SizedBox(
-                      height: MediaQuery.of(context).size.height,
-                      child: GoogleMap(
-                        // TODO: size based off of bottomsheet container
-                        polylines: _currentPolyline == null
-                            ? (_oldPolylinesToggle ? _polylines : {})
-                            : (_oldPolylinesToggle
-                                ? {..._polylines, _currentPolyline!}
-                                : {_currentPolyline!}),
-                        padding: EdgeInsets.only(bottom: _bottomSheetHeight),
-                        onMapCreated: _onMapCreated,
-                        initialCameraPosition:
-                            CameraPosition(target: _location, zoom: 14),
-                        polygons: {..._polygons, ..._currentPolygon},
-                        markers: {
-                          ..._markers,
-                          ..._polygonMarkers,
-                          ..._visiblePolylineMarkers
-                        },
-                        onTap: _togglePoint,
-                        mapType: _currentMapType, // Use current map type
-                      ),
+        resizeToAvoidBottomInset: false,
+        body: Stack(
+          children: [
+            SizedBox(
+              height: MediaQuery.sizeOf(context).height,
+              child: GoogleMap(
+                polylines: _currentPolyline == null
+                    ? (_oldPolylinesToggle ? _polylines : {})
+                    : (_oldPolylinesToggle
+                        ? {..._polylines, _currentPolyline!}
+                        : {_currentPolyline!}),
+                padding: EdgeInsets.only(bottom: _bottomSheetHeight),
+                onMapCreated: _onMapCreated,
+                initialCameraPosition:
+                    CameraPosition(target: _location, zoom: _zoom),
+                polygons: _oldPolylinesToggle
+                    ? {_projectPolygon, ..._polygons, ..._currentPolygon}
+                    : {_projectPolygon, ..._currentPolygon},
+                markers: {
+                  ..._markers,
+                  ..._polygonMarkers,
+                  ..._visiblePolylineMarkers
+                },
+                onTap: _togglePoint,
+                mapType: _currentMapType,
+                myLocationButtonEnabled: false,
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Expanded(
+                      child: _directionsVisible
+                          ? DirectionsText(
+                              onTap: () {
+                                setState(() {
+                                  _directionsVisible = !_directionsVisible;
+                                });
+                              },
+                              text: _directions)
+                          : SizedBox(),
                     ),
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 20.0, horizontal: 25.0),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 15, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: directionsTransparency,
-                            gradient: defaultGrad,
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(10)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            _directions,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                            ),
-                          ),
+                    SizedBox(width: 15),
+                    Column(
+                      spacing: 10,
+                      children: [
+                        DirectionsButton(
+                          onTap: () {
+                            setState(() {
+                              _directionsVisible = !_directionsVisible;
+                            });
+                          },
                         ),
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.bottomLeft,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                            bottom: _bottomSheetHeight + 130, left: 5),
-                        child: FloatingActionButton(
-                          heroTag: null,
-                          onPressed: _toggleMapType,
+                        CircularIconMapButton(
                           backgroundColor: Colors.green,
-                          child: const Icon(Icons.map),
+                          borderColor: Color(0xFF2D6040),
+                          onPressed: _toggleMapType,
+                          icon: const Icon(Icons.map),
                         ),
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.bottomLeft,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                            bottom: _bottomSheetHeight + 35, left: 5),
-                        child: Container(
-                          decoration: BoxDecoration(
-                              gradient: defaultGrad,
-                              color: directionsTransparency,
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(15))),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10.0, vertical: 7.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  "Previous Lines:",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white),
-                                ),
-                                Tooltip(
-                                  message: "Toggle Old Polylines",
-                                  child: Switch(
-                                    // This bool value toggles the switch.
-                                    value: _oldPolylinesToggle,
-                                    activeTrackColor: placeYellow,
-                                    inactiveThumbColor: placeYellow,
-                                    onChanged: (bool value) {
-                                      // This is called when the user toggles the switch.
-                                      setState(() {
-                                        _oldPolylinesToggle = value;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
+                        if (!_polygonMode && !_pointMode && !_polylineMode)
+                          CircularIconMapButton(
+                            borderColor: Color(0xFF2D6040),
+                            onPressed: () {
+                              setState(() {
+                                _deleteMode = !_deleteMode;
+                              });
+                            },
+                            backgroundColor:
+                                _deleteMode ? Colors.blue : Colors.red,
+                            icon: Icon(
+                              _deleteMode ? Icons.location_on : Icons.delete,
+                              size: 30,
                             ),
                           ),
+                        CircularIconMapButton(
+                          backgroundColor:
+                              Color(0xFFE4E9EF).withValues(alpha: 0.9),
+                          borderColor: Color(0xFF4A5D75),
+                          onPressed: () {
+                            setState(() {
+                              _oldPolylinesToggle = !_oldPolylinesToggle;
+                            });
+                          },
+                          icon: Icon(
+                            _oldPolylinesToggle
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            size: 30,
+                            color: Color(0xFF4A5D75),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
               ),
-        bottomSheet: _isLoading
-            ? SizedBox()
-            : Container(
-                height: _bottomSheetHeight,
+            ),
+            if (_deleteMode)
+              TestErrorText(
+                padding:
+                    EdgeInsets.fromLTRB(20, 0, 20, _bottomSheetHeight + 20),
+                text: "You are in delete mode.",
+              ),
+          ],
+        ),
+        bottomSheet: SizedBox(
+          height: _bottomSheetHeight,
+          child: Stack(
+            children: [
+              Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 12.0, vertical: 10.0),
                 decoration: BoxDecoration(
@@ -472,7 +424,6 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                   ],
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 5),
                     Center(
@@ -497,93 +448,104 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                       ),
                     ),
                     SizedBox(height: 15),
-                    Text(
-                      'Access Type',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    Center(
+                      child: Text(
+                        'Access Type',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     SizedBox(height: 5),
                     Row(
                       spacing: 10,
                       children: <Widget>[
-                        Flexible(
-                          flex: 2,
-                          child: buildTestButton(
-                            onPressed: (BuildContext context) {
-                              _showDialog(
-                                text: 'How Many Bikes Can Fit?',
-                                hintText: 'Enter number of spots.',
-                                onNext: () {
+                        TestButton(
+                          flex: 6,
+                          buttonText: 'Parking',
+                          onPressed: (_pointMode ||
+                                  _polygonMode ||
+                                  _polylineMode ||
+                                  _deleteMode)
+                              ? null
+                              : () {
                                   setState(() {
-                                    _type = AccessType.bikeRack;
-                                    _polylineMode = true;
+                                    _type = AccessType.parking;
+                                    _polygonMode = true;
                                     _directions =
-                                        "Mark the spot of the bike rack. Then define the path to the project area.";
+                                        'First, define the parking area by creating a polygon.';
                                   });
                                 },
-                              );
-                            },
-                            context: context,
-                            text: 'Bike Rack',
-                          ),
                         ),
-                        Flexible(
-                          flex: 2,
-                          child: buildTestButton(
-                            text: 'Parking',
-                            context: context,
-                            onPressed: (BuildContext context) {
-                              setState(() {
-                                _type = AccessType.parking;
-                                _polygonMode = true;
-                                _directions =
-                                    'First, define the parking area by creating a polygon.';
-                              });
-                            },
-                          ),
-                        ),
-                        Flexible(
-                          flex: 3,
-                          child: buildTestButton(
-                            text: 'Public Transport',
-                            context: context,
-                            onPressed: (BuildContext context) {
-                              _showDialog(
-                                text: 'Enter the Route Number',
-                                hintText: 'Route Number',
-                                onNext: () {
-                                  setState(() {
-                                    _type = AccessType.transportStation;
-                                    _polylineMode = true;
-                                    _directions =
-                                        "Mark the spot of the bike rack. Then define the path to the project area.";
-                                  });
+                        TestButton(
+                          flex: 6,
+                          buttonText: 'Public Transport',
+                          onPressed: (_pointMode ||
+                                  _polygonMode ||
+                                  _polylineMode ||
+                                  _deleteMode)
+                              ? null
+                              : () {
+                                  _showInputDialog(
+                                    text: 'Enter the Route Number',
+                                    hintText: 'Route Number',
+                                    onNext: () {
+                                      setState(() {
+                                        _type = AccessType.transportStation;
+                                        _polylineMode = true;
+                                        _directions =
+                                            "Mark the spot of the transport station. Then define the path to the project area.";
+                                      });
+                                    },
+                                  );
                                 },
-                              );
-                            },
-                          ),
                         ),
-                        Flexible(flex: 1, child: SizedBox())
                       ],
                     ),
                     Row(
+                      spacing: 10,
                       children: <Widget>[
-                        Flexible(
-                          flex: 2,
-                          child: buildTestButton(
-                              context: context,
-                              text: 'Taxi or Rideshare',
-                              onPressed: (BuildContext context) {
-                                setState(() {
-                                  _type = AccessType.taxiAndRideShare;
-                                  _polylineMode = true;
-                                  _directions =
-                                      'Mark a point where the taxi dropped off. Then make a line to denote the path to the project area.';
-                                });
-                              }),
+                        TestButton(
+                          flex: 6,
+                          onPressed: (_pointMode ||
+                                  _polygonMode ||
+                                  _polylineMode ||
+                                  _deleteMode)
+                              ? null
+                              : () {
+                                  _showInputDialog(
+                                    text: 'How Many Bikes/Scooters Can Fit?',
+                                    hintText: 'Enter number of spots.',
+                                    onNext: () {
+                                      setState(() {
+                                        _type = AccessType.bikeRack;
+                                        _polylineMode = true;
+                                        _directions =
+                                            "Mark the spot of the bike/scooter rack. Then define the path to the project area.";
+                                      });
+                                    },
+                                  );
+                                },
+                          buttonText: 'Bike or Scooter Rack',
+                        ),
+                        TestButton(
+                          flex: 6,
+                          buttonText: 'Taxi or Rideshare',
+                          onPressed: (_pointMode ||
+                                  _polygonMode ||
+                                  _polylineMode ||
+                                  _deleteMode)
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _type = AccessType.taxiAndRideShare;
+                                    _polylineMode = true;
+                                    _directions =
+                                        'Mark a point where the taxi dropped off. Then make a line to denote the path to the project area.';
+                                  });
+                                },
                         ),
                       ],
                     ),
@@ -603,7 +565,13 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                                     backgroundColor: Colors.white,
                                     icon: const Icon(Icons.check),
                                     iconColor: Colors.green,
-                                    onPressed: (_polylineMode || _polygonMode)
+                                    onPressed: ((_polylineMode &&
+                                                (_currentPolyline != null &&
+                                                    _currentPolyline!
+                                                            .points.length >
+                                                        2)) ||
+                                            (_polygonMode &&
+                                                _polygonPoints.length >= 3))
                                         ? _finalizeShape
                                         : null,
                                   ),
@@ -648,23 +616,36 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                                 backgroundColor: Colors.white,
                                 icon: const Icon(Icons.chevron_right,
                                     color: Colors.black),
-                                onPressed: () {
-                                  // TODO: check isComplete either before submitting or probably before starting test
-                                  widget.activeTest.submitData(_accessData);
-                                  Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => HomePage(),
-                                      ));
-                                  Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            ProjectDetailsPage(
-                                                projectData:
-                                                    widget.activeProject),
-                                      ));
-                                },
+                                onPressed: (_polygonMode ||
+                                        _polylineMode ||
+                                        _deleteMode)
+                                    ? null
+                                    : () {
+                                        showDialog(
+                                            context: context,
+                                            builder: (context) {
+                                              return TestFinishDialog(
+                                                onNext: () {
+                                                  widget.activeTest
+                                                      .submitData(_accessData);
+                                                  Navigator.pushReplacement(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            HomePage(),
+                                                      ));
+                                                  Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            ProjectDetailsPage(
+                                                                projectData: widget
+                                                                    .activeProject),
+                                                      ));
+                                                },
+                                              );
+                                            });
+                                      },
                               ),
                             ),
                           ),
@@ -674,11 +655,14 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                   ],
                 ),
               ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  void _showDialog(
+  void _showInputDialog(
       {required String text,
       required String hintText,
       required VoidCallback? onNext}) {
@@ -695,12 +679,6 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(
-                "Leave blank if unknown.",
-                style: TextStyle(
-                  fontSize: 15,
-                ),
-              ),
             ],
           ),
           content: TextField(
@@ -712,10 +690,12 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
               int? parsedInt = int.tryParse(inputText);
               if (parsedInt == null) {
                 print(
-                    "Error: Could not parse int in _showDialog with type $_type");
-                print("Invalid input: defaulting to 0.");
+                    "Error: Could not parse int in _showInputDialog with type $_type");
+                print("Invalid input: defaulting to null.");
               }
-              _currentSpotsOrRoute = parsedInt ?? 0;
+              setState(() {
+                _currentSpotsOrRoute = parsedInt;
+              });
             },
           ),
           actions: <Widget>[
@@ -735,8 +715,8 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                     _currentPolygon = {};
                     _directions =
                         'Choose a category. Or, click finish if done.';
+                    _currentSpotsOrRoute = null;
                   });
-                  _currentSpotsOrRoute = 0;
                   _polygonPoints = [];
                 }
               },
@@ -744,6 +724,7 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
             ),
             TextButton(
               onPressed: () {
+                if (_currentSpotsOrRoute == null) return;
                 onNext!();
                 Navigator.pop(context, 'Next');
               },
@@ -752,27 +733,6 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
           ],
         );
       },
-    );
-  }
-
-  FilledButton buildTestButton(
-      {required BuildContext context,
-      required String text,
-      required Function(BuildContext) onPressed}) {
-    return FilledButton(
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.only(left: 15, right: 15),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10.0),
-        ),
-        foregroundColor: Colors.black,
-        backgroundColor: Colors.white,
-        iconColor: Colors.black,
-        disabledBackgroundColor: disabledGrey,
-      ),
-      onPressed:
-          (_polylineMode || _polygonMode) ? null : () => onPressed(context),
-      child: Text(text),
     );
   }
 }

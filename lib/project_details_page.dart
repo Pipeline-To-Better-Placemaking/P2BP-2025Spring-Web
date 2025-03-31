@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'create_test_form.dart';
 import 'theme.dart';
 import 'firestore_functions.dart';
-import 'standing_points_page.dart';
+//import 'standing_points_page.dart';
 
 class ProjectDetailsPage extends StatefulWidget {
   final Project projectData;
@@ -341,12 +341,14 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
 
 const Map<Type, String> _testInitialsMap = {
   AbsenceOfOrderTest: 'AO',
-  LightingProfileTest: 'LP',
-  SectionCutterTest: 'SC',
+  //AcousticProfileTest: 'AP',
   IdentifyingAccessTest: 'IA',
+  LightingProfileTest: 'LP',
   NaturePrevalenceTest: 'NP',
-  //PeopleInPlaceTest: 'PP',
-  //PeopleInMotionTest: 'PM',
+  PeopleInMotionTest: 'PM',
+  PeopleInPlaceTest: 'PP',
+  SectionCutterTest: 'SC',
+  SpatialBoundariesTest: 'SB',
 };
 
 class TestCard extends StatelessWidget {

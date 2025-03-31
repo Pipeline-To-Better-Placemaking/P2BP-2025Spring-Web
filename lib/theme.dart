@@ -48,6 +48,34 @@ final LinearGradient verticalBlueGrad = LinearGradient(
   ],
 );
 
+/// Style for buttons on Test pages that are not toggleable
+/// requiring custom conditional color values.
+final ButtonStyle testButtonStyle = FilledButton.styleFrom(
+  padding: const EdgeInsets.symmetric(horizontal: 15),
+  foregroundColor: Colors.black,
+  backgroundColor: Colors.white,
+  disabledBackgroundColor: Color(0xCD6C6C6C),
+  iconColor: Colors.black,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(10),
+  ),
+  textStyle: TextStyle(fontSize: 14),
+);
+
+class ChipLabelColor extends Color implements WidgetStateColor {
+  const ChipLabelColor() : super(_default);
+
+  static const int _default = 0xFF000000;
+
+  @override
+  Color resolve(Set<WidgetState> states) {
+    if (states.contains(WidgetState.selected)) {
+      return Colors.white;
+    }
+    return Colors.black;
+  }
+}
+
 // List<ThemeData> appThemes = [
 //   ThemeData(
 //     //

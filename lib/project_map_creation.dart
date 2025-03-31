@@ -35,7 +35,7 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
   Set<Marker> _markers = {};
   //List<GeoPoint> _polygonAsGeoPoints = []; // The current polygon represented as points (for Firestore).
   int _flagCounter = 0;
-  List<Map> _standingPoints = [];
+  List<StandingPoint> _standingPoints = [];
 
   String? _selectedPolygonId;
   LatLng _currentLocation = defaultLocation; // Default location
@@ -261,8 +261,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
             // Remove the standing point by comparing updated LatLng position
             _standingPoints.removeWhere((standingPoint) =>
-                standingPoint['title'] == customName &&
-                _areLatLngsClose(standingPoint['point'], markerPosition));
+                standingPoint.title == customName &&
+                _areLatLngsClose(standingPoint.location, markerPosition));
           });
         }
       },
@@ -279,8 +279,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
             // Remove the marker and standing point from the lists if it’s outside the polygon
             _markers.removeWhere((marker) => marker.markerId == MarkerId(flagId));
             _standingPoints.removeWhere((standingPoint) =>
-                standingPoint['title'] == customName &&
-                _areLatLngsClose(standingPoint['point'], markerPosition)); // Remove by centroid (original position)
+                standingPoint.title == customName &&
+                _areLatLngsClose(standingPoint.location, markerPosition)); // Remove by centroid (original position)
           });
         } else {
           // Update the position of the marker and the standing point
@@ -303,14 +303,12 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
             // Update the standing point with the new position
             _standingPoints = _standingPoints.map((point) {
-              if (point['title'] == customName) {
-                return {
-                  'title': customName,
-                  'point': markerPosition,  // Save the updated LatLng manually
-                };
+              if (point.title == customName) {
+                return StandingPoint(title: customName, location: markerPosition);
               }
               return point;
             }).toList();
+
           });
         }
       },
@@ -318,10 +316,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
     _markers.add(flagMarker);
 
     // Save the flag position with the custom name and LatLng as GeoPoint
-    _standingPoints.add({
-      'title': customName,
-      'point': centroid,  // Save the initial LatLng directly
-    });
+    _standingPoints.add(StandingPoint(title: customName, location: centroid));
+
 
     print("Standing point added: ID=$flagId, Name=$customName, Lat=${centroid.latitude}, Lng=${centroid.longitude}");
     print("Current standing points: $_standingPoints");
@@ -661,14 +657,9 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                                 projectTitle: widget.partialProjectData.title,
                                 description: widget.partialProjectData.description,
                                 teamRef: await getCurrentTeam(),
-                                polygonPoints: _polygon.first.toGeoPointList(),
-                                polygonArea: mp.SphericalUtil.computeArea(_mapToolsPolygonPoints) * pow(feetPerMeter, 2),
-                                standingPoints: _standingPoints.map((point) {
-                                  return {
-                                    'title': point['title'],
-                                    'point': latLngToGeoPoint(point['point']),
-                                  };
-                                }).toList(),
+                                polygonPoints: _polygon.first.points,
+                                polygonArea: _polygon.first.getAreaInSquareFeet(),
+                                standingPoints: _standingPoints,
                               );
 
                               Navigator.pushAndRemoveUntil(

@@ -29,6 +29,7 @@ class HomePageBody extends StatefulWidget {
   const HomePageBody({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _HomePageBodyState createState() => _HomePageBodyState();
 }
 
@@ -417,7 +418,7 @@ class _HomePageBodyState extends State<HomePageBody> {
                           onPressed: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const ResultsPage()),
+                              MaterialPageRoute(builder: (context) => ResultsPage(projectData: project)),
                             );
                           },
                           style: ElevatedButton.styleFrom(

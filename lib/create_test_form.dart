@@ -184,10 +184,46 @@ class _CreateTestFormState extends State<CreateTestForm> {
                     style: TextStyle(color: Color(0xFF2F6DCF)),
                   ),
                 ),
+                /*
+                DropdownMenuItem(
+                  value: AcousticProfileTest.collectionIDStatic,
+                  child: Text(
+                    'Acoustic Profile',
+                    style: TextStyle(color: Color(0xFF2F6DCF)),
+                  ),
+                ), */
+                DropdownMenuItem(
+                  value: IdentifyingAccessTest.collectionIDStatic,
+                  child: Text(
+                    'Identifying Access',
+                    style: TextStyle(color: Color(0xFF2F6DCF)),
+                  ),
+                ),
                 DropdownMenuItem(
                   value: LightingProfileTest.collectionIDStatic,
                   child: Text(
                     'Lighting Profile',
+                    style: TextStyle(color: Color(0xFF2F6DCF)),
+                  ),
+                ),
+                DropdownMenuItem(
+                  value: NaturePrevalenceTest.collectionIDStatic,
+                  child: Text(
+                    'Nature Prevalence',
+                    style: TextStyle(color: Color(0xFF2F6DCF)),
+                  ),
+                ),
+                DropdownMenuItem(
+                  value: PeopleInMotionTest.collectionIDStatic,
+                  child: Text(
+                    'People in Motion',
+                    style: TextStyle(color: Color(0xFF2F6DCF)),
+                  ),
+                ),
+                DropdownMenuItem(
+                  value: PeopleInPlaceTest.collectionIDStatic,
+                  child: Text(
+                    'People in Place',
                     style: TextStyle(color: Color(0xFF2F6DCF)),
                   ),
                 ),
@@ -199,16 +235,9 @@ class _CreateTestFormState extends State<CreateTestForm> {
                   ),
                 ),
                 DropdownMenuItem(
-                  value: IdentifyingAccessTest.collectionIDStatic,
+                  value: SpatialBoundariesTest.collectionIDStatic,
                   child: Text(
-                    'Identifying Access',
-                    style: TextStyle(color: Color(0xFF2F6DCF)),
-                  ),
-                ),
-                DropdownMenuItem(
-                  value: NaturePrevalenceTest.collectionIDStatic,
-                  child: Text(
-                    'Nature Prevalence',
+                    'Spatial Boundaries',
                     style: TextStyle(color: Color(0xFF2F6DCF)),
                   ),
                 ),
@@ -217,7 +246,7 @@ class _CreateTestFormState extends State<CreateTestForm> {
                 _selectedTest = value;
                 setState(() {
                   _standingPoints = [];
-                  _standingPointsTest = standingPointsTests.contains(_selectedTest);
+                  _standingPointsTest = Test.isStandingPointTest(_selectedTest);
                   
                   if (_selectedTest?.compareTo(SectionCutterTest.collectionIDStatic) == 0) 
                   {
@@ -260,7 +289,7 @@ class _CreateTestFormState extends State<CreateTestForm> {
                                     : StandingPointsPage(
                                         activeProject: widget.activeProject,
                                         currentStandingPoints:
-                                          _standingPoints.isNotEmpty ? _standingPoints : null,
+                                          _standingPoints.isNotEmpty ? _standingPoints as List<StandingPoint> : null,
                                       ),
                               ),
                             );

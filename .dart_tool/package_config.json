@@ -446,6 +446,12 @@
       "languageVersion": "2.19"
     },
     {
+      "name": "intl",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/intl-0.20.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
       "name": "leak_tracker",
       "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/leak_tracker-10.0.7",
       "packageUri": "lib/",
@@ -776,7 +782,7 @@
       "languageVersion": "3.5"
     }
   ],
-  "generated": "2025-03-15T17:33:36.748520Z",
+  "generated": "2025-03-25T21:46:25.084842Z",
   "generator": "pub",
   "generatorVersion": "3.6.1",
   "flutterRoot": "file:///opt/homebrew/Caskroom/flutter/3.27.3/flutter",

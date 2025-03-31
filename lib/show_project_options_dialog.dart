@@ -1,10 +1,9 @@
 import 'dart:io';
 import 'dart:ui';
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'themes.dart';
+import 'theme.dart';
 import 'change_project_description_form.dart';
 import 'change_project_name_form.dart';
 
@@ -207,6 +206,7 @@ void showProjectOptionsDialog(BuildContext context) {
         }
       } else if (value == 1) {
         print("Edit Project Name");
+        if (!context.mounted) return;
         showModalBottomSheet(
           context: context,
           isScrollControlled: true, // allows the sheet to be fully draggable
@@ -237,6 +237,7 @@ void showProjectOptionsDialog(BuildContext context) {
         );
       } else if (value == 2) {
         print("Edit Project Description");
+        if (!context.mounted) return;
         showModalBottomSheet(
           context: context,
           isScrollControlled: true, // allows the sheet to be fully draggable
@@ -268,6 +269,7 @@ void showProjectOptionsDialog(BuildContext context) {
         // TODO: Add archive functionality here
       } else if (value == 4) {
         print("Delete Project");
+        if (!context.mounted) return;
         showDialog(
           context: context,
           barrierColor: Colors.black.withValues(alpha: 0.5), // Optional overlay

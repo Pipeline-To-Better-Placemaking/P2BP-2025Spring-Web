@@ -12,3 +12,5 @@ frontend_web/src/api
 .vscode/
 frontend_web/src/routes/firebase_config.js
 firebase-tools-instant-win.exe
+/build/
+/.dart_tool/

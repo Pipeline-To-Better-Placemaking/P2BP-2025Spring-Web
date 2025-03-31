@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:p2b/pdf_output.dart';
 import 'package:provider/provider.dart';
 import 'homepage_state.dart';
 import 'create_project_and_teams.dart';
@@ -53,7 +54,8 @@ class _HomePageBodyState extends State<HomePageBody> {
     try {
       teamRef = await getCurrentTeam();
       if (teamRef == null) {
-        print("Error populating projects in homepage.dart. No selected team available.");
+        print(
+            "Error populating projects in homepage.dart. No selected team available.");
       } else {
         String newTeamId = teamRef!.id;
         if (_currentTeamId != newTeamId) {
@@ -75,7 +77,7 @@ class _HomePageBodyState extends State<HomePageBody> {
   void _updatePageAndRefresh(String newPage) {
     // First update the page
     Provider.of<HomePageState>(context, listen: false).updatePage(newPage);
-    
+
     // Then refresh project data
     _populateProjects();
   }
@@ -110,7 +112,6 @@ class _HomePageBodyState extends State<HomePageBody> {
     end: Alignment.bottomCenter,
   );
 
-
   @override
   Widget build(BuildContext context) {
     return Consumer<HomePageState>(
@@ -127,22 +128,26 @@ class _HomePageBodyState extends State<HomePageBody> {
               TextButton.icon(
                 onPressed: () => _updatePageAndRefresh("Home"),
                 icon: const Icon(Icons.home, color: Colors.white),
-                label: const Text('Home', style: TextStyle(color: Colors.white)),
+                label:
+                    const Text('Home', style: TextStyle(color: Colors.white)),
               ),
               TextButton.icon(
                 onPressed: () => homePageState.updatePage("Create"),
                 icon: const Icon(Icons.add_circle, color: Colors.white),
-                label: const Text('Create', style: TextStyle(color: Colors.white)),
+                label:
+                    const Text('Create', style: TextStyle(color: Colors.white)),
               ),
               TextButton.icon(
                 onPressed: () => homePageState.updatePage("Compare"),
                 icon: const Icon(Icons.compare_arrows, color: Colors.white),
-                label: const Text('Compare', style: TextStyle(color: Colors.white)),
+                label: const Text('Compare',
+                    style: TextStyle(color: Colors.white)),
               ),
               TextButton.icon(
                 onPressed: () => homePageState.updatePage("Settings"),
                 icon: const Icon(Icons.settings, color: Colors.white),
-                label: const Text('Settings', style: TextStyle(color: Colors.white)),
+                label: const Text('Settings',
+                    style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -215,7 +220,8 @@ class _HomePageBodyState extends State<HomePageBody> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(top: 50), // Increased padding to avoid overlap
+                  padding: const EdgeInsets.only(
+                      top: 50), // Increased padding to avoid overlap
                   child: SizedBox(
                     width: double.infinity,
                     child: ShaderMask(
@@ -271,7 +277,8 @@ class _HomePageBodyState extends State<HomePageBody> {
                       top: 25,
                       bottom: 25,
                     ),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 15,
                       mainAxisSpacing: 25,
@@ -326,15 +333,17 @@ class _HomePageBodyState extends State<HomePageBody> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ProjectDetailsPage(projectData: project),
+              builder: (context) => PdfReportPage(projectData: project),
             ),
           );
         },
         child: LayoutBuilder(
           builder: (context, constraints) {
             final maxWidth = constraints.maxWidth;
-            final double cardWidth = maxWidth > 800 ? 800 : maxWidth * 0.01; // Dynamically adjust card width
-            
+            final double cardWidth = maxWidth > 800
+                ? 800
+                : maxWidth * 0.01; // Dynamically adjust card width
+
             return Container(
               width: cardWidth,
               decoration: BoxDecoration(
@@ -418,7 +427,9 @@ class _HomePageBodyState extends State<HomePageBody> {
                           onPressed: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => ResultsPage(projectData: project)),
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      ResultsPage(projectData: project)),
                             );
                           },
                           style: ElevatedButton.styleFrom(

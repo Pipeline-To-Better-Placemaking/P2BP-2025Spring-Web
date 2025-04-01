@@ -13,13 +13,14 @@ import 'package:file_selector/file_selector.dart';
 //import 'homepage.dart';
 
 class SectionCutter extends StatefulWidget {
-  final Project projectData;
+  final Project activeProject;
   final SectionCutterTest? activeTest;
 
   /// IMPORTANT: When navigating to this page, pass in project details. The
   /// project details page already contains project info, so you should use
   /// that data.
-  const SectionCutter({super.key, required this.projectData, required this.activeTest});
+  const SectionCutter(
+      {super.key, required this.activeProject, required this.activeTest});
 
   @override
   State<SectionCutter> createState() => _SectionCutterState();
@@ -47,7 +48,7 @@ class _SectionCutterState extends State<SectionCutter> {
   Set<Polygon> _polygons = {}; // Set of polygons
   Set<Polyline> _polyline = {};
   List<LatLng> _sectionPoints = [];
-  MapType _currentMapType = MapType.satellite; 
+  MapType _currentMapType = MapType.satellite;
 
   Project? project;
 
@@ -63,7 +64,7 @@ class _SectionCutterState extends State<SectionCutter> {
   /// centers the map over it.
   void initProjectArea() {
     setState(() {
-      _polygons = getProjectPolygon(widget.projectData.polygonPoints);
+      _polygons = {getProjectPolygon(widget.activeProject.polygonPoints)};
       _location = getPolygonCentroid(_polygons.first);
       // Take some lattitude away to center considering bottom sheet.
       _location = LatLng(_location.latitude * .999999, _location.longitude);
@@ -132,7 +133,8 @@ class _SectionCutterState extends State<SectionCutter> {
                                   setState(() {
                                     _failedToUpload = false;
                                     _uploaded = true;
-                                    _directions = "Click finish to finish test.";
+                                    _directions =
+                                        "Click finish to finish test.";
                                   });
                                 } else {
                                   setState(() {
@@ -192,9 +194,8 @@ class _SectionCutterState extends State<SectionCutter> {
                           setState(() {
                             _isLoadingUpload = true;
                           });
-                          
-                          Section data = await widget
-                              .activeTest!
+
+                          Section data = await widget.activeTest!
                               .saveXFile(sectionCutterFile!);
                           widget.activeTest!.submitData(data);
 
@@ -206,7 +207,7 @@ class _SectionCutterState extends State<SectionCutter> {
                             context,
                             MaterialPageRoute(
                               builder: (context) => ProjectDetailsPage(
-                                projectData: widget.projectData,
+                                projectData: widget.activeProject,
                               ),
                             ),
                           );
@@ -249,14 +250,15 @@ class _SectionCutterState extends State<SectionCutter> {
                       left: 10, // Adjust the distance from the left
                       child: IconButton(
                         icon: Icon(
-                          Icons.arrow_back, 
-                          color: _currentMapType == MapType.normal 
+                          Icons.arrow_back,
+                          color: _currentMapType == MapType.normal
                               ? Colors.black // Back button black in 2D mode
                               : Colors.white, // Default color in other modes
                           size: 48, // Bigger size
                         ),
                         onPressed: () {
-                          Navigator.pop(context); // Go back to the previous screen
+                          Navigator.pop(
+                              context); // Go back to the previous screen
                         },
                       ),
                     ),

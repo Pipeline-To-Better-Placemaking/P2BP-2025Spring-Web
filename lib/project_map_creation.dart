@@ -27,7 +27,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
   LatLng _currentPosition = const LatLng(28.6024, -81.2001);
   LatLng _cameraCenterPosition = const LatLng(28.6024, -81.2001);
   bool _isLoading = true;
-  bool _showInstructions= true; // To control the visibility of the instruction box
+  bool _showInstructions =
+      true; // To control the visibility of the instruction box
 
   List<LatLng> _polygonPoints = []; // Points for polygons
   List<mp.LatLng> _mapToolsPolygonPoints = [];
@@ -65,8 +66,10 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
   // Helper function to compare LatLngs with a tolerance
   bool _areLatLngsClose(LatLng a, LatLng b) {
-    const double tolerance = 1e-6; // Tolerance for floating-point precision issues
-    return (a.latitude - b.latitude).abs() < tolerance && (a.longitude - b.longitude).abs() < tolerance;
+    const double tolerance =
+        1e-6; // Tolerance for floating-point precision issues
+    return (a.latitude - b.latitude).abs() < tolerance &&
+        (a.longitude - b.longitude).abs() < tolerance;
   }
 
   Future<void> _checkAndFetchLocation() async {
@@ -111,7 +114,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
             TextButton(
               child: const Text('OK'),
               onPressed: () {
-                Navigator.of(context).pop(nameController.text); // Return entered name
+                Navigator.of(context)
+                    .pop(nameController.text); // Return entered name
               },
             ),
           ],
@@ -159,15 +163,16 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
     try {
       // Create polygon.
-      _polygon = finalizePolygon(_polygonPoints);
+      _polygon = {finalizePolygon(_polygonPoints)};
 
       // Make sure _polygon is not empty before accessing first element
       if (_polygon.isNotEmpty) {
         // Print the ID of the finalized polygon for debugging
         print("Finalized Polygon ID: ${_polygon.first.polygonId.value}");
-              // Print out the IDs of the polygon points (coordinates)
+        // Print out the IDs of the polygon points (coordinates)
         for (int i = 0; i < _polygonPoints.length; i++) {
-          print("Polygon Point $i: ${_polygonPoints[i].latitude}, ${_polygonPoints[i].longitude}");
+          print(
+              "Polygon Point $i: ${_polygonPoints[i].latitude}, ${_polygonPoints[i].longitude}");
         }
         // Creates Maps Toolkit representation of Polygon for checking if point
         // is inside area.
@@ -187,7 +192,7 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
       print('Exception in _finalize_polygon(): $e');
       print('Stacktrace: $stacktrace');
     }
-}
+  }
 
   void _removeSelectedPolygon() {
     if (_polygon.isEmpty) return;
@@ -208,7 +213,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
   void _addFlagMarker() async {
     if (_polygon.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please create a polygon before adding flags.')),
+        const SnackBar(
+            content: Text('Please create a polygon before adding flags.')),
       );
       return;
     }
@@ -230,8 +236,10 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
     LatLng centroid = _calculatePolygonCentroid(selectedPolygon.points);
 
     // Check if the centroid is inside the polygon
-    mp.LatLng centroidToolkit = mp.LatLng(centroid.latitude, centroid.longitude);
-    if (!mp.PolygonUtil.containsLocation(centroidToolkit, toolkitPolygonPoints, false)) {
+    mp.LatLng centroidToolkit =
+        mp.LatLng(centroid.latitude, centroid.longitude);
+    if (!mp.PolygonUtil.containsLocation(
+        centroidToolkit, toolkitPolygonPoints, false)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('The point is outside the polygon.')),
       );
@@ -240,7 +248,7 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
     // Create a flag marker and add to the map
     String flagId = 'flag_${_flagCounter++}';
-    
+
     // Track the position manually (using a variable instead of flagMarker.position)
     LatLng markerPosition = centroid;
 
@@ -251,13 +259,15 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       infoWindow: InfoWindow(
         title: customName,
-        snippet: "Lat: ${markerPosition.latitude}, Lng: ${markerPosition.longitude}",
+        snippet:
+            "Lat: ${markerPosition.latitude}, Lng: ${markerPosition.longitude}",
       ),
       onTap: () {
         if (_deleteMode) {
           setState(() {
             // Remove the marker and standing point from the lists if in delete mode
-            _markers.removeWhere((marker) => marker.markerId == MarkerId(flagId));
+            _markers
+                .removeWhere((marker) => marker.markerId == MarkerId(flagId));
 
             // Remove the standing point by comparing updated LatLng position
             _standingPoints.removeWhere((standingPoint) =>
@@ -268,25 +278,32 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
       },
       onDragEnd: (LatLng newPosition) {
         // Handle the marker drag end, but ensure it is within the polygon
-        mp.LatLng newPositionToolkit = mp.LatLng(newPosition.latitude, newPosition.longitude);
-        print("Flag Marker $flagId new position: Latitude: ${newPosition.latitude}, Longitude: ${newPosition.longitude}");
+        mp.LatLng newPositionToolkit =
+            mp.LatLng(newPosition.latitude, newPosition.longitude);
+        print(
+            "Flag Marker $flagId new position: Latitude: ${newPosition.latitude}, Longitude: ${newPosition.longitude}");
 
-        if (!mp.PolygonUtil.containsLocation(newPositionToolkit, toolkitPolygonPoints, false)) {
+        if (!mp.PolygonUtil.containsLocation(
+            newPositionToolkit, toolkitPolygonPoints, false)) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Standing point removed. It cannot be placed outside the project area polygon.')),
+            const SnackBar(
+                content: Text(
+                    'Standing point removed. It cannot be placed outside the project area polygon.')),
           );
           setState(() {
             // Remove the marker and standing point from the lists if it’s outside the polygon
-            _markers.removeWhere((marker) => marker.markerId == MarkerId(flagId));
+            _markers
+                .removeWhere((marker) => marker.markerId == MarkerId(flagId));
             _standingPoints.removeWhere((standingPoint) =>
                 standingPoint.title == customName &&
-                _areLatLngsClose(standingPoint.location, markerPosition)); // Remove by centroid (original position)
+                _areLatLngsClose(standingPoint.location,
+                    markerPosition)); // Remove by centroid (original position)
           });
         } else {
           // Update the position of the marker and the standing point
           setState(() {
-            markerPosition = newPosition;  // Update the position manually
-            
+            markerPosition = newPosition; // Update the position manually
+
             // Update the marker's position and infoWindow with new coordinates
             _markers = _markers.map((marker) {
               if (marker.markerId == MarkerId(flagId)) {
@@ -294,7 +311,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                   positionParam: markerPosition,
                   infoWindowParam: InfoWindow(
                     title: customName,
-                    snippet: "Lat: ${markerPosition.latitude}, Lng: ${markerPosition.longitude}",
+                    snippet:
+                        "Lat: ${markerPosition.latitude}, Lng: ${markerPosition.longitude}",
                   ),
                 );
               }
@@ -304,11 +322,11 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
             // Update the standing point with the new position
             _standingPoints = _standingPoints.map((point) {
               if (point.title == customName) {
-                return StandingPoint(title: customName, location: markerPosition);
+                return StandingPoint(
+                    title: customName, location: markerPosition);
               }
               return point;
             }).toList();
-
           });
         }
       },
@@ -318,8 +336,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
     // Save the flag position with the custom name and LatLng as GeoPoint
     _standingPoints.add(StandingPoint(title: customName, location: centroid));
 
-
-    print("Standing point added: ID=$flagId, Name=$customName, Lat=${centroid.latitude}, Lng=${centroid.longitude}");
+    print(
+        "Standing point added: ID=$flagId, Name=$customName, Lat=${centroid.latitude}, Lng=${centroid.longitude}");
     print("Current standing points: $_standingPoints");
 
     // Trigger a UI update to ensure the marker is displayed
@@ -348,7 +366,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
               children: [
                 GoogleMap(
                   onMapCreated: _onMapCreated,
-                  initialCameraPosition: CameraPosition(target: _currentPosition, zoom: 14.0),
+                  initialCameraPosition:
+                      CameraPosition(target: _currentPosition, zoom: 14.0),
                   polygons: _polygon.isEmpty ? {} : _polygon,
                   markers: _markers,
                   onTap: _addPointsMode ? _togglePoint : null,
@@ -365,7 +384,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                     left: 20,
                     right: 20,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20.0, vertical: 14.0),
                       decoration: BoxDecoration(
                         color: Color.fromRGBO(0, 0, 0, 0.7),
                         borderRadius: BorderRadius.circular(10),
@@ -408,7 +428,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                           // Disable delete mode when adding a flag
                           if (_deleteMode) {
                             setState(() {
-                              _deleteMode = false; // Disable delete mode when adding a flag
+                              _deleteMode =
+                                  false; // Disable delete mode when adding a flag
                             });
                           }
                           _addFlagMarker();
@@ -438,11 +459,14 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                         onPressed: () {
                           if (_polygon.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('No polygon area to delete')),
+                              const SnackBar(
+                                  content: Text('No polygon area to delete')),
                             );
                           } else if (_standingPoints.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('No standing points to delete')),
+                              const SnackBar(
+                                  content:
+                                      Text('No standing points to delete')),
                             );
                           } else {
                             setState(() {
@@ -502,7 +526,9 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                         onPressed: () {
                           if (_polygonPoints.length < 3) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('At least 3 points are required to create a polygon.')),
+                              const SnackBar(
+                                  content: Text(
+                                      'At least 3 points are required to create a polygon.')),
                             );
                           } else {
                             _finalizePolygon(); // Only finalize polygon if there are 3 or more standing points
@@ -533,25 +559,25 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                       child: FloatingActionButton(
                         heroTag: null,
                         onPressed: () async {
-                        if (_polygon.isNotEmpty) {
-                          // Use the _confirmDelete function to show the dialog
-                          bool confirmDelete = await _confirmDelete();
+                          if (_polygon.isNotEmpty) {
+                            // Use the _confirmDelete function to show the dialog
+                            bool confirmDelete = await _confirmDelete();
 
-                          // If user confirms, remove the polygon
-                          if (confirmDelete) {
-                            setState(() {
-                              _removeSelectedPolygon(); // Call the function to remove the polygon
-                            });
+                            // If user confirms, remove the polygon
+                            if (confirmDelete) {
+                              setState(() {
+                                _removeSelectedPolygon(); // Call the function to remove the polygon
+                              });
+                            }
+                          } else {
+                            // If no polygon exists, show a message
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('No project area to delete.'),
+                              ),
+                            );
                           }
-                        } else {
-                          // If no polygon exists, show a message
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('No project area to delete.'),
-                            ),
-                          );
-                        }
-                      },
+                        },
                         backgroundColor: Colors.red,
                         child: const Icon(Icons.delete),
                       ),
@@ -578,7 +604,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                       onPressed: () {
                         Navigator.pop(context);
                       },
-                      color: _showInstructions || _currentMapType == MapType.satellite
+                      color: _showInstructions ||
+                              _currentMapType == MapType.satellite
                           ? Colors.white
                           : Colors.black,
                     ),
@@ -606,7 +633,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                           _showInstructions = !_showInstructions;
                         });
                       },
-                      color: _showInstructions || _currentMapType == MapType.satellite
+                      color: _showInstructions ||
+                              _currentMapType == MapType.satellite
                           ? Colors.white
                           : Colors.black,
                     ),
@@ -630,7 +658,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4871AE),
                         foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       ),
                       onPressed: _isLoading
                           ? null
@@ -638,7 +667,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                               if (_polygon.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Please define your project area polygon first.'),
+                                    content: Text(
+                                        'Please define your project area polygon first.'),
                                   ),
                                 );
                                 return;
@@ -647,7 +677,8 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                               if (_standingPoints.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Place at least one standing point before finishing.'),
+                                    content: Text(
+                                        'Place at least one standing point before finishing.'),
                                   ),
                                 );
                                 return;
@@ -655,16 +686,19 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
                               await saveProject(
                                 projectTitle: widget.partialProjectData.title,
-                                description: widget.partialProjectData.description,
-                                teamRef: await getCurrentTeam(),
+                                description:
+                                    widget.partialProjectData.description,
+                                address: widget.partialProjectData.address,
                                 polygonPoints: _polygon.first.points,
-                                polygonArea: _polygon.first.getAreaInSquareFeet(),
+                                polygonArea:
+                                    _polygon.first.getAreaInSquareFeet(),
                                 standingPoints: _standingPoints,
                               );
 
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (context) => HomePage()),
+                                MaterialPageRoute(
+                                    builder: (context) => HomePage()),
                                 (route) => false,
                               );
                             },
@@ -679,43 +713,51 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
   Future<bool> _confirmDelete() async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: const Text('Are you sure you want to delete this polygon?'),
-        actions: [
-          MouseRegion(
-            onEnter: (_) => setState(() {
-              _addPointsMode = false; // Disable point adding when hovering over the Cancel button
-            }),
-            onExit: (_) => setState(() {
-              _addPointsMode = true; // Re-enable point adding when not hovering over the button
-            }),
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Confirm Delete'),
+            content:
+                const Text('Are you sure you want to delete this polygon?'),
+            actions: [
+              MouseRegion(
+                onEnter: (_) => setState(() {
+                  _addPointsMode =
+                      false; // Disable point adding when hovering over the Cancel button
+                }),
+                onExit: (_) => setState(() {
+                  _addPointsMode =
+                      true; // Re-enable point adding when not hovering over the button
+                }),
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              MouseRegion(
+                onEnter: (_) => setState(() {
+                  _addPointsMode =
+                      false; // Disable point adding when hovering over the Delete button
+                }),
+                onExit: (_) => setState(() {
+                  _addPointsMode =
+                      true; // Re-enable point adding when not hovering over the button
+                }),
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Delete'),
+                ),
+              ),
+            ],
           ),
-          MouseRegion(
-            onEnter: (_) => setState(() {
-              _addPointsMode = false; // Disable point adding when hovering over the Delete button
-            }),
-            onExit: (_) => setState(() {
-              _addPointsMode = true; // Re-enable point adding when not hovering over the button
-            }),
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Delete'),
-            ),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   void _toggleMapType() {
     setState(() {
-      _currentMapType = _currentMapType == MapType.satellite ? MapType.normal : MapType.satellite;
+      _currentMapType = _currentMapType == MapType.satellite
+          ? MapType.normal
+          : MapType.satellite;
     });
   }
 }

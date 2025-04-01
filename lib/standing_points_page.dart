@@ -53,7 +53,7 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
   /// centers the map over it.
   void initProjectArea() {
     setState(() {
-      _polygons = getProjectPolygon(widget.activeProject.polygonPoints);
+      _polygons = {getProjectPolygon(widget.activeProject.polygonPoints)};
       _location = getPolygonCentroid(_polygons.first);
       // Take some latitude away to center considering bottom sheet.
       _location = LatLng(_location.latitude * .999999, _location.longitude);

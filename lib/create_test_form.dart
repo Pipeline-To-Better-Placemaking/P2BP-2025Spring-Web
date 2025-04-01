@@ -184,14 +184,13 @@ class _CreateTestFormState extends State<CreateTestForm> {
                     style: TextStyle(color: Color(0xFF2F6DCF)),
                   ),
                 ),
-                /*
                 DropdownMenuItem(
                   value: AcousticProfileTest.collectionIDStatic,
                   child: Text(
                     'Acoustic Profile',
                     style: TextStyle(color: Color(0xFF2F6DCF)),
                   ),
-                ), */
+                ),
                 DropdownMenuItem(
                   value: IdentifyingAccessTest.collectionIDStatic,
                   child: Text(
@@ -247,12 +246,12 @@ class _CreateTestFormState extends State<CreateTestForm> {
                 setState(() {
                   _standingPoints = [];
                   _standingPointsTest = Test.isStandingPointTest(_selectedTest);
-                  
-                  if (_selectedTest?.compareTo(SectionCutterTest.collectionIDStatic) == 0) 
-                  {
+
+                  if (_selectedTest
+                          ?.compareTo(SectionCutterTest.collectionIDStatic) ==
+                      0) {
                     _standingPointType = 'A Section Line';
-                  } else if (_standingPointsTest) 
-                  {
+                  } else if (_standingPointsTest) {
                     _standingPointType = 'Standing Points';
                   }
                 });
@@ -279,17 +278,24 @@ class _CreateTestFormState extends State<CreateTestForm> {
                             tempPoints = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => 
-                                (_selectedTest?.compareTo( SectionCutterTest.collectionIDStatic) == 0)
+                                builder: (context) => (_selectedTest?.compareTo(
+                                            SectionCutterTest
+                                                .collectionIDStatic) ==
+                                        0)
                                     ? SectionCreationPage(
                                         activeProject: widget.activeProject,
                                         currentSection:
-                                          _standingPoints.isNotEmpty ? _standingPoints : null,
+                                            _standingPoints.isNotEmpty
+                                                ? _standingPoints
+                                                : null,
                                       )
                                     : StandingPointsPage(
                                         activeProject: widget.activeProject,
                                         currentStandingPoints:
-                                          _standingPoints.isNotEmpty ? _standingPoints as List<StandingPoint> : null,
+                                            _standingPoints.isNotEmpty
+                                                ? _standingPoints
+                                                    as List<StandingPoint>
+                                                : null,
                                       ),
                               ),
                             );
@@ -322,7 +328,8 @@ class _CreateTestFormState extends State<CreateTestForm> {
                             child: Padding(
                               padding: const EdgeInsets.only(left: 8.0),
                               child: _standingPoints.isNotEmpty
-                                  ? Icon(Icons.check_circle, color: Colors.green)
+                                  ? Icon(Icons.check_circle,
+                                      color: Colors.green)
                                   : SizedBox(),
                             ),
                           ),
@@ -365,7 +372,8 @@ class _CreateTestFormState extends State<CreateTestForm> {
                     Navigator.of(context).pop(); // Dismiss the form
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey, // Neutral color for cancellation
+                    backgroundColor:
+                        Colors.grey, // Neutral color for cancellation
                   ),
                   child: Text(
                     "Cancel",

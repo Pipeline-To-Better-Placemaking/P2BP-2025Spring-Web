@@ -25,7 +25,7 @@ Future<String> getUserFullName(String? uid) async {
   }
 
   final userDoc =
-      await FirebaseFirestore.instance.collection('users').doc(uid).get();
+  await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
   if (userDoc.exists) {
     String? fullName = userDoc['fullName'];
@@ -79,7 +79,7 @@ Future<String> saveTeam(
 Future<Project> saveProject({
   required String projectTitle,
   required String description,
-  required DocumentReference? teamRef,
+  required String address,
   required List<LatLng> polygonPoints,
   required List<StandingPoint> standingPoints,
   required num polygonArea,
@@ -87,10 +87,13 @@ Future<Project> saveProject({
   late Project tempProject;
 
   try {
+    DocumentReference projectAdmin =
+    _firestore.doc('users/${_loggedInUser?.uid}');
+    DocumentReference? teamRef = await getCurrentTeam();
     String projectID = _firestore.collection('projects').doc().id;
     if (teamRef == null) {
       throw Exception(
-          "teamRef not defined when passed to saveProject() in firestore_functions.dart");
+          "teamRef unable to be retrieved in firestore_functions.dart");
     }
 
     await _firestore.collection('projects').doc(projectID).set({
@@ -98,16 +101,18 @@ Future<Project> saveProject({
       'creationTime': FieldValue.serverTimestamp(),
       'id': projectID,
       'team': teamRef,
+      'projectAdmin': projectAdmin,
       'description': description,
+      'address': address,
       'polygonPoints': polygonPoints.toGeoPointList(),
-      'standingPoints': StandingPoint.toJsonList(standingPoints),
+      'standingPoints': standingPoints.toJsonList(),
       'polygonArea': polygonArea,
       'tests': [],
     });
 
     await _firestore.doc('/${teamRef.path}').update({
       'projects':
-          FieldValue.arrayUnion([_firestore.doc('/projects/$projectID')])
+      FieldValue.arrayUnion([_firestore.doc('/projects/$projectID')])
     });
 
     tempProject = Project(
@@ -115,6 +120,8 @@ Future<Project> saveProject({
       projectID: projectID,
       title: projectTitle,
       description: description,
+      address: address,
+      projectAdmin: projectAdmin,
       polygonPoints: polygonPoints,
       polygonArea: polygonArea,
       standingPoints: standingPoints,
@@ -144,12 +151,16 @@ Future<Project> getProjectInfo(String projectID) async {
           testRefs.add(ref);
         }
       }
-      // TODO: Remove logic once confirmed standing points for all projects
-      if (projectDoc.data()!.containsKey('standingPoints')) {
+      // TODO: Remove logic once confirmed standing points for all projects/address/admin
+      if (projectDoc.data()!.containsKey('standingPoints') &&
+          projectDoc.data()!.containsKey('address') &&
+          projectDoc.data()!.containsKey('projectAdmin')) {
         project = Project(
           teamRef: projectDoc['team'],
           projectID: projectDoc['id'],
+          projectAdmin: projectDoc['projectAdmin'],
           title: projectDoc['title'],
+          address: projectDoc['address'],
           description: projectDoc['description'],
           polygonPoints: (projectDoc['polygonPoints'] as List).toLatLngList(),
           polygonArea: projectDoc['polygonArea'],
@@ -160,12 +171,16 @@ Future<Project> getProjectInfo(String projectID) async {
           creationTime: projectDoc['creationTime'],
           testRefs: testRefs,
         );
-      } else {
+      }
+      // TODO: remove with database purge, along wtih above todo.
+      else {
         project = Project(
           teamRef: projectDoc['team'],
           projectID: projectDoc['id'],
+          projectAdmin: _firestore.doc("/users/dKp6KXIw2pMSedeYhob2McVi5Wn1"),
           title: projectDoc['title'],
           description: projectDoc['description'],
+          address: 'Address not set...',
           polygonPoints: (projectDoc['polygonPoints'] as List).toLatLngList(),
           polygonArea: projectDoc['polygonArea'],
           standingPoints: [],
@@ -194,7 +209,7 @@ Future<DocumentReference?> getCurrentTeam() async {
 
   try {
     userDoc =
-        await _firestore.collection('users').doc(_loggedInUser?.uid).get();
+    await _firestore.collection('users').doc(_loggedInUser?.uid).get();
     if (userDoc.exists && userDoc.data()!.containsKey('selectedTeam')) {
       teamRef = await userDoc['selectedTeam'];
     }
@@ -242,7 +257,7 @@ Future<List<Team>> getInvites() async {
 
   try {
     userDoc =
-        await _firestore.collection("users").doc(_loggedInUser?.uid).get();
+    await _firestore.collection("users").doc(_loggedInUser?.uid).get();
     Team tempTeam;
 
     if (userDoc.exists && userDoc.data()!.containsKey('invites')) {
@@ -284,7 +299,7 @@ Future<List<Team>> getTeamsIDs() async {
 
   try {
     userDoc =
-        await _firestore.collection("users").doc(_loggedInUser?.uid).get();
+    await _firestore.collection("users").doc(_loggedInUser?.uid).get();
     Team tempTeam;
     if (userDoc.exists && userDoc.data()!.containsKey('teams')) {
       for (DocumentReference teamRef in userDoc['teams']) {
@@ -430,8 +445,11 @@ Future<Test> saveTest({
   required DocumentReference? projectRef,
   required String collectionID,
   List? standingPoints,
+  int? testDuration,
+  int? intervalDuration,
+  int? intervalCount,
 }) async {
-  late Test tempTest;
+  late final Test tempTest;
 
   try {
     if (projectRef == null) {
@@ -449,6 +467,9 @@ Future<Test> saveTest({
       projectRef: projectRef,
       collectionID: collectionID,
       standingPoints: standingPoints,
+      testDuration: testDuration,
+      intervalDuration: intervalDuration,
+      intervalCount: intervalCount,
     );
 
     await tempTest.saveToFirestore();
@@ -510,6 +531,10 @@ extension LatLngConversion on LatLng {
   GeoPoint toGeoPoint() {
     return GeoPoint(latitude, longitude);
   }
+
+  mp.LatLng toMPLatLng() {
+    return mp.LatLng(latitude, longitude);
+  }
 }
 
 extension LatLngListConversion on List<LatLng> {
@@ -521,6 +546,13 @@ extension LatLngListConversion on List<LatLng> {
       newGeoPointList.add(GeoPoint(coordinate.latitude, coordinate.longitude));
     });
     return newGeoPointList;
+  }
+
+  List<mp.LatLng> toMPLatLng() {
+    List<mp.LatLng> newMPLatLngList = [];
+    forEach((point) =>
+        newMPLatLngList.add(mp.LatLng(point.latitude, point.longitude)));
+    return newMPLatLngList;
   }
 }
 
@@ -565,7 +597,7 @@ extension PolygonHelpers on Polygon {
   /// Returns the area covered by this polygon in square feet.
   double getAreaInSquareFeet() {
     return (mp.SphericalUtil.computeArea(toMPLatLngList()) *
-            pow(feetPerMeter, 2))
+        pow(feetPerMeter, 2))
         .toDouble();
   }
 }

@@ -352,7 +352,8 @@ class _SearchScreenState extends State<SearchScreen> {
                                 projectData: Project.partialProject(
                                     title: 'No data sent',
                                     description:
-                                        'Accessed without project data'),
+                                        'Accessed without project data',
+                                    address: 'Accessed without project data'),
                               ),
                             ));
                       },

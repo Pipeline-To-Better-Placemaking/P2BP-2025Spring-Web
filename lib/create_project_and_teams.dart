@@ -111,6 +111,7 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
   // TODO: add cover photo?
   String projectDescription = '';
   String projectTitle = '';
+  String projectAddress = '';
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -208,6 +209,47 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
                     });
                   },
                 ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    spacing: 5,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Project Address',
+                        textAlign: TextAlign.left,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16.0,
+                          color: Colors.blue[900],
+                        ),
+                      ),
+                      Tooltip(
+                        triggerMode: TooltipTriggerMode.tap,
+                        enableTapToDismiss: true,
+                        showDuration: Duration(seconds: 3),
+                        preferBelow: false,
+                        message:
+                            'Enter a central address for the designated project location. \nIf no such address exists, give an approximate location.',
+                        child:
+                            Icon(Icons.help, size: 18, color: Colors.blue[900]),
+                      ),
+                    ],
+                  ),
+                ),
+                CreationTextBox(
+                  maxLength: 120,
+                  labelText: 'Project Address',
+                  maxLines: 2,
+                  minLines: 2,
+                  errorMessage:
+                      'Project address must be at least 3 characters long.',
+                  onChanged: (addressText) {
+                    setState(() {
+                      projectAddress = addressText;
+                    });
+                  },
+                ),
                 const SizedBox(height: 10.0),
                 Align(
                   alignment: Alignment.bottomRight,
@@ -217,18 +259,18 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
                     backgroundColor: const Color(0xFF4871AE),
                     icon: const Icon(Icons.chevron_right),
                     onPressed: () async {
-                      if (await getCurrentTeam() == null){
+                      if (await getCurrentTeam() == null) {
                         // TODO: Display error for creating project before team
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                               content: Text(
                                   'You are not in a team! Join a team first.')),
                         );
-                      }
-                      else if (_formKey.currentState!.validate()) {
+                      } else if (_formKey.currentState!.validate()) {
                         Project partialProject = Project.partialProject(
                             title: projectTitle,
-                            description: projectDescription);
+                            description: projectDescription,
+                            address: projectAddress);
                         Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -487,7 +529,8 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Processing Data')),
                         );
-                        await saveTeam(membersList: invitedMembers, teamName: teamName);
+                        await saveTeam(
+                            membersList: invitedMembers, teamName: teamName);
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(

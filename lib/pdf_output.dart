@@ -1,14 +1,13 @@
+import 'dart:math';
 import 'dart:typed_data';
+
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:p2b/db_schema_classes.dart';
-import 'package:p2b/firestore_functions.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:collection/collection.dart';
-import 'package:printing/printing.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
-import 'dart:math';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 // Allows user to see the pdf in browser so they know what they are getting
 class PdfReportPage extends StatelessWidget {
@@ -152,6 +151,7 @@ Future<Uint8List> generateReport(
   // Get all the test information sorted into the correct representation.
   if (projectData.tests == null) {
     await projectData.loadAllTestData();
+    print(projectData.tests);
   }
   rawTests = projectData.tests ?? [];
   for (Test currentTest in rawTests) {
@@ -195,12 +195,13 @@ Future<Uint8List> generateReport(
         }
       case 'identifying_access_tests':
         {
-          AccessData currentLPData =
+          IdentifyingAccessData currentLPData =
               (currentTest as IdentifyingAccessTest).data;
         }
       case 'nature_prevalence_tests':
         {
-          NatureData currentLPData = (currentTest as NaturePrevalenceTest).data;
+          NaturePrevalenceData currentLPData =
+              (currentTest as NaturePrevalenceTest).data;
         }
       case 'people_in_place_tests':
         {
@@ -214,7 +215,8 @@ Future<Uint8List> generateReport(
         }
       case 'acoustic_profile_tests':
         {
-          throw UnimplementedError();
+          AcousticProfileData currentLPData =
+              (currentTest as AcousticProfileTest).data;
         }
     }
   }
@@ -227,142 +229,19 @@ Future<Uint8List> generateReport(
       acouProf +
       identAccess +
       secCut);
-  // ** End Bucket Sorting, now allocated into a singular large 'bucket'
 
-//   // ** Gathers the data from each test
-//   for (int i = 0; i < rawTests.length; i++) {
-//     List data = [], labels = [];
-//     List<List<dynamic>> combined = [];
-//
-//     if (sortedTests[i]['projType'] ==
-//         'Section Cutter') // ** SECTION CUTTER DATA
-//     {
-//       continue; // TODO: People In Place
-//     } else if (sortedTests[i]['projType'] ==
-//         'Lighting Profile') // ** LIGHTING PROFILE DATA
-//     {
-//       //continue; // Done for testing purposes
-//       labels.add('Task');
-//       if (sortedTests[i]['data']['task'] != null ||
-//           sortedTests[i]['data']['task'].length != 0) {
-//         data.add(sortedTests[i]['data']['task'].length);
-//       } else {
-//         data.add(0);
-//       }
-//
-//       labels.add('Rythmic');
-//       if (sortedTests[i]['data']['rhythmic'] != null ||
-//           sortedTests[i]['data']['rhythmic'].length != 0) {
-//         data.add(sortedTests[i]['data']['rhythmic'].length);
-//       } else {
-//         data.add(0);
-//       }
-//
-//       labels.add('Building');
-//       if (sortedTests[i]['data']['building'] != null ||
-//           sortedTests[i]['data']['building'].length != 0) {
-//         data.add(sortedTests[i]['data']['building'].length);
-//       } else {
-//         data.add(0);
-//       }
-//
-//       for (int i = 0; i < labels.length; i++) {
-//         combined.add([labels[i], data[i]]);
-//       }
-//     } else if (sortedTests[i]['projType'] ==
-//         'Nature Prevalence') // ** NATURE PREVALENCE DATA
-//     {
-//       continue; // TODO: Nature Prevalence
-//     } else if (sortedTests[i]['projType'] ==
-//         'Spatial Boundaries') // ** SPATIAL BOUNDARIES DATA
-//     {
-//       // TODO: I did not get any data for the test I was working with
-//       continue; //Temporary for my testing purposes
-//     } else if (sortedTests[i]['projType'] ==
-//         'Acoustic Profile') // ** ACOUSTIC PROFILE DATA
-//     {
-//       // This can honestly get refined a lot further but its work in progress
-//       //continue;
-//       labels.add('Traffic');
-//       labels.add('Wind');
-//       labels.add('people');
-//       labels.add('animals');
-//       labels.add('water');
-//       labels.add('music');
-//       labels.add('other');
-//
-//       num trafDec = 0;
-//       num windDec = 0;
-//       num peopDec = 0;
-//       num othDec = 0;
-//       num decibal_val = 0;
-//       num animDec = 0;
-//       num waterNum = 0;
-//       num musicNum = 0;
-//
-//       for (int subtests = 0;
-//           subtests = sortedTests[i]["data"]["dataPoints"].length;
-//           subtests++) {
-//         String soundType = sortedTests[i]["data"]["dataPoints"][subtests]
-//             ["measurements"][0]["soundTypes"][1]; // Get Sound Type
-//
-//         decibal_val += sortedTests[i]["data"]["dataPoints"][subtests]
-//             ["measurements"][1]["decibels"]; // Gets Decibel
-//         if (soundType == 'traffic') {
-//           trafDec += decibal_val;
-//         } else if (soundType == 'wind') {
-//           windDec += decibal_val;
-//         } else if (soundType == 'people') {
-//           peopDec += decibal_val;
-//         } else if (soundType == 'animals') {
-//           animDec += decibal_val;
-//         } else if (soundType == 'people') {
-//           peopDec += decibal_val;
-//         } else if (soundType == 'water') {
-//           waterNum += decibal_val;
-//         } else if (soundType == 'music') {
-//           musicNum += decibal_val;
-//         } else if (soundType == 'other') {
-//           othDec += decibal_val;
-//         }
-//       }
-//
-//       for (int i = 0; i < labels.length; i++) {
-//         combined.add([labels[i], data[i]]);
-//       }
-//     }
-//
-// // Loop through sorted tests and add a page for each test
-//     for (int i = 0; i < sortedTests.length; i++) {
-//       document.addPage(
-//         pw.Page(
-//           pageFormat: pageFormat,
-//           theme: theme,
-//           build: (context) {
-//             return TestPdfPage(test: sortedTests[i]);
-//           },
-//         ),
-//       );
-//     }
-//   }
   return document.save();
 } // End of generateReport()
 
-// Function to generate all the charts
-pw.Widget _generateBarChart(LightingProfileData data) {
+// Function to generate the chart for Points (bar charts)
+pw.Widget _generateBarChart(Map<String, int> dataMap) {
+  List<int> sortedValues = (dataMap.values).toList();
+  sortedValues.sort((a, b) => a.compareTo(b));
+  int increment = (sortedValues.lastOrNull ?? 0) ~/ 5;
+  if (increment < 3) increment = 1;
+  if (dataMap.isEmpty || increment <= 0) return pw.Container();
   // Process data
-  Map<LightType, int> dataMap = {
-    LightType.rhythmic: 0,
-    LightType.building: 0,
-    LightType.task: 0,
-  };
-  int count = 0;
-  for (Light light in data.lights) {
-    count = dataMap[light.lightType] ?? 0;
-    dataMap[light.lightType] = count + 1;
-    print(dataMap[light.lightType]);
-  }
-  List dataSet = List.of(dataMap.values);
+  List<int> dataSet = (dataMap.values).toList();
   // Top bar chart
   return pw.Chart(
     left: pw.Container(
@@ -375,27 +254,34 @@ pw.Widget _generateBarChart(LightingProfileData data) {
     ),
     grid: pw.CartesianGrid(
       xAxis: pw.FixedAxis.fromStrings(
-        ["rhythmic", "task", "building"],
+        List.of(dataMap.keys),
         marginStart: 30,
         marginEnd: 30,
         ticks: true,
       ),
       yAxis: pw.FixedAxis(
-        [0, 5, 10, 15, 20, 25, 30],
+        [
+          0,
+          increment,
+          increment * 2,
+          increment * 3,
+          increment * 4,
+          increment * 5,
+          increment * 6,
+          increment * 7,
+        ],
         divisions: true,
       ),
     ),
     datasets: [
       pw.BarDataSet(
         color: PdfColors.blue100,
-        width: 15,
+        width: (1 / dataMap.keys.length) * 110,
         borderColor: PdfColors.cyan,
         data: List<pw.PointChartValue>.generate(
           dataSet.length,
           (i) {
-            print(dataSet[i]);
-            final v = dataSet[i] as num;
-            return pw.PointChartValue(i.toDouble(), v.toDouble());
+            return pw.PointChartValue(i.toDouble(), dataSet[i].toDouble());
           },
         ),
       ),
@@ -411,13 +297,105 @@ class TestPdfPage extends pw.StatelessWidget {
   final PdfColor? baseColor;
   // Fixes the Datetime for the header
   final String scheduledTime;
+  String? displayName;
+
+  Map<String, int> processTestPointsForGraph(Test test) {
+    Map<String, int> processedData = {};
+    switch (test.collectionID) {
+      case 'lighting_profile_tests':
+        {
+          LightingProfileData data = (test as LightingProfileTest).data;
+          displayName = LightingProfileTest.displayName;
+          Map<String, int> dataMap = {
+            LightType.rhythmic.name: 0,
+            LightType.building.name: 0,
+            LightType.task.name: 0,
+          };
+          int count = 0;
+          for (Light light in data.lights) {
+            count = dataMap[light.lightType.name] ?? 0;
+            dataMap[light.lightType.name] = count + 1;
+          }
+          processedData = dataMap;
+        }
+      case 'absence_of_order_tests':
+        {
+          AbsenceOfOrderData data = (test as AbsenceOfOrderTest).data;
+          displayName = AbsenceOfOrderTest.displayName;
+          Map<String, int> dataMap = {
+            "maintenanceType": data.maintenanceList.length,
+            "behaviorType": data.behaviorList.length,
+          };
+          processedData = dataMap;
+        }
+      case 'nature_prevalence_tests':
+        {
+          NaturePrevalenceData data = (test as NaturePrevalenceTest).data;
+          displayName = NaturePrevalenceTest.displayName;
+          Map<String, int> dataMap = {
+            AnimalType.cat.name: 0,
+            AnimalType.dog.name: 0,
+            AnimalType.squirrel.name: 0,
+            AnimalType.bird.name: 0,
+            AnimalType.rabbit.name: 0,
+            AnimalType.turtle.name: 0,
+            AnimalType.duck.name: 0,
+            AnimalType.other.name: 0,
+          };
+          for (Animal animal in data.animals) {
+            dataMap[animal.animalType.name] =
+                dataMap[animal.animalType.name]! + 1;
+          }
+          processedData = dataMap;
+        }
+      case 'people_in_place_tests':
+        {
+          PeopleInPlaceData data = (test as PeopleInPlaceTest).data;
+          displayName = PeopleInMotionTest.displayName;
+          Map<String, int> dataMap = {
+            PostureType.layingDown.name: 0,
+            PostureType.sitting.name: 0,
+            PostureType.squatting.name: 0,
+            PostureType.standing.name: 0,
+          };
+          for (final PersonInPlace person in data.persons) {
+            dataMap[person.posture.name] = dataMap[person.posture.name]! + 1;
+          }
+          processedData = dataMap;
+        }
+      case 'acoustic_profile_tests':
+        {
+          AcousticProfileData data = (test as AcousticProfileTest).data;
+          displayName = AcousticProfileTest.displayName;
+          List<String> standingPointNames = [];
+          List<double> standingPointAvg = [];
+          Map<String, int> dataMap = {};
+          double sum = 0;
+
+          for (final dataPoint in test.data.dataPoints) {
+            standingPointNames.add(dataPoint.standingPoint.title);
+            for (final measurement in dataPoint.measurements) {
+              sum += measurement.decibels;
+            }
+            standingPointAvg.add(sum / test.intervalCount);
+            sum = 0;
+          }
+
+          print(standingPointNames);
+          print(standingPointAvg);
+          processedData = dataMap;
+        }
+    }
+    return processedData;
+  }
 
   @override
   pw.Widget build(pw.Context context) {
     return pw.Column(
       children: [
         pw.Text(
-          '${test.collectionID} - $scheduledTime',
+          // TODO: add switch case function for retrieving test displayName
+          '${displayName ?? ''} - $scheduledTime',
           style: pw.TextStyle(
             color: baseColor ?? PdfColors.black,
             fontSize: 20,
@@ -431,8 +409,10 @@ class TestPdfPage extends pw.StatelessWidget {
               children: [
                 pw.Expanded(
                   child: pw.SizedBox(
-                    child: _generateBarChart(test.data
-                        as LightingProfileData), // Generate the chart dynamically
+                    height: 200,
+                    width: 200,
+                    child: _generateBarChart(processTestPointsForGraph(
+                        test)), // Generate the chart dynamically
                   ),
                 ),
               ],

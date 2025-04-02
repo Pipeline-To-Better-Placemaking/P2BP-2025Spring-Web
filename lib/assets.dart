@@ -7,6 +7,92 @@ final AssetMapBitmap tempMarkerIcon = AssetMapBitmap(
   width: 40,
   height: 40,
 );
+
+final AssetMapBitmap catMarkerIcon = AssetMapBitmap(
+  'assets/cat_marker.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap dogMarkerIcon = AssetMapBitmap(
+  'assets/dog_marker.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap birdMarkerIcon = AssetMapBitmap(
+  'assets/bird_marker.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap duckMarkerIcon = AssetMapBitmap(
+  'assets/duck_marker.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap rabbitMarkerIcon = AssetMapBitmap(
+  'assets/rabbit_marker.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap squirrelMarkerIcon = AssetMapBitmap(
+  'assets/squirrel_marker.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap turtleMarkerIcon = AssetMapBitmap(
+  'assets/turtle_marker.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap otherAnimalMarker = AssetMapBitmap(
+  'assets/other_marker.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap buildingMarkerIcon = AssetMapBitmap(
+  'assets/building-light.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap rythimicMarkerIcon = AssetMapBitmap(
+  'assets/rythimic-light.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap taskMarkerIcon = AssetMapBitmap(
+  'assets/task-light.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap maintenanceMisconductMarkerIcon = AssetMapBitmap(
+  'assets/maintenance-misconduct.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap behaviorMisconducttMarkerIcon = AssetMapBitmap(
+  'assets/behavior-misconduct.png',
+  width: 25,
+  height: 25,
+);
+
+final AssetMapBitmap peopleMarkerIcon = AssetMapBitmap(
+  'assets/people.png',
+  width: 40,
+  height: 40,
+);
+
+
 final AssetMapBitmap standingPointDisabledIcon = AssetMapBitmap(
   'assets/standing_point_disabled.png',
   width: 48,

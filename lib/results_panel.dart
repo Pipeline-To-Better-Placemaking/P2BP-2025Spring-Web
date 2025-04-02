@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'results_map_data.dart';
-import 'results_firebase.dart';
 import 'db_schema_classes.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart' show Factory;
+import 'package:intl/intl.dart';
 
 class ResultsPage extends StatefulWidget {
   final Project projectData;
@@ -23,6 +23,7 @@ class _ResultsPageState extends State<ResultsPage> {
   Set<Marker> _visibleMarkers = {};
   Set<Polygon> _visiblePolygons = {};
   Set<Polyline> _visiblePolylines = {};
+  Set<Circle> _visibleSoundCircle = {};
   Map<String, bool> _testVisibility = {};
   bool isDrawerOpen = false;
 
@@ -77,9 +78,9 @@ class _ResultsPageState extends State<ResultsPage> {
       _projectPolygon = Polygon(
         polygonId: PolygonId(widget.projectData.projectID),
         points: polygonPoints,
-        strokeColor: Colors.blue,
+        strokeColor: Colors.red,
         strokeWidth: 2,
-        fillColor: Color.fromRGBO(0, 0, 255, 0.2), // Blue with 20% opacity
+        fillColor: Color.fromRGBO(255, 0, 0, 0.2), // Red with 20% opacity
       );
     });
 
@@ -124,7 +125,6 @@ class _ResultsPageState extends State<ResultsPage> {
 
     // Calculate polygon area using the Shoelace formula
     double area = _calculatePolygonArea(polygonPoints);
-    //print("Polygon area: $area");
 
     // Adjust zoom level based on area size
     if (area < 0.00001) { 
@@ -168,12 +168,14 @@ class _ResultsPageState extends State<ResultsPage> {
     Set<Marker> newMarkers = {};
     Set<Polyline> newPolylines = {};
     Set<Polygon> newPolygons = {};
+    Set<Circle> newSoundCircle = {};
 
     for (var test in _testData) {
       if (_testVisibility[test.testID] == true) {
         newMarkers.addAll(test.markers);
         newPolylines.addAll(test.polylines);
         newPolygons.addAll(test.polygons);
+        newSoundCircle.addAll(test.soundCircle);
       }
     }
 
@@ -181,6 +183,7 @@ class _ResultsPageState extends State<ResultsPage> {
       _visibleMarkers = newMarkers;
       _visiblePolylines = newPolylines;
       _visiblePolygons = newPolygons;
+      _visibleSoundCircle = newSoundCircle;
     });
   }
 
@@ -209,26 +212,82 @@ class _ResultsPageState extends State<ResultsPage> {
       _visiblePolygons.add(_projectPolygon!);
     }
 
+    // Define the test categories
+    Map<String, List<VisualizedResults>> categorizedTests = {
+      "Absence of Order": [],
+      "Acoustic Profile": [],
+      "Identifying Access": [],
+      "Lighting Profile": [],
+      "Nature Prevalence": [],
+      "People in Motion": [],
+      "People in Place": [],
+      "Spatial Boundaries": [],
+    };
+
+    // Categorize tests based on their testName
+    for (var test in _testData.where((test) => test.isComplete && !test.collectionID.startsWith("section_cutter_tests/"))) {
+      if (test.collectionID.startsWith("absence_of_order_tests")) {
+        categorizedTests["Absence of Order"]!.add(test);
+      } else if (test.collectionID.startsWith("acoustic_profile_tests")) {
+        categorizedTests["Acoustic Profile"]!.add(test);
+      } else if (test.collectionID.startsWith("identifying_access_tests")) {
+        categorizedTests["Identifying Access"]!.add(test);
+      } else if (test.collectionID.startsWith("lighting_profile_tests")) {
+        categorizedTests["Lighting Profile"]!.add(test);
+      } else if (test.collectionID.startsWith("nature_prevalence_tests")) {
+        categorizedTests["Nature Prevalence"]!.add(test);
+      } else if (test.collectionID.startsWith("people_in_motion_tests")) {
+        categorizedTests["People in Motion"]!.add(test);
+      } else if (test.collectionID.startsWith("people_in_place_tests")) {
+        categorizedTests["People in Place"]!.add(test);
+      } else if (test.collectionID.startsWith("spatial_boundaries_tests")) {
+        categorizedTests["Spatial Boundaries"]!.add(test);
+      }
+    }
+
+    // Sort each category by scheduledTime
+    for (var entry in categorizedTests.entries) {
+      entry.value.sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Results Page'),
-      ),
+      appBar: AppBar(title: Text('Results Page')),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const DrawerHeader(
+            Container(
+              height: 100.0, // Adjust the height as per your need
               decoration: BoxDecoration(color: Colors.blue),
-              child: Text('Results Panel'),
-            ),
-            for (var test in _testData.where((test) => test.isComplete && !test.collectionID.startsWith("section_cutter_tests/"))) 
-              ListTile(
-                title: Text(test.testName),
-                trailing: Switch(
-                  value: _testVisibility[test.testID] ?? false,
-                  onChanged: (value) => _toggleTestVisibility(test.testID, value),
+              child: Center(
+                child: Text(
+                  'Results Panel',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18, // Adjust the font size
+                  ),
                 ),
               ),
+            ),
+            if (_testData.isEmpty)
+              Center(child: CircularProgressIndicator()) // Show a loading indicator
+            else
+              ...categorizedTests.entries.map((entry) => ExpansionTile(
+                    title: Text(entry.key, style: TextStyle(fontWeight: FontWeight.bold)),
+                    tilePadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 8.0), // Optional padding for ExpansionTile
+                    expandedAlignment: Alignment.topLeft,
+                    children: entry.value.map((test) => ListTile(
+                      title: Text(test.testName),
+                      subtitle: Text(
+                        "Scheduled: ${DateFormat('hh:mm a, MMMM d, yyyy').format(test.scheduledTime)}",
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      trailing: Switch(
+                        value: _testVisibility[test.testID] ?? false,
+                        onChanged: (value) => _toggleTestVisibility(test.testID, value),
+                      ),
+                    )).toList(), // Align children when expanded
+                  )),
           ],
         ),
       ),
@@ -236,28 +295,51 @@ class _ResultsPageState extends State<ResultsPage> {
         setState(() {
           isDrawerOpen = isOpen;
         });
-      },
-      body: GoogleMap(
-        initialCameraPosition: CameraPosition(
-          target: polygonCenter,
-          zoom: zoomLevel,
-        ),
-        markers: _visibleMarkers,
-        polylines: _visiblePolylines,
-        polygons: _visiblePolygons, // Use the Set with the project polygon + toggled polygons
-        onMapCreated: (GoogleMapController controller) {
-          _mapController = controller;
-        },
-        mapType: MapType.satellite,
 
-        // ✅ Disable map gestures when the drawer is open
-        gestureRecognizers: isDrawerOpen
-            ? <Factory<OneSequenceGestureRecognizer>>{}.toSet() // No gestures allowed
-            : {
-                Factory<PanGestureRecognizer>(() => PanGestureRecognizer()),
-                Factory<ScaleGestureRecognizer>(() => ScaleGestureRecognizer()),
-                Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-              }.toSet(), // Enable gestures when drawer is closed
+        // Ensure unintended movement stops when opening the drawer
+        if (isOpen) {
+          Future.delayed(Duration(milliseconds: 100), () {
+            _mapController?.animateCamera(CameraUpdate.scrollBy(0, 0)); // Lock the camera
+          });
+        }
+      },
+      body: Stack(
+        children: [
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: polygonCenter,
+              zoom: zoomLevel,
+            ),
+            markers: _visibleMarkers,
+            polylines: _visiblePolylines,
+            polygons: _visiblePolygons,
+            circles: _visibleSoundCircle,
+            onMapCreated: (GoogleMapController controller) {
+              _mapController = controller;
+            },
+            mapType: MapType.satellite,
+            gestureRecognizers: isDrawerOpen
+                ? <Factory<OneSequenceGestureRecognizer>>{}.toSet() // Disable gestures
+                : {
+                    Factory<PanGestureRecognizer>(() => PanGestureRecognizer()),
+                    Factory<ScaleGestureRecognizer>(() => ScaleGestureRecognizer()),
+                    Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+                    Factory<VerticalDragGestureRecognizer>(() => VerticalDragGestureRecognizer()), // Prevents scrolling
+                  }.toSet(), // Enable gestures when drawer is closed
+          ),
+          Positioned(
+            bottom: 40.0,
+            left: 10.0,
+            child: FloatingActionButton(
+              heroTag: null,
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              backgroundColor: Colors.black,
+              child: Icon(Icons.arrow_back, color: Colors.white, size: 48), // Increased size for better visibility
+            ),
+          ),
+        ],
       ),
     );
   }

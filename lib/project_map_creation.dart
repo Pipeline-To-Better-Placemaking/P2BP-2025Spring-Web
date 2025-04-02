@@ -2,11 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
 import 'google_maps_functions.dart';
 import 'homepage.dart';
 import 'db_schema_classes.dart';
-import 'dart:math';
 import 'firestore_functions.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
 
@@ -163,12 +161,6 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
       // Make sure _polygon is not empty before accessing first element
       if (_polygon.isNotEmpty) {
-        // Print the ID of the finalized polygon for debugging
-        print("Finalized Polygon ID: ${_polygon.first.polygonId.value}");
-              // Print out the IDs of the polygon points (coordinates)
-        for (int i = 0; i < _polygonPoints.length; i++) {
-          print("Polygon Point $i: ${_polygonPoints[i].latitude}, ${_polygonPoints[i].longitude}");
-        }
         // Creates Maps Toolkit representation of Polygon for checking if point
         // is inside area.
         _mapToolsPolygonPoints = _polygon.first.toMPLatLngList();
@@ -180,8 +172,6 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
         setState(() {
           _markers.clear();
         });
-      } else {
-        print("Error: _polygon is empty after finalization.");
       }
     } catch (e, stacktrace) {
       print('Exception in _finalize_polygon(): $e');
@@ -201,8 +191,6 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
       _polygonMode = false; // Exit polygon mode
       _standingPoints.clear();
     });
-
-    print("Polygon removed successfully.");
   }
 
   void _addFlagMarker() async {
@@ -269,7 +257,6 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
       onDragEnd: (LatLng newPosition) {
         // Handle the marker drag end, but ensure it is within the polygon
         mp.LatLng newPositionToolkit = mp.LatLng(newPosition.latitude, newPosition.longitude);
-        print("Flag Marker $flagId new position: Latitude: ${newPosition.latitude}, Longitude: ${newPosition.longitude}");
 
         if (!mp.PolygonUtil.containsLocation(newPositionToolkit, toolkitPolygonPoints, false)) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -317,10 +304,6 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
     // Save the flag position with the custom name and LatLng as GeoPoint
     _standingPoints.add(StandingPoint(title: customName, location: centroid));
-
-
-    print("Standing point added: ID=$flagId, Name=$customName, Lat=${centroid.latitude}, Lng=${centroid.longitude}");
-    print("Current standing points: $_standingPoints");
 
     // Trigger a UI update to ensure the marker is displayed
     setState(() {});

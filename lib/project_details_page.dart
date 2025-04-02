@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'create_test_form.dart';
 import 'theme.dart';
 import 'firestore_functions.dart';
-//import 'standing_points_page.dart';
 
 class ProjectDetailsPage extends StatefulWidget {
   final Project projectData;

@@ -21,8 +21,9 @@ Future<Uint8List> generateMapImage({
   zoom--;
 
   // TODO: Figure out how to build this to trigger the snapshot
-
-  GoogleMap(
+  // Current idea. Create intermediary page. Stack. Google maps behind in ListView or similar.
+  // Sends a list of Images to next page, which get immediately placed in PDFData objects.
+  mapSnapshot = await screenshotController.captureFromWidget(GoogleMap(
     onMapCreated: (GoogleMapController controller) async {
       print("Map has been created");
       mapController = controller;
@@ -55,7 +56,7 @@ Future<Uint8List> generateMapImage({
     padding: EdgeInsets.all(100),
     rotateGesturesEnabled: false,
     tiltGesturesEnabled: false,
-  );
+  ));
 
   return mapSnapshot;
 }

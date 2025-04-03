@@ -334,7 +334,7 @@ class _HomePageBodyState extends State<HomePageBody> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => PdfProcessingPage(activeProject: project),
+              builder: (context) => PdfReportPage(activeProject: project),
             ),
           );
         },

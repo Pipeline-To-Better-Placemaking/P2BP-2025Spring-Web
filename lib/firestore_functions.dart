@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
+
 import 'db_schema_classes.dart';
 import 'google_maps_functions.dart';
 
@@ -46,7 +47,7 @@ Future<String> getUserFullName(String? uid) async {
 Future<String> saveTeam(
     {required membersList, required String teamName}) async {
   String teamID = _firestore.collection('teams').doc().id;
-  await _firestore.collection("teams").doc(teamID).set({
+  await _firestore.collection('teams').doc(teamID).set({
     'title': teamName,
     'creationTime': FieldValue.serverTimestamp(),
     // Saves document id as field _id
@@ -56,7 +57,7 @@ Future<String> saveTeam(
       {'role': 'owner', 'user': _firestore.doc('users/${_loggedInUser?.uid}')}
     ]),
   });
-  await _firestore.collection("users").doc(_loggedInUser?.uid).update({
+  await _firestore.collection('users').doc(_loggedInUser?.uid).update({
     'teams': FieldValue.arrayUnion([_firestore.doc('/teams/$teamID')])
   });
   // Currently: invites team members only once team is created.
@@ -200,6 +201,109 @@ Future<Project> getProjectInfo(String projectID) async {
   return project;
 }
 
+Future<bool> deleteTeam(Team team) async {
+  try {
+    final DocumentReference<Map<String, dynamic>> teamRef =
+        _firestore.collection('teams').doc(team.teamID);
+
+    // Iterate through projects and delete tests within them, then the project.
+    if (team.projects.isNotEmpty) {
+      for (final projectRef in team.projects) {
+        final DocumentSnapshot projectDoc = await projectRef.get();
+        if (projectDoc.exists && projectDoc.data()! is Map<String, dynamic>) {
+          final Map<String, dynamic> projectData =
+              projectDoc.data()! as Map<String, dynamic>;
+          if (projectData.containsKey('tests') &&
+              projectData['tests'] is List) {
+            final List<DocumentReference> testRefs =
+                List<DocumentReference>.from(projectData['tests']);
+            for (final testRef in testRefs) {
+              await testRef.delete();
+              print('deleted test ${testRef.id}');
+            }
+          }
+        }
+        await projectRef.delete();
+        print('deleted project ${projectRef.id}');
+      }
+    }
+
+    // Iterate through members of this team, deleting refs to this team.
+    final teamMemberList = await getTeamMembers(team.teamID);
+    if (teamMemberList.isNotEmpty) {
+      for (final member in teamMemberList) {
+        final DocumentReference userRef =
+            _firestore.collection('users').doc(member.userID);
+        await userRef.update({
+          'teams': FieldValue.arrayRemove([teamRef])
+        });
+        print('deleted ref from user ${userRef.id}');
+      }
+    }
+
+    // Delete team.
+    await teamRef.delete();
+    print('Success in deleteTeam! Deleted team: ${team.title} '
+        'with ID ${team.teamID}');
+  } catch (e, stacktrace) {
+    print('Exception deleting team: $e');
+    print('Stacktrace: $stacktrace');
+    return false;
+  }
+  return true;
+}
+
+Future<bool> deleteProject(Project project) async {
+  try {
+    final DocumentReference<Map<String, dynamic>> projectRef =
+        _firestore.collection('projects').doc(project.projectID);
+
+    // Delete tests residing in this project.
+    if (project.testRefs.isNotEmpty) {
+      for (final testRef in project.testRefs) {
+        await testRef.delete();
+        print('deleted test ${testRef.id}');
+      }
+    }
+
+    // Delete reference to this project from the team it resides in.
+    await project.teamRef?.update({
+      'projects': FieldValue.arrayRemove([projectRef])
+    });
+
+    // Delete project.
+    await projectRef.delete();
+    print('Success in deleteProject! Deleted project: ${project.title} '
+        'with ID ${project.projectID}');
+  } catch (e, stacktrace) {
+    print('Exception deleting project: $e');
+    print('Stacktrace: $stacktrace');
+    return false;
+  }
+  return true;
+}
+
+Future<bool> deleteTest(Test test) async {
+  try {
+    final DocumentReference<Map<String, dynamic>> testRef =
+        _firestore.collection(test.collectionID).doc(test.testID);
+
+    // Delete reference to this test from the project it resides in
+    await test.projectRef.update({
+      'tests': FieldValue.arrayRemove([testRef])
+    });
+
+    // Delete test
+    await testRef.delete();
+    print('Success in deleteTest! Deleted test: $test');
+  } catch (e, stacktrace) {
+    print('Exception deleting test: $e');
+    print('Stacktrace: $stacktrace');
+    return false;
+  }
+  return true;
+}
+
 /// Calling this function returns a future reference to the currently selected
 /// team. If retrieval throws an exception, then returns `null`. When
 /// implementing this function, check for `null` before using value.
@@ -211,7 +315,17 @@ Future<DocumentReference?> getCurrentTeam() async {
     userDoc =
         await _firestore.collection('users').doc(_loggedInUser?.uid).get();
     if (userDoc.exists && userDoc.data()!.containsKey('selectedTeam')) {
-      teamRef = await userDoc['selectedTeam'];
+      if (userDoc.data()!.containsKey('teams') &&
+          userDoc['teams'] is List &&
+          userDoc['teams'].contains(userDoc['selectedTeam'])) {
+        teamRef = userDoc['selectedTeam'];
+      } else {
+        _firestore
+            .collection('users')
+            .doc(_loggedInUser?.uid)
+            .update({'selectedTeam': userDoc['teams'].first});
+        teamRef = userDoc['teams'].first;
+      }
     }
   } catch (e) {
     print("Exception trying to getCurrentTeam(): $e");
@@ -311,7 +425,7 @@ Future<List<Team>> getTeamsIDs() async {
             teamID: teamDoc['id'],
             title: teamDoc['title'],
             adminName: 'Temp',
-            projects: teamDoc['projects'],
+            projects: List<DocumentReference>.from(teamDoc['projects']),
             numProjects: teamDoc['projects'].length,
           );
           teams.add(tempTeam);
@@ -324,6 +438,46 @@ Future<List<Team>> getTeamsIDs() async {
   }
 
   return teams;
+}
+
+/// Retrieves a list of the members on team with the given ID and returns it.
+Future<List<Member>> getTeamMembers(String teamID) async {
+  final List<Member> members = [];
+
+  try {
+    final teamDoc = await _firestore.collection('teams').doc(teamID).get();
+    if (teamDoc.exists && teamDoc.data()!.containsKey('projects')) {
+      final List teamMembers =
+          List<Map<String, dynamic>>.from(teamDoc['teamMembers']);
+      if (teamMembers.isNotEmpty) {
+        for (final Map map in teamMembers) {
+          if (map.containsKey('user')) {
+            final DocumentReference userRef = map['user'];
+            final DocumentSnapshot userDoc = await userRef.get();
+            if (userDoc.exists) {
+              String? fullName = userDoc['fullName'];
+              if (fullName != null && fullName.isNotEmpty) {
+                members.add(Member(userID: userDoc.id, fullName: fullName));
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (e, stacktrace) {
+    print('Exception: $e');
+    print('Stacktrace: $stacktrace');
+  }
+
+  return members;
+}
+
+/// Sends an invite to the given already existing team to the given user.
+Future<void> sendInviteToUser(String userID, String teamID) async {
+  await _firestore.collection('users').doc(userID).update({
+    'invites': FieldValue.arrayUnion([_firestore.doc('/teams/$teamID')])
+  });
+  print('Success in sendInviteToUser!');
 }
 
 /// Removes the invite from the user. Checks if the user exists and has invites
@@ -405,6 +559,45 @@ Future<void> addUserToTeam(String teamID) async {
   }
 }
 
+/// Remove user from team they are currently in.
+Future<void> removeUserFromTeam(String userID, String teamID) async {
+  final DocumentReference<Map<String, dynamic>> userRef;
+  final DocumentReference<Map<String, dynamic>> teamRef;
+  final DocumentSnapshot<Map<String, dynamic>> userDoc;
+  final DocumentSnapshot<Map<String, dynamic>> teamDoc;
+
+  try {
+    userRef = _firestore.collection('users').doc(userID);
+    teamRef = _firestore.collection('teams').doc(teamID);
+    userDoc = await userRef.get();
+    teamDoc = await teamRef.get();
+
+    if (userDoc.exists && userDoc.data()!.containsKey('teams')) {
+      if (userDoc.data()!['teams'].contains(teamRef)) {
+        userRef.update({
+          'teams': FieldValue.arrayRemove([teamRef]),
+        });
+
+        if (teamDoc.exists && teamDoc.data()!.containsKey('teamMembers')) {
+          for (final member in teamDoc.data()!['teamMembers']) {
+            if (member is Map<String, dynamic> && member.containsKey('user')) {
+              if (member['user'] == userRef) {
+                teamRef.update({
+                  'teamMembers': FieldValue.arrayRemove([member]),
+                });
+                print('success deleting member $member from team');
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (e, stacktrace) {
+    print('Exception removing user from team: $e');
+    print('Stacktrace: $stacktrace');
+  }
+}
+
 /// Fetches the list of all users in database. Used for inviting members to
 /// to teams. Extracts the name and ID from them and puts them into a list of
 /// `Member` objects. Returns them as a future of a list of Member objects.
@@ -431,6 +624,16 @@ Future<List<Member>> getMembersList() async {
     print('Stacktrace: $stacktrace');
   }
   return membersList;
+}
+
+/// Searches member list for given String and returns the members matched.
+List<Member> searchMembers(List<Member> membersList, String text) {
+  membersList = membersList
+      .where((member) =>
+          member.fullName.toLowerCase().startsWith(text.toLowerCase()))
+      .toList();
+
+  return membersList.isNotEmpty ? membersList : [];
 }
 
 /// Creates a new [Test] from scratch and inserts it into Firestore.

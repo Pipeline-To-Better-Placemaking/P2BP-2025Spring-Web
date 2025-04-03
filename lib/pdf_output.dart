@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'dart:typed_data';
-
 import 'package:collection/collection.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -8,13 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:p2b/db_schema_classes.dart';
-import 'package:p2b/firestore_functions.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-
 import 'google_maps_functions.dart';
-import 'maps_image_generation.dart';
 
 // Create a storage reference from app
 final storageRef = FirebaseStorage.instance.ref();
@@ -85,7 +81,6 @@ Future<List<PDFData>> retrieveAllPDFInfo(
 
 Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
   PDFData? pdfPage;
-  Uint8List mapImage;
   print(test.collectionID);
   switch (test.collectionID) {
     case 'lighting_profile_tests':
@@ -630,7 +625,7 @@ Future<Uint8List> generateReport(
           child: pw.Text(
             pdfData.displayName,
             style: pw.TextStyle(
-              color: baseColor ?? PdfColors.black,
+              color: baseColor,
               fontSize: 12,
             ),
           ),
@@ -639,7 +634,7 @@ Future<Uint8List> generateReport(
           child: pw.Text(
             pdfData.testTitle,
             style: pw.TextStyle(
-              color: baseColor ?? PdfColors.black,
+              color: baseColor,
               fontSize: 20,
             ),
           ),
@@ -648,7 +643,7 @@ Future<Uint8List> generateReport(
           child: pw.Text(
             '${pdfData.date} at ${pdfData.time}',
             style: pw.TextStyle(
-              color: baseColor ?? PdfColors.black,
+              color: baseColor,
               fontSize: 20,
             ),
           ),

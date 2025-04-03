@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'homepage_state.dart';
 import 'create_project_and_teams.dart';
 import 'settings_page.dart';
 import 'teams_and_invites_page.dart';
@@ -10,18 +8,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firestore_functions.dart';
 import 'project_details_page.dart';
-import 'project_comparison_page.dart';
 import 'db_schema_classes.dart';
+import 'theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => HomePageState()..loadState(),
-      child: const HomePageBody(),
-    );
+    return const HomePageBody();
   }
 }
 
@@ -40,24 +36,23 @@ class _HomePageBodyState extends State<HomePageBody> {
   List<Project> _projectList = [];
   int _projectsCount = 0;
   bool _isLoading = true;
+  String _currentPage = "Home";
   String _currentTeamId = '';
 
   @override
   void initState() {
     super.initState();
     _getUserFirstName();
-    _populateProjects(); // Populate projects initially
+    _populateProjects();
+    _loadCurrentPage();
   }
 
   Future<void> _populateProjects() async {
     try {
       teamRef = await getCurrentTeam();
-      if (teamRef == null) {
-        print("Error populating projects in homepage.dart. No selected team available.");
-      } else {
+      if (teamRef != null) {
         String newTeamId = teamRef!.id;
         if (_currentTeamId != newTeamId) {
-          // If the team has changed, refresh the data
           _currentTeamId = newTeamId;
           _projectList = await getTeamProjects(teamRef!);
           setState(() {
@@ -71,23 +66,10 @@ class _HomePageBodyState extends State<HomePageBody> {
     }
   }
 
-  // Method to trigger the page update and refresh the data
-  void _updatePageAndRefresh(String newPage) {
-    // First update the page
-    Provider.of<HomePageState>(context, listen: false).updatePage(newPage);
-    
-    // Then refresh project data
-    _populateProjects();
-  }
-
-  // Gets name from DB, get the first word of that, then sets _firstName to it
   Future<void> _getUserFirstName() async {
     try {
       String fullName = await getUserFullName(_currentUser?.uid);
-
-      // Get first name from full name
       String firstName = fullName.split(' ').first;
-
       if (_firstName != firstName) {
         setState(() {
           _firstName = firstName;
@@ -95,69 +77,34 @@ class _HomePageBodyState extends State<HomePageBody> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'An error occurred while retrieving your name: $e',
-          ),
-        ),
+        SnackBar(content: Text('An error occurred while retrieving your name: $e')),
       );
     }
   }
 
-  final LinearGradient defaultGrad = const LinearGradient(
-    colors: [Color(0xFF3874CB), Color(0xFF183769)],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-  );
+  // Save the current page index
+  Future<void> _saveCurrentPage(String page) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('currentPage', page);
+  }
 
+  // Load the saved page on startup
+  Future<void> _loadCurrentPage() async {
+    final prefs = await SharedPreferences.getInstance();
+    String savedPage = prefs.getString('currentPage') ?? 'Home'; // Default to 'Home' if no page is saved
+    setState(() {
+      _currentPage = savedPage;
+    });
+    _populateProjects(); // Populate the projects based on the page
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<HomePageState>(
-      builder: (context, homePageState, child) {
-        return Scaffold(
-          appBar: AppBar(
-            backgroundColor: const Color(0xFF2F6DCF),
-            title: Image.asset(
-              'assets/PTBP.png',
-              height: 40,
-              fit: BoxFit.contain,
-            ),
-            actions: [
-              TextButton.icon(
-                onPressed: () => _updatePageAndRefresh("Home"),
-                icon: const Icon(Icons.home, color: Colors.white),
-                label: const Text('Home', style: TextStyle(color: Colors.white)),
-              ),
-              TextButton.icon(
-                onPressed: () => homePageState.updatePage("Create"),
-                icon: const Icon(Icons.add_circle, color: Colors.white),
-                label: const Text('Create', style: TextStyle(color: Colors.white)),
-              ),
-              TextButton.icon(
-                onPressed: () => homePageState.updatePage("Compare"),
-                icon: const Icon(Icons.compare_arrows, color: Colors.white),
-                label: const Text('Compare', style: TextStyle(color: Colors.white)),
-              ),
-              TextButton.icon(
-                onPressed: () => homePageState.updatePage("Settings"),
-                icon: const Icon(Icons.settings, color: Colors.white),
-                label: const Text('Settings', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
-          body: IndexedStack(
-            index: _getPageIndex(homePageState.currentPage),
-            children: [
-              SizedBox.expand(child: _buildHomeContent(context)),
-              const CreateProjectAndTeamsPage(),
-              const ProjectComparisonPage(),
-              const SettingsPage(),
-            ],
-          ),
-        );
-      },
-    );
+  // Update the page and save the current page
+  void _updatePage(String newPage) {
+    setState(() {
+      _currentPage = newPage;
+    });
+    _saveCurrentPage(newPage); // Save the current page when it changes
+    _populateProjects(); // Call your project population method if necessary
   }
 
   int _getPageIndex(String currentPage) {
@@ -166,13 +113,50 @@ class _HomePageBodyState extends State<HomePageBody> {
         return 0;
       case 'Create':
         return 1;
-      case 'Compare':
-        return 2;
       case 'Settings':
-        return 3;
+        return 2;
       default:
         return 0;
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF2F6DCF),
+        title: Image.asset(
+          'assets/PTBP.png',
+          height: 40,
+          fit: BoxFit.contain,
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => _updatePage("Home"),
+            icon: const Icon(Icons.home, color: Colors.white),
+            label: const Text('Home', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton.icon(
+            onPressed: () => _updatePage("Create"),
+            icon: const Icon(Icons.add_circle, color: Colors.white),
+            label: const Text('Create', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton.icon(
+            onPressed: () => _updatePage("Settings"),
+            icon: const Icon(Icons.settings, color: Colors.white),
+            label: const Text('Settings', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+      body: IndexedStack(
+        index: _getPageIndex(_currentPage),
+        children: [
+          SizedBox.expand(child: _buildHomeContent(context)),
+          const CreateProjectAndTeamsPage(),
+          const SettingsPage(),
+        ],
+      ),
+    );
   }
 
   Widget _buildHomeContent(BuildContext context) {
@@ -326,7 +310,7 @@ class _HomePageBodyState extends State<HomePageBody> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ProjectDetailsPage(projectData: project),
+              builder: (context) => ProjectDetailsPage(activeProject: project),
             ),
           );
         },
@@ -415,10 +399,13 @@ class _HomePageBodyState extends State<HomePageBody> {
                         ),
                         const SizedBox(width: 10),
                         ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
+                            if (project.tests == null) {
+                              await project.loadAllTestData();
+                            }
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => ResultsPage(projectData: project)),
+                              MaterialPageRoute(builder: (context) => ResultsPage(activeProject: project)),
                             );
                           },
                           style: ElevatedButton.styleFrom(

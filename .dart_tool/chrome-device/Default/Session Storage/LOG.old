@@ -1,8 +1,20 @@
-2025/04/01-21:13:58.986 2907 Reusing MANIFEST /private/var/folders/sq/tzc2627x05zcrcs_hn4jngrr0000gn/T/flutter_tools.XJrpkF/flutter_tools_chrome_device.keupIM/Default/Session Storage/MANIFEST-000001
-2025/04/01-21:13:58.989 2907 Recovering log #16
-2025/04/01-21:13:58.991 2907 Reusing old log /private/var/folders/sq/tzc2627x05zcrcs_hn4jngrr0000gn/T/flutter_tools.XJrpkF/flutter_tools_chrome_device.keupIM/Default/Session Storage/000016.log 
-2025/04/01-21:13:58.992 2907 Delete type=0 #13
-2025/04/01-21:13:58.993 2907 Delete type=0 #7
-2025/04/01-21:13:58.993 2907 Delete type=0 #4
-2025/04/01-21:13:58.993 2907 Delete type=0 #11
-2025/04/01-21:13:58.993 2907 Delete type=0 #3
+2025/04/02-18:25:11.314 3e03 Reusing MANIFEST /private/var/folders/sq/tzc2627x05zcrcs_hn4jngrr0000gn/T/flutter_tools.76NFMM/flutter_tools_chrome_device.JAjzTA/Default/Session Storage/MANIFEST-000001
+2025/04/02-18:25:11.315 3e03 Recovering log #16
+2025/04/02-18:25:11.317 3e03 Reusing old log /private/var/folders/sq/tzc2627x05zcrcs_hn4jngrr0000gn/T/flutter_tools.76NFMM/flutter_tools_chrome_device.JAjzTA/Default/Session Storage/000016.log 
+2025/04/02-18:25:11.317 3e03 Delete type=0 #13
+2025/04/02-18:25:11.317 3e03 Delete type=0 #7
+2025/04/02-18:25:11.317 3e03 Delete type=0 #4
+2025/04/02-18:25:11.317 3e03 Delete type=0 #11
+2025/04/02-18:25:11.317 3e03 Delete type=0 #3
+2025/04/02-18:29:57.701 3a03 Level-0 table #20: started
+2025/04/02-18:29:57.704 3a03 Level-0 table #20: 30717 bytes OK
+2025/04/02-18:29:57.706 3a03 Delete type=0 #16
+2025/04/02-18:29:57.708 3e03 Compacting 4@0 + 1@1 files
+2025/04/02-18:29:57.711 3e03 Generated table #21@0: 229 keys, 7769 bytes
+2025/04/02-18:29:57.712 3e03 Compacted 4@0 + 1@1 files => 7769 bytes
+2025/04/02-18:29:57.713 3e03 compacted to: files[ 0 1 1 0 0 0 0 ]
+2025/04/02-18:29:57.713 3e03 Delete type=2 #14
+2025/04/02-18:29:57.713 3e03 Delete type=2 #17
+2025/04/02-18:29:57.713 3e03 Delete type=2 #10
+2025/04/02-18:29:57.713 3e03 Delete type=2 #8
+2025/04/02-18:29:57.713 3e03 Delete type=2 #20

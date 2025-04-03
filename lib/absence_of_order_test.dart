@@ -65,8 +65,9 @@ class _AbsenceOfOrderTestPageState extends State<AbsenceOfOrderTestPage> {
   List<mp.LatLng> _projectArea = [];
   final Set<Marker> _markers = {}; // Set of markers visible on map
   final Set<Polygon> _polygons = {}; // Set of polygons
-  final AbsenceOfOrderData _newData = AbsenceOfOrderData();
-  DataPoint? _tempDataPoint;
+  final AbsenceOfOrderData _newData = AbsenceOfOrderData.empty();
+  dynamic _tempData;
+  MisconductType? _tempDataType;
 
   Timer? _timer;
   Timer? _outsidePointTimer;
@@ -114,7 +115,7 @@ class _AbsenceOfOrderTestPageState extends State<AbsenceOfOrderTestPage> {
   }
 
   /// Places point on the map and adds that location and the description from
-  /// [_tempDataPoint] to the appropriate `List` in [_newData].
+  /// [_tempData] to the appropriate `List` in [_newData].
   void _togglePoint(LatLng point) {
     try {
       if (!isPointInsidePolygon(point, _polygons.first)) {
@@ -129,29 +130,41 @@ class _AbsenceOfOrderTestPageState extends State<AbsenceOfOrderTestPage> {
         });
       }
 
-      // Add point to data and then add to AbsenceOfOrderData list.
-      _tempDataPoint!.location = LatLng(point.latitude, point.longitude);
-      _newData.addDataPoint(_tempDataPoint!);
-
-      final markerId = MarkerId(point.toString());
-      setState(() {
-        _markers.add(
-          Marker(
-            markerId: markerId,
-            position: point,
-            consumeTapEvents: true,
-            onTap: () {
+      if (_tempDataType == MisconductType.behavior) {
+        setState(() {
+          _newData.behaviorList.add(
+            BehaviorMisconduct.fromLatLng(point, _tempData.$1, _tempData.$2),
+          );
+          _markers.add(_newData.behaviorList.last.marker.copyWith(
+            onTapParam: () {
               // If the marker is tapped again, it will be removed.
-              _newData.removeDataPoint(point);
-              setState(() {
-                _markers.removeWhere((marker) => marker.markerId == markerId);
-              });
+              _newData.behaviorList
+                  .removeWhere((behavior) => behavior.marker.position == point);
+              _markers.removeWhere(
+                  (marker) => marker.markerId == MarkerId(point.toString()));
             },
-          ),
-        );
-
-        _setTempData(null);
-      });
+          ));
+          _tempDataType = null;
+          _setTempData(null);
+        });
+      } else if (_tempDataType == MisconductType.maintenance) {
+        setState(() {
+          _newData.maintenanceList.add(
+            MaintenanceMisconduct.fromLatLng(point, _tempData.$1, _tempData.$2),
+          );
+          _markers.add(_newData.maintenanceList.last.marker.copyWith(
+            onTapParam: () {
+              // If the marker is tapped again, it will be removed.
+              _newData.maintenanceList.removeWhere(
+                  (maintenance) => maintenance.marker.position == point);
+              _markers.removeWhere(
+                  (marker) => marker.markerId == MarkerId(point.toString()));
+            },
+          ));
+          _tempDataType = null;
+          _setTempData(null);
+        });
+      }
     } catch (e, stacktrace) {
       print('Error in absence_of_order_test.dart, _togglePoint(): $e');
       print('Stacktrace: $stacktrace');
@@ -168,6 +181,8 @@ class _AbsenceOfOrderTestPageState extends State<AbsenceOfOrderTestPage> {
         if (_remainingSeconds <= 0) {
           _isTestRunning = false;
           timer.cancel();
+          _tempDataType = null;
+          _setTempData(null);
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -197,31 +212,34 @@ class _AbsenceOfOrderTestPageState extends State<AbsenceOfOrderTestPage> {
   }
 
   /// Uses [showModalBottomSheet] on [_BehaviorDescriptionForm] and then
-  /// stores the results in [_tempDataPoint].
+  /// stores the results in [_tempData].
   void _doBehaviorModal(BuildContext context) async {
-    final BehaviorPoint? behaviorPoint = await showModalBottomSheet(
+    final behavior = await showModalBottomSheet<(Set<BehaviorType>, String)?>(
       isScrollControlled: true,
       context: context,
       builder: (context) => _BehaviorDescriptionForm(),
     );
-    _setTempData(behaviorPoint);
+    if (behavior != null) _tempDataType = MisconductType.behavior;
+    _setTempData(behavior);
   }
 
   /// Uses [showModalBottomSheet] on [_MaintenanceDescriptionForm] and then
-  /// stores the results in [_tempDataPoint].
+  /// stores the results in [_tempData].
   void _doMaintenanceModal(BuildContext context) async {
-    final MaintenancePoint? maintenancePoint = await showModalBottomSheet(
+    final maintenance =
+        await showModalBottomSheet<(Set<MaintenanceType>, String)?>(
       isScrollControlled: true,
       context: context,
       builder: (context) => _MaintenanceDescriptionForm(),
     );
-    _setTempData(maintenancePoint);
+    if (maintenance != null) _tempDataType = MisconductType.maintenance;
+    _setTempData(maintenance);
   }
 
-  void _setTempData(DataPoint? point) {
+  void _setTempData(dynamic data) {
     setState(() {
-      _tempDataPoint = point;
-      _isDescriptionReady = _tempDataPoint != null;
+      _tempData = data;
+      _isDescriptionReady = _tempData != null;
     });
   }
 
@@ -268,6 +286,7 @@ class _AbsenceOfOrderTestPageState extends State<AbsenceOfOrderTestPage> {
                             setState(() {
                               _isTestRunning = false;
                               _timer?.cancel();
+                              _tempDataType = null;
                               _setTempData(null);
                             });
                           } else {
@@ -442,17 +461,11 @@ class _BehaviorDescriptionForm extends StatefulWidget {
 
 class _BehaviorDescriptionFormState extends State<_BehaviorDescriptionForm> {
   final GlobalKey<FormFieldState> _formFieldKey = GlobalKey<FormFieldState>();
+  static final List<BehaviorType> _chipBehaviorTypeList = List.generate(
+      BehaviorType.values.length - 1, (index) => BehaviorType.values[index]);
+
   late List<Widget> _buttonList;
-  static const List<String> _buttonOptions = [
-    'Panhandling',
-    'Boisterous Voice',
-    'Dangerous Wildlife',
-    'Reckless Behavior',
-    'Unsafe Equipment',
-    'Living in Public',
-  ];
-  final List<String> _selectedTypes = [];
-  bool _otherSelected = false;
+  final Set<BehaviorType> _selectedBehaviors = <BehaviorType>{};
   final TextEditingController _otherTextController = TextEditingController();
 
   /// Validates the form and if successful pops this Modal Sheet and
@@ -463,204 +476,224 @@ class _BehaviorDescriptionFormState extends State<_BehaviorDescriptionForm> {
       return;
     }
 
-    // Creates a BehaviorPoint with all form values
-    // Because _buttonOptions is iterated through in order, the order for
-    // all bool arguments must remain the same relative to that.
-    final BehaviorPoint point;
-    point = BehaviorPoint.noLocation(
-      panhandling: _selectedTypes.contains(_buttonOptions[0]),
-      boisterousVoice: _selectedTypes.contains(_buttonOptions[1]),
-      dangerousWildlife: _selectedTypes.contains(_buttonOptions[2]),
-      recklessBehavior: _selectedTypes.contains(_buttonOptions[3]),
-      unsafeEquipment: _selectedTypes.contains(_buttonOptions[4]),
-      livingInPublic: _selectedTypes.contains(_buttonOptions[5]),
-      other: _otherTextController.text,
+    final record = (
+      _selectedBehaviors,
+      (_selectedBehaviors.contains(BehaviorType.other))
+          ? _otherTextController.text
+          : '',
     );
-    Navigator.pop(context, point);
+    Navigator.pop(context, record);
   }
 
   @override
   Widget build(BuildContext context) {
-    _buttonList = buildToggleButtonList(
-      options: _buttonOptions,
-      selectedList: _selectedTypes,
-      onPressed: (option) {
-        setState(() {
-          if (_selectedTypes.contains(option)) {
-            _selectedTypes.remove(option);
-          } else {
-            _selectedTypes.add(option);
-          }
-        });
-      },
-    );
+    _buttonList = <Widget>[
+      for (final behavior in _chipBehaviorTypeList)
+        FilterChip(
+          label: SizedBox(
+            height: 25,
+            width: double.infinity,
+            child: Center(child: Text(behavior.displayName)),
+          ),
+          selected: _selectedBehaviors.contains(behavior),
+          onSelected: (selected) {
+            setState(() {
+              if (selected) {
+                _selectedBehaviors.add(behavior);
+              } else {
+                _selectedBehaviors.remove(behavior);
+              }
+            });
+          },
+        )
+    ];
     if (_buttonList.length != 6) {
       print('buttonList in BehaviorDescriptionForm is wrong length');
       return SingleChildScrollView();
     }
-    return SingleChildScrollView(
-      child: Padding(
-        padding: MediaQuery.viewInsetsOf(context),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: defaultGrad,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(24.0),
-              topRight: Radius.circular(24.0),
-            ),
+    final ThemeData theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        chipTheme: theme.chipTheme.copyWith(
+          showCheckmark: false,
+          backgroundColor: Colors.grey[200],
+          selectedColor: Colors.blue,
+          labelStyle: TextStyle(
+            color: ChipLabelColor(),
+            fontWeight: FontWeight.bold,
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Column(
-              children: <Widget>[
-                const BarIndicator(),
-                Center(
-                  child: Text(
-                    'Description of Misconduct',
-                    softWrap: true,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: placeYellow,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 25),
-                  child: Center(
+          side: BorderSide.none,
+        ),
+      ),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: MediaQuery.viewInsetsOf(context),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: defaultGrad,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24.0),
+                topRight: Radius.circular(24.0),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                children: <Widget>[
+                  const BarIndicator(),
+                  Center(
                     child: Text(
-                      'Select all of the following that describes the misconduct.',
+                      'Description of Misconduct',
                       softWrap: true,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey[400],
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: placeYellow,
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 12),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[0],
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[1],
-                    ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[2],
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[3],
-                    ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[4],
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[5],
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        key: _formFieldKey,
-                        enabled: _otherSelected,
-                        controller: _otherTextController,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(),
-                          hintText: 'Other...',
+                  SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 25),
+                    child: Center(
+                      child: Text(
+                        'Select all of the following that describes the misconduct.',
+                        softWrap: true,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey[400],
                         ),
-                        validator: (value) {
-                          // If other button was selected verify text box is not empty
-                          if (_otherSelected &&
-                              (value == null || value.isEmpty)) {
-                            return 'Please describe the misconduct.';
-                          }
-                          return null;
-                        },
                       ),
                     ),
-                    Expanded(
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          backgroundColor:
-                              _otherSelected ? Colors.blue : Colors.white,
-                          foregroundColor:
-                              _otherSelected ? Colors.white : Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                  ),
+                  SizedBox(height: 12),
+                  Row(
+                    spacing: 20,
+                    children: <Widget>[
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[0],
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[1],
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    spacing: 20,
+                    children: <Widget>[
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[2],
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[3],
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    spacing: 20,
+                    children: <Widget>[
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[4],
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[5],
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    spacing: 20,
+                    children: <Widget>[
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          key: _formFieldKey,
+                          enabled:
+                              _selectedBehaviors.contains(BehaviorType.other),
+                          controller: _otherTextController,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(),
+                            hintText: 'Other...',
                           ),
+                          validator: (value) {
+                            // If other button was selected verify text box is not empty
+                            if (_selectedBehaviors
+                                    .contains(BehaviorType.other) &&
+                                (value == null || value.isEmpty)) {
+                              return 'Please describe the misconduct.';
+                            }
+                            return null;
+                          },
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _otherSelected = !_otherSelected;
-                          });
-                        },
-                        child: Text('Select Other'),
                       ),
-                    )
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Divider(),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Flexible(
-                      child: FilledButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: Text('Cancel'),
+                      Expanded(
+                        child: FilterChip(
+                          label: SizedBox(
+                            height: 25,
+                            width: double.infinity,
+                            child: Center(
+                              child: Text(BehaviorType.other.displayName),
+                            ),
+                          ),
+                          selected:
+                              _selectedBehaviors.contains(BehaviorType.other),
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedBehaviors.add(BehaviorType.other);
+                              } else {
+                                _selectedBehaviors.remove(BehaviorType.other);
+                              }
+                            });
+                          },
+                        ),
                       ),
-                    ),
-                    Flexible(
-                      child: FilledButton(
-                        style: testButtonStyle,
-                        // Confirm button disabled when no option selected
-                        onPressed: (_selectedTypes.isNotEmpty || _otherSelected)
-                            ? _submitDescription
-                            : null,
-                        child: Text('Confirm'),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Divider(),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      Flexible(
+                        child: FilledButton(
+                          style: testButtonStyle,
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: Text('Cancel'),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 30),
-              ],
+                      Flexible(
+                        child: FilledButton(
+                          style: testButtonStyle,
+                          // Confirm button disabled when no option selected
+                          onPressed: (_selectedBehaviors.isNotEmpty)
+                              ? _submitDescription
+                              : null,
+                          child: Text('Confirm'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 30),
+                ],
+              ),
             ),
           ),
         ),
@@ -684,17 +717,12 @@ class _MaintenanceDescriptionForm extends StatefulWidget {
 class _MaintenanceDescriptionFormState
     extends State<_MaintenanceDescriptionForm> {
   final GlobalKey<FormFieldState> _formFieldKey = GlobalKey<FormFieldState>();
+  static final List<MaintenanceType> _chipMaintenanceTypeList = List.generate(
+      MaintenanceType.values.length - 1,
+      (index) => MaintenanceType.values[index]);
+
   late List<Widget> _buttonList;
-  static const List<String> _buttonOptions = [
-    'Broken Environment',
-    'Dirty/Unmaintained',
-    'Unwanted Graffiti',
-    'Littering',
-    'Overfilled Trashcan',
-    'Unkept Landscape',
-  ];
-  final List<String> _selectedTypes = [];
-  bool _isOtherSelected = false;
+  final Set<MaintenanceType> _selectedMaintenances = <MaintenanceType>{};
   final TextEditingController _otherTextController = TextEditingController();
 
   /// Validates the form and if successful pops this Modal Sheet and
@@ -705,205 +733,226 @@ class _MaintenanceDescriptionFormState
       return;
     }
 
-    // Creates a MaintenancePoint with all form values
-    // Because _buttonOptions is iterated through in order, the order for
-    // all bool arguments must remain the same relative to that.
-    final MaintenancePoint point;
-    point = MaintenancePoint.noLocation(
-      brokenEnvironment: _selectedTypes.contains(_buttonOptions[0]),
-      dirtyOrUnmaintained: _selectedTypes.contains(_buttonOptions[1]),
-      unwantedGraffiti: _selectedTypes.contains(_buttonOptions[2]),
-      littering: _selectedTypes.contains(_buttonOptions[3]),
-      overfilledTrash: _selectedTypes.contains(_buttonOptions[4]),
-      unkeptLandscape: _selectedTypes.contains(_buttonOptions[5]),
-      other: _otherTextController.text,
+    final record = (
+      _selectedMaintenances,
+      (_selectedMaintenances.contains(MaintenanceType.other))
+          ? _otherTextController.text
+          : '',
     );
-    Navigator.pop(context, point);
+    Navigator.pop(context, record);
   }
 
   @override
   Widget build(BuildContext context) {
-    _buttonList = buildToggleButtonList(
-      options: _buttonOptions,
-      selectedList: _selectedTypes,
-      onPressed: (option) {
-        setState(() {
-          if (_selectedTypes.contains(option)) {
-            _selectedTypes.remove(option);
-          } else {
-            _selectedTypes.add(option);
-          }
-        });
-      },
-    );
+    _buttonList = <Widget>[
+      for (final maintenance in _chipMaintenanceTypeList)
+        FilterChip(
+          label: SizedBox(
+            height: 25,
+            width: double.infinity,
+            child: Center(child: Text(maintenance.displayName)),
+          ),
+          selected: _selectedMaintenances.contains(maintenance),
+          onSelected: (selected) {
+            setState(() {
+              if (selected) {
+                _selectedMaintenances.add(maintenance);
+              } else {
+                _selectedMaintenances.remove(maintenance);
+              }
+            });
+          },
+        )
+    ];
     if (_buttonList.length != 6) {
       print('buttonList in MaintenanceDescriptionForm is wrong length');
       return SingleChildScrollView();
     }
-    return SingleChildScrollView(
-      child: Padding(
-        padding: MediaQuery.viewInsetsOf(context),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: defaultGrad,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(24.0),
-              topRight: Radius.circular(24.0),
-            ),
+    final ThemeData theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        chipTheme: theme.chipTheme.copyWith(
+          showCheckmark: false,
+          backgroundColor: Colors.grey[200],
+          selectedColor: Colors.blue,
+          labelStyle: TextStyle(
+            color: ChipLabelColor(),
+            fontWeight: FontWeight.bold,
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Column(
-              children: <Widget>[
-                const BarIndicator(),
-                Center(
-                  child: Text(
-                    'Description of Misconduct',
-                    softWrap: true,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: placeYellow,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 25),
-                  child: Center(
+          side: BorderSide.none,
+        ),
+      ),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: MediaQuery.viewInsetsOf(context),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: defaultGrad,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24.0),
+                topRight: Radius.circular(24.0),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                children: <Widget>[
+                  const BarIndicator(),
+                  Center(
                     child: Text(
-                      'Select all of the following that describes the misconduct.',
+                      'Description of Misconduct',
                       softWrap: true,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey[400],
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: placeYellow,
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 12),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[0],
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[1],
-                    ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[2],
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[3],
-                    ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[4],
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: _buttonList[5],
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
-                Row(
-                  spacing: 20,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        key: _formFieldKey,
-                        enabled: _isOtherSelected,
-                        controller: _otherTextController,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(),
-                          hintText: 'Other...',
+                  SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 25),
+                    child: Center(
+                      child: Text(
+                        'Select all of the following that describes the misconduct.',
+                        softWrap: true,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey[400],
                         ),
-                        validator: (value) {
-                          // If other button was selected verify text box is not empty
-                          if (_isOtherSelected &&
-                              (value == null || value.isEmpty)) {
-                            return 'Please describe the misconduct.';
-                          }
-                          return null;
-                        },
                       ),
                     ),
-                    Expanded(
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          backgroundColor:
-                              _isOtherSelected ? Colors.blue : Colors.white,
-                          foregroundColor:
-                              _isOtherSelected ? Colors.white : Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                  ),
+                  SizedBox(height: 12),
+                  Row(
+                    spacing: 20,
+                    children: <Widget>[
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[0],
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[1],
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    spacing: 20,
+                    children: <Widget>[
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[2],
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[3],
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    spacing: 20,
+                    children: <Widget>[
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[4],
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: _buttonList[5],
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    spacing: 20,
+                    children: <Widget>[
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          key: _formFieldKey,
+                          enabled: _selectedMaintenances
+                              .contains(MaintenanceType.other),
+                          controller: _otherTextController,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(),
+                            hintText: 'Other...',
                           ),
+                          validator: (value) {
+                            // If other button was selected verify text box is not empty
+                            if (_selectedMaintenances
+                                    .contains(MaintenanceType.other) &&
+                                (value == null || value.isEmpty)) {
+                              return 'Please describe the misconduct.';
+                            }
+                            return null;
+                          },
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _isOtherSelected = !_isOtherSelected;
-                          });
-                        },
-                        child: Text('Select Other'),
                       ),
-                    )
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Divider(),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Flexible(
-                      child: FilledButton(
-                        style: testButtonStyle,
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: Text('Cancel'),
+                      Expanded(
+                        child: FilterChip(
+                          label: SizedBox(
+                            height: 25,
+                            width: double.infinity,
+                            child: Center(
+                              child: Text(MaintenanceType.other.displayName),
+                            ),
+                          ),
+                          selected: _selectedMaintenances
+                              .contains(MaintenanceType.other),
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedMaintenances
+                                    .add(MaintenanceType.other);
+                              } else {
+                                _selectedMaintenances
+                                    .remove(MaintenanceType.other);
+                              }
+                            });
+                          },
+                        ),
+                      )
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Divider(),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      Flexible(
+                        child: FilledButton(
+                          style: testButtonStyle,
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: Text('Cancel'),
+                        ),
                       ),
-                    ),
-                    Flexible(
-                      child: FilledButton(
-                        style: testButtonStyle,
-                        // Confirm button disabled when no option selected
-                        onPressed:
-                            (_selectedTypes.isNotEmpty || _isOtherSelected)
-                                ? _submitDescription
-                                : null,
-                        child: Text('Confirm'),
+                      Flexible(
+                        child: FilledButton(
+                          style: testButtonStyle,
+                          // Confirm button disabled when no option selected
+                          onPressed: (_selectedMaintenances.isNotEmpty)
+                              ? _submitDescription
+                              : null,
+                          child: Text('Confirm'),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 30),
-              ],
+                    ],
+                  ),
+                  SizedBox(height: 30),
+                ],
+              ),
             ),
           ),
         ),

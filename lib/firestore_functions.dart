@@ -79,7 +79,7 @@ Future<String> saveTeam(
 Future<Project> saveProject({
   required String projectTitle,
   required String description,
-  required DocumentReference? teamRef,
+  required String address,
   required List<LatLng> polygonPoints,
   required List<StandingPoint> standingPoints,
   required num polygonArea,
@@ -87,10 +87,13 @@ Future<Project> saveProject({
   late Project tempProject;
 
   try {
+    DocumentReference projectAdmin =
+        _firestore.doc('users/${_loggedInUser?.uid}');
+    DocumentReference? teamRef = await getCurrentTeam();
     String projectID = _firestore.collection('projects').doc().id;
     if (teamRef == null) {
       throw Exception(
-          "teamRef not defined when passed to saveProject() in firestore_functions.dart");
+          "teamRef unable to be retrieved in firestore_functions.dart");
     }
 
     await _firestore.collection('projects').doc(projectID).set({
@@ -98,7 +101,9 @@ Future<Project> saveProject({
       'creationTime': FieldValue.serverTimestamp(),
       'id': projectID,
       'team': teamRef,
+      'projectAdmin': projectAdmin,
       'description': description,
+      'address': address,
       'polygonPoints': polygonPoints.toGeoPointList(),
       'standingPoints': standingPoints.toJsonList(),
       'polygonArea': polygonArea,
@@ -115,6 +120,8 @@ Future<Project> saveProject({
       projectID: projectID,
       title: projectTitle,
       description: description,
+      address: address,
+      projectAdmin: projectAdmin,
       polygonPoints: polygonPoints,
       polygonArea: polygonArea,
       standingPoints: standingPoints,
@@ -144,12 +151,16 @@ Future<Project> getProjectInfo(String projectID) async {
           testRefs.add(ref);
         }
       }
-      // TODO: Remove logic once confirmed standing points for all projects
-      if (projectDoc.data()!.containsKey('standingPoints')) {
+      // TODO: Remove logic once confirmed standing points for all projects/address/admin
+      if (projectDoc.data()!.containsKey('standingPoints') &&
+          projectDoc.data()!.containsKey('address') &&
+          projectDoc.data()!.containsKey('projectAdmin')) {
         project = Project(
           teamRef: projectDoc['team'],
           projectID: projectDoc['id'],
+          projectAdmin: projectDoc['projectAdmin'],
           title: projectDoc['title'],
+          address: projectDoc['address'],
           description: projectDoc['description'],
           polygonPoints: (projectDoc['polygonPoints'] as List).toLatLngList(),
           polygonArea: projectDoc['polygonArea'],
@@ -160,12 +171,16 @@ Future<Project> getProjectInfo(String projectID) async {
           creationTime: projectDoc['creationTime'],
           testRefs: testRefs,
         );
-      } else {
+      }
+      // TODO: remove with database purge, along wtih above todo.
+      else {
         project = Project(
           teamRef: projectDoc['team'],
           projectID: projectDoc['id'],
+          projectAdmin: _firestore.doc("/users/dKp6KXIw2pMSedeYhob2McVi5Wn1"),
           title: projectDoc['title'],
           description: projectDoc['description'],
+          address: 'Address not set...',
           polygonPoints: (projectDoc['polygonPoints'] as List).toLatLngList(),
           polygonArea: projectDoc['polygonArea'],
           standingPoints: [],

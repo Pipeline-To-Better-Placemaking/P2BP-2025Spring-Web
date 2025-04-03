@@ -8,6 +8,12 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "archive",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/archive-4.0.5",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "args",
       "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/args-2.7.0",
       "packageUri": "lib/",
@@ -18,6 +24,18 @@
       "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/async-2.11.0",
       "packageUri": "lib/",
       "languageVersion": "2.18"
+    },
+    {
+      "name": "barcode",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/barcode-2.2.9",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
+      "name": "bidi",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/bidi-2.0.12",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
     },
     {
       "name": "boolean_selector",
@@ -398,6 +416,12 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "image",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/image-4.5.4",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "image_picker",
       "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/image_picker-0.8.9",
       "packageUri": "lib/",
@@ -542,6 +566,18 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "pdf",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/pdf-3.11.3",
+      "packageUri": "lib/",
+      "languageVersion": "2.19"
+    },
+    {
+      "name": "pdf_widget_wrapper",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/pdf_widget_wrapper-1.0.4",
+      "packageUri": "lib/",
+      "languageVersion": "2.18"
+    },
+    {
       "name": "petitparser",
       "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/petitparser-6.0.2",
       "packageUri": "lib/",
@@ -560,14 +596,38 @@
       "languageVersion": "3.0"
     },
     {
+      "name": "posix",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/posix-6.0.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
+      "name": "printing",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/printing-5.14.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
       "name": "provider",
       "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/provider-6.1.4",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
     {
+      "name": "qr",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/qr-3.0.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
       "name": "sanitize_html",
       "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/sanitize_html-2.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
+      "name": "screenshot",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/screenshot-3.0.0",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -687,9 +747,9 @@
     },
     {
       "name": "url_launcher_ios",
-      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/url_launcher_ios-6.3.2",
+      "rootUri": "file:///Users/andrewz/.pub-cache/hosted/pub.dev/url_launcher_ios-6.3.3",
       "packageUri": "lib/",
-      "languageVersion": "3.3"
+      "languageVersion": "3.4"
     },
     {
       "name": "url_launcher_linux",
@@ -782,7 +842,7 @@
       "languageVersion": "3.5"
     }
   ],
-  "generated": "2025-04-02T01:25:21.773021Z",
+  "generated": "2025-04-02T23:55:58.519449Z",
   "generator": "pub",
   "generatorVersion": "3.6.1",
   "flutterRoot": "file:///opt/homebrew/Caskroom/flutter/3.27.3/flutter",

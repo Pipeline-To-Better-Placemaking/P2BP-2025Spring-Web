@@ -128,8 +128,7 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
                               index: index,
                               color: Colors.blue,
                               numProjects: teams[index].numProjects,
-                              teamName: teams[index].title,
-                              teamID: teams[index].teamID);
+                              team: teams[index]);
                         },
                         separatorBuilder: (BuildContext context, int index) =>
                             const SizedBox(
@@ -223,7 +222,7 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
         children: <Widget>[
           const SizedBox(width: 15),
           const CircleAvatar(
-            radius: 25,
+            radius: 50,
           ),
           const SizedBox(width: 15),
           Flexible(
@@ -303,12 +302,12 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
     );
   }
 
-  Container buildContainer(
-      {required int index,
-      required Color color,
-      required int numProjects,
-      required String teamName,
-      required String teamID}) {
+  Container buildContainer({
+    required int index,
+    required Color color,
+    required int numProjects,
+    required Team team,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: color,
@@ -336,7 +335,7 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
                   .collection('users')
                   .doc(loggedInUser?.uid)
                   .update({
-                'selectedTeam': _firestore.doc('/teams/$teamID'),
+                'selectedTeam': _firestore.doc('/teams/${team.teamID}'),
               });
               setState(() {
                 selectedIndex = index;
@@ -364,7 +363,7 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
                     children: [
                       const TextSpan(text: 'Team: '),
                       TextSpan(
-                        text: teamName,
+                        text: team.title,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -410,9 +409,11 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
               onPressed: () {
                 // TODO: Actual function (chevron right, team settings)
                 Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => TeamSettingsScreen()));
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          TeamSettingsScreen(activeTeam: team)),
+                );
               },
             ),
           ),

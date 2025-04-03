@@ -157,7 +157,7 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
 
     try {
       // Create polygon.
-      _polygon = finalizePolygon(_polygonPoints);
+      _polygon.add(finalizePolygon(_polygonPoints));
 
       // Make sure _polygon is not empty before accessing first element
       if (_polygon.isNotEmpty) {
@@ -639,7 +639,7 @@ class _ProjectMapCreationState extends State<ProjectMapCreation> {
                               await saveProject(
                                 projectTitle: widget.partialProjectData.title,
                                 description: widget.partialProjectData.description,
-                                teamRef: await getCurrentTeam(),
+                                address: widget.partialProjectData.address,
                                 polygonPoints: _polygon.first.points,
                                 polygonArea: _polygon.first.getAreaInSquareFeet(),
                                 standingPoints: _standingPoints,

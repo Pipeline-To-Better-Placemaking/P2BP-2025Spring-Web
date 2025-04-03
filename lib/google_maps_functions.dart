@@ -54,63 +54,59 @@ Future<LocationPermission> _checkLocationPermissions() async {
 
 /// Sorts the polygonPoints into a clockwise representation. Then creates a
 /// polygon out of those points (makes sure the polygon is logical). Returns
-/// the singular polygon as a Set so it can be used directly on the GoogleMap
-/// widget.
+/// the polygon.
+///
 /// Takes an optional onTap parameter.
-Set<Polygon> finalizePolygon(List<LatLng> polygonPoints,
+Polygon finalizePolygon(List<LatLng> polygonPoints,
     {Color? strokeColor,
     Color? fillColor,
     VoidCallback? onTap,
     bool? consumeTapEvents}) {
-  Set<Polygon> polygon = {};
-  List<LatLng> polygonPointsCopy = polygonPoints.toList();
   try {
     // Sort points in clockwise order
-    List<LatLng> sortedPoints = _sortPointsClockwise(polygonPointsCopy);
+    final List<LatLng> sortedPoints = _sortPointsClockwise(polygonPoints);
 
-    // Creates polygon ID from time
-    final String polygonId = DateTime.now().millisecondsSinceEpoch.toString();
-
-    polygon = {
-      Polygon(
-        consumeTapEvents: consumeTapEvents ?? false,
-        onTap: onTap,
-        polygonId: PolygonId(polygonId),
-        points: sortedPoints,
-        strokeColor: strokeColor ?? Colors.blue,
-        strokeWidth: 2,
-        fillColor:
-            fillColor ?? strokeColor ?? Colors.blue.withValues(alpha: 0.2),
-      ),
-    };
+    return Polygon(
+      polygonId: PolygonId(sortedPoints.toString()),
+      points: sortedPoints,
+      consumeTapEvents: consumeTapEvents ?? false,
+      onTap: onTap,
+      strokeWidth: 2,
+      strokeColor: strokeColor ?? Colors.blue,
+      fillColor: fillColor ??
+          strokeColor?.withValues(alpha: 0.2) ??
+          Colors.blue.withValues(alpha: 0.2),
+    );
   } catch (e, stacktrace) {
     print('Exception in finalizePolygon(): $e');
     print('Stacktrace: $stacktrace');
   }
-  return polygon;
+  throw Exception('Error in finalizePolygon in google_maps_functions');
 }
 
 /// Takes a list of LatLng points, sorts them into a clockwise representation
 /// to create the ideal polygon. Returns a list of LatLng points.
 List<LatLng> _sortPointsClockwise(List<LatLng> points) {
   if (points.isEmpty) {
-    throw Exception(
-        'Empty points List passed to _sortPointsClockwise in google_maps_functions.dart');
+    return points;
   }
+  final List<LatLng> pointsCopy = points.toList();
   // Calculate the centroid of the points
-  double centerX =
-      points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length;
-  double centerY =
-      points.map((p) => p.longitude).reduce((a, b) => a + b) / points.length;
+  final double centerX =
+      pointsCopy.map((p) => p.latitude).reduce((a, b) => a + b) /
+          pointsCopy.length;
+  final double centerY =
+      pointsCopy.map((p) => p.longitude).reduce((a, b) => a + b) /
+          pointsCopy.length;
 
   // Sort the points based on the angle from the centroid
-  points.sort((a, b) {
-    double angleA = _calculateAngle(centerX, centerY, a.latitude, a.longitude);
-    double angleB = _calculateAngle(centerX, centerY, b.latitude, b.longitude);
+  pointsCopy.sort((a, b) {
+    final angleA = _calculateAngle(centerX, centerY, a.latitude, a.longitude);
+    final angleB = _calculateAngle(centerX, centerY, b.latitude, b.longitude);
     return angleA.compareTo(angleB);
   });
 
-  return points;
+  return pointsCopy;
 }
 
 /// Calculate the angle of the point relative to the centroid. Used to sort the
@@ -170,7 +166,7 @@ Polyline? createPolyline(List<LatLng> polylinePoints, Color color) {
   Polyline? polyline;
   final String polylineID;
   try {
-    // Creates polygon ID from time
+    // Creates polyline ID from time
     polylineID = DateTime.now().millisecondsSinceEpoch.toString();
 
     polyline = Polyline(

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'db_schema_classes.dart';
-import 'themes.dart';
+import 'theme.dart';
 import 'project_details_page.dart';
+import 'theme.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key, required Project partialProjectData});
@@ -28,7 +29,7 @@ class _SearchScreenState extends State<SearchScreen> {
         appBar: AppBar(
           elevation: 0,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: Color(0xFF2F6DCF)),
+            icon: Icon(Icons.arrow_back, color: p2bpBlue),
             onPressed: () {
               Navigator.pop(context); // Navigate back to the previous screen;
             },
@@ -55,8 +56,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         decoration: BoxDecoration(
                           color: Color.fromARGB(255, 234, 245, 255),
                           borderRadius: BorderRadius.circular(18.0),
-                          border:
-                              Border.all(color: Color(0xFF2F6DCF), width: 1.5),
+                          border: Border.all(color: p2bpBlue, width: 1.5),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 8.0),
                         child: hasSearched
@@ -69,8 +69,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                         const EdgeInsets.fromLTRB(15, 0, 0, 0),
                                     child: Text(
                                       searchText, // Display the search term
-                                      style: TextStyle(
-                                          color: const Color(0xFF2F6DCF)),
+                                      style: TextStyle(color: p2bpBlue),
                                     ),
                                   ),
                                   IconButton(
@@ -95,8 +94,8 @@ class _SearchScreenState extends State<SearchScreen> {
                                       padding:
                                           const EdgeInsets.fromLTRB(0, 0, 0, 0),
                                       child: IconButton(
-                                        icon: const Icon(Icons.arrow_back,
-                                            color: Color(0xFF2F6DCF)),
+                                        icon: Icon(Icons.arrow_back,
+                                            color: p2bpBlue),
                                         onPressed: () {
                                           setState(() {
                                             isSearching =
@@ -192,8 +191,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                   255, 234, 245, 255), // Background color
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(18.0),
-                                side: BorderSide(
-                                    color: Color(0xFF2F6DCF), width: 1.5),
+                                side: BorderSide(color: p2bpBlue, width: 1.5),
                               ),
                               padding: const EdgeInsets.all(0),
                               minimumSize: Size(55.0, 55.0),
@@ -224,8 +222,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: Card(
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12.0),
-                            side: BorderSide(
-                                color: Color(0xFF2F6DCF), width: 1.5)),
+                            side: BorderSide(color: p2bpBlue, width: 1.5)),
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.grey[300],
@@ -283,7 +280,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         shrinkWrap: true,
                         itemCount: 10,
                         separatorBuilder: (context, index) => Divider(
-                          color: Color(0xFF2F6DCF), // Divider color
+                          color: p2bpBlue, // Divider color
                           height: 5.0, // Space around the divider
                         ),
                         itemBuilder: (context, index) {
@@ -291,10 +288,10 @@ class _SearchScreenState extends State<SearchScreen> {
                           return ListTile(
                               leading: Icon(
                                 Icons.search,
-                                color: Color(0xFF2F6DCF),
+                                color: p2bpBlue,
                               ),
                               title: Text("Recent Search ${index + 1}",
-                                  style: TextStyle(color: Color(0xFF2F6DCF))),
+                                  style: TextStyle(color: p2bpBlue)),
                               onTap: () {
                                 // Handle recent search tap
                               });
@@ -349,10 +346,11 @@ class _SearchScreenState extends State<SearchScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (context) => ProjectDetailsPage(
-                                projectData: Project.partialProject(
+                                activeProject: Project.partialProject(
                                     title: 'No data sent',
                                     description:
-                                        'Accessed without project data'),
+                                        'Accessed without project data',
+                                    address: 'No data found.'),
                               ),
                             ));
                       },
@@ -432,7 +430,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20.0),
-          side: BorderSide(color: Color(0xFF2F6DCF), width: 1.5),
+          side: BorderSide(color: p2bpBlue, width: 1.5),
         ),
         backgroundColor: const Color.fromARGB(255, 234, 245, 255),
       ),

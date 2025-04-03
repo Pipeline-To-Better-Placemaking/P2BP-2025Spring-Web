@@ -44,7 +44,7 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
   LatLng _location = defaultLocation;
   double _zoom = 18;
 
-  final AccessData _accessData = AccessData();
+  final IdentifyingAccessData _accessData = IdentifyingAccessData.empty();
 
   late final Polygon _projectPolygon;
   Polyline? _currentPolyline;
@@ -52,7 +52,7 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
   final Set<Polyline> _polylines = {};
   Set<Marker> _polylineMarkers = {};
   Set<Marker> _visiblePolylineMarkers = {};
-  Set<Polygon> _currentPolygon = {};
+  Polygon? _currentPolygon;
   List<LatLng> _polygonPoints = [];
   final Set<Polygon> _polygons = {};
   final Set<Marker> _markers = {};
@@ -173,8 +173,8 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
     if (_polygonMode) _finalizePolygon();
     if (_polylineMode) {
       // If parking, then make sure to save the polygon also.
-      if (_type == AccessType.parking) {
-        _polygons.addAll(_currentPolygon);
+      if (_type == AccessType.parking && _currentPolygon != null) {
+        _polygons.add(_currentPolygon!);
       }
       _finalizePolyline();
     }
@@ -198,7 +198,7 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
       _currentPolylinePoints = [];
       _currentPolyline = null;
       _visiblePolylineMarkers = {};
-      _currentPolygon = {};
+      _currentPolygon = null;
       _directions = 'Choose a category. Or, click finish if done.';
     });
     _polylineMode = false;
@@ -229,7 +229,7 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
           _accessData.parkingStructures.add(Parking(
               spots: _currentSpotsOrRoute!,
               polyline: _currentPolyline!,
-              polygon: _currentPolygon.first));
+              polygon: _currentPolygon!));
         case AccessType.transportStation:
           _accessData.transportStations.add(TransportStation(
               routeNumber: _currentSpotsOrRoute!, polyline: _currentPolyline!));
@@ -309,8 +309,15 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                 initialCameraPosition:
                     CameraPosition(target: _location, zoom: _zoom),
                 polygons: _oldPolylinesToggle
-                    ? {_projectPolygon, ..._polygons, ..._currentPolygon}
-                    : {_projectPolygon, ..._currentPolygon},
+                    ? {
+                        _projectPolygon,
+                        ..._polygons,
+                        if (_currentPolygon != null) _currentPolygon!
+                      }
+                    : {
+                        _projectPolygon,
+                        if (_currentPolygon != null) _currentPolygon!
+                      },
                 markers: {
                   ..._markers,
                   ..._polygonMarkers,
@@ -594,7 +601,7 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                                               _currentPolylinePoints = [];
                                               _visiblePolylineMarkers = {};
                                               _polygonMarkers = {};
-                                              _currentPolygon = {};
+                                              _currentPolygon = null;
                                               _directions =
                                                   'Choose a category. Or, click finish if done.';
                                             });
@@ -639,7 +646,7 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                                                       MaterialPageRoute(
                                                         builder: (context) =>
                                                             ProjectDetailsPage(
-                                                                projectData: widget
+                                                                activeProject: widget
                                                                     .activeProject),
                                                       ));
                                                 },
@@ -712,7 +719,7 @@ class _IdentifyingAccessState extends State<IdentifyingAccess> {
                     _currentPolylinePoints = [];
                     _visiblePolylineMarkers = {};
                     _polygonMarkers = {};
-                    _currentPolygon = {};
+                    _currentPolygon = null;
                     _directions =
                         'Choose a category. Or, click finish if done.';
                     _currentSpotsOrRoute = null;

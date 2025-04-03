@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
+import 'assets.dart';
 import 'firestore_functions.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -33,7 +33,7 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
   bool _pointMode = false;
   bool _outsidePoint = false;
   bool _deleteMode = false;
-  String _errorText = '';
+  String _errorText = 'You tried to place a point outside of the project area!';
 
   double _zoom = 18;
   late final Polygon _projectPolygon;
@@ -54,8 +54,6 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
   Timer? _timer;
   Timer? _outsidePointTimer;
   int _remainingSeconds = -1;
-
-  final NatureData _natureData = NatureData();
 
   final List<Animal> _animalData = [];
   final List<Vegetation> _vegetationData = [];
@@ -127,11 +125,13 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
   void _endTest() {
     _timer?.cancel();
     _outsidePointTimer?.cancel();
-    _natureData.animals = _animalData;
-    _natureData.vegetation = _vegetationData;
-    _natureData.waterBodies = _waterBodyData;
-    _natureData.weather = _weatherData;
-    widget.activeTest.submitData(_natureData);
+    final NaturePrevalenceData natureData = NaturePrevalenceData(
+      animals: _animalData,
+      waterBodies: _waterBodyData,
+      vegetation: _vegetationData,
+      weather: _weatherData,
+    );
+    widget.activeTest.submitData(natureData);
     Navigator.pop(context);
   }
 
@@ -149,17 +149,17 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
     _directions = 'Choose a category. Or, click finish to submit.';
   }
 
-  String? _getCurrentTypeName() {
+  Object? _getCurrentTypeName() {
     switch (_natureType) {
       case null:
         throw Exception("Type not chosen! "
             "_natureType is null and _getCurrentType() has been invoked.");
       case NatureType.vegetation:
-        return _vegetationType?.name;
+        return _vegetationType;
       case NatureType.waterBody:
-        return _waterBodyType?.name;
+        return _waterBodyType;
       case NatureType.animal:
-        return _animalType?.name;
+        return _animalType;
     }
   }
 
@@ -327,12 +327,18 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
       {required String title,
       required String? subtitle,
       required List<Widget> contentList}) {
-    showTestModalGeneric(context, onCancel: () {
-      setState(() {
-        _clearTypes();
-      });
-      Navigator.pop(context);
-    }, title: title, subtitle: subtitle, contentList: contentList);
+    showTestModalGeneric(
+      context,
+      onCancel: () {
+        setState(() {
+          _clearTypes();
+        });
+        Navigator.pop(context);
+      },
+      title: title,
+      subtitle: subtitle,
+      contentList: contentList,
+    );
   }
 
   void showModalAnimal(BuildContext context) {
@@ -421,7 +427,7 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
                 Navigator.pop(context);
               },
             ),
-            Flexible(flex: 1, child: SizedBox())
+            Flexible(flex: 1, child: SizedBox()),
           ],
         ),
         SizedBox(height: 20),
@@ -434,22 +440,23 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
           ),
         ),
         Row(
+          spacing: 10,
           children: <Widget>[
-            Flexible(
+            Expanded(
               flex: 3,
               child: TextField(
                 onChanged: (otherText) {
                   _otherType = otherText;
                 },
                 decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(),
-                    floatingLabelBehavior: FloatingLabelBehavior.never,
-                    labelText: 'Enter animal name'),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(),
+                  floatingLabelBehavior: FloatingLabelBehavior.never,
+                  labelText: 'Enter animal name',
+                ),
               ),
             ),
-            SizedBox(width: 10),
             Flexible(
               flex: 2,
               child: FilledButton(
@@ -466,13 +473,17 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(2.0),
+                    borderRadius: BorderRadius.circular(10.0),
                   ),
                 ),
-                child: Text('Submit other'),
+                child: Center(
+                  child: Text(
+                    'Submit other',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ),
             ),
-            Flexible(flex: 1, child: SizedBox())
           ],
         ),
       ],
@@ -515,9 +526,8 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
   }
 
   void _polygonTap(LatLng point) {
-    String? type = _getCurrentTypeName();
-    if (type == null) return;
-    final markerId = MarkerId('${type}_marker_${point.toString()}');
+    if (_getCurrentTypeName() == null) return;
+    final markerId = MarkerId(point.toString());
     setState(() {
       _polygonPoints.add(point);
       _polygonMarkers.add(
@@ -525,6 +535,7 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
           markerId: markerId,
           position: point,
           consumeTapEvents: _deleteMode,
+          icon: tempMarkerIcon,
           onTap: () {
             // If the marker is tapped again, it will be removed
             setState(() {
@@ -539,68 +550,60 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
   }
 
   void _pointTap(LatLng point) {
-    String? type = _getCurrentTypeName();
-    if (type != null) {
-      final markerId = MarkerId('${type}_marker_${point.toString()}');
+    Object? type = _getCurrentTypeName();
+    if (type != null && type is AnimalType) {
+      final Marker dataMarker = Animal.newMarker(point, type, _otherType);
+      final Marker displayMarker = dataMarker.copyWith(
+        consumeTapEventsParam: _deleteMode,
+        onTapParam: () {
+          if (_pointMode || _polygonMode) return;
+          // If the marker is tapped again, it will be removed
+          if (_deleteMode) {
+            _animalData.removeWhere(
+                (animal) => animal.marker.markerId == dataMarker.markerId);
+            setState(() {
+              _markers.removeWhere(
+                  (marker) => marker.markerId == dataMarker.markerId);
+              _deleteMode = false;
+            });
+          }
+        },
+      );
       setState(() {
-        _markers.add(
-          Marker(
-            markerId: markerId,
-            position: point,
-            consumeTapEvents: _deleteMode,
-            infoWindow: InfoWindow(
-                title:
-                    _otherType ?? (type[0].toUpperCase() + type.substring(1)),
-                snippet:
-                    "(${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)})"),
-            icon: AssetMapBitmap(
-              'assets/test_markers/${type}_marker.png',
-              width: 25,
-              height: 25,
-            ),
-            onTap: () {
-              if (_pointMode || _polygonMode) return;
-              // If the marker is tapped again, it will be removed
-              if (_deleteMode) {
-                _animalData.removeWhere((animal) => animal.point == point);
-                setState(() {
-                  _markers.removeWhere((marker) => marker.markerId == markerId);
-                  _deleteMode = false;
-                });
-              }
-            },
-          ),
-        );
+        _markers.add(displayMarker);
         _directions = 'Choose a category. Or, click finish to submit.';
       });
       _animalData.add(Animal(
-          animalType: _animalType!, point: point, otherType: _otherType));
+        animalType: _animalType!,
+        marker: dataMarker,
+        otherName: _otherType,
+      ));
       _pointMode = false;
       _clearTypes();
     }
   }
 
   void _finalizePolygon() {
-    Set<Polygon> tempPolygon;
+    Polygon tempPolygon;
     try {
       if (_natureType == NatureType.vegetation) {
         tempPolygon = finalizePolygon(
           _polygonPoints,
-          strokeColor: Vegetation.vegetationTypeToColor[_vegetationType],
+          strokeColor: _vegetationType!.color,
         );
         // Create polygon.
-        _polygons.addAll(tempPolygon);
+        _polygons.add(tempPolygon);
         _vegetationData.add(Vegetation(
             vegetationType: _vegetationType!,
-            polygon: tempPolygon.first,
-            otherType: _otherType));
+            polygon: tempPolygon,
+            otherName: _otherType));
       } else if (_natureType == NatureType.waterBody) {
-        tempPolygon = finalizePolygon(_polygonPoints,
-            strokeColor: WaterBody.waterBodyTypeToColor[_waterBodyType]);
+        tempPolygon =
+            finalizePolygon(_polygonPoints, strokeColor: _waterBodyType!.color);
         // Create polygon.
-        _polygons.addAll(tempPolygon);
-        _waterBodyData.add(WaterBody(
-            waterBodyType: _waterBodyType!, polygon: tempPolygon.first));
+        _polygons.add(tempPolygon);
+        _waterBodyData.add(
+            WaterBody(waterBodyType: _waterBodyType!, polygon: tempPolygon));
       } else {
         throw Exception("Invalid nature type in _finalizePolygon(), "
             "_natureType = $_natureType");
@@ -814,16 +817,17 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
                       spacing: 10,
                       children: [
                         DisplayModalButton(
-                            onPressed: (_pointMode ||
-                                    _polygonMode ||
-                                    _deleteMode ||
-                                    !_isTestRunning)
-                                ? null
-                                : () {
-                                    showModalAnimal(context);
-                                  },
-                            text: 'Animal',
-                            icon: Icon(Icons.pets)),
+                          onPressed: (_pointMode ||
+                                  _polygonMode ||
+                                  _deleteMode ||
+                                  !_isTestRunning)
+                              ? null
+                              : () {
+                                  showModalWaterBody(context);
+                                },
+                          text: 'Body of Water',
+                          icon: Icon(Icons.water),
+                        ),
                         DisplayModalButton(
                             onPressed: (_pointMode ||
                                     _polygonMode ||
@@ -854,16 +858,17 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
                       spacing: 10,
                       children: [
                         DisplayModalButton(
-                            onPressed: (_pointMode ||
-                                    _polygonMode ||
-                                    _deleteMode ||
-                                    !_isTestRunning)
-                                ? null
-                                : () {
-                                    showModalWaterBody(context);
-                                  },
-                            text: 'Body of Water',
-                            icon: Icon(Icons.water)),
+                          onPressed: (_pointMode ||
+                                  _polygonMode ||
+                                  _deleteMode ||
+                                  !_isTestRunning)
+                              ? null
+                              : () {
+                                  showModalAnimal(context);
+                                },
+                          text: 'Animal',
+                          icon: Icon(Icons.pets),
+                        ),
                       ],
                     ),
                     SizedBox(height: 20),
@@ -1196,8 +1201,8 @@ class _WeatherDialogState extends State<WeatherDialog> {
             if (erroredSelect || erroredTemp) {
               return;
             }
-            weatherData =
-                WeatherData(weatherTypes: selectedWeather, temp: temperature!);
+            weatherData = WeatherData(
+                weatherTypes: selectedWeather.toSet(), temp: temperature!);
             Navigator.pop(context, weatherData);
             print('${weatherData!.weatherTypes} temp: $temperature');
           },

@@ -38,6 +38,7 @@ class _HomePageBodyState extends State<HomePageBody> {
   bool _isLoading = true;
   String _currentPage = "Home";
   String _currentTeamId = '';
+  String teamName = 'Team Name';
 
   @override
   void initState() {
@@ -47,19 +48,28 @@ class _HomePageBodyState extends State<HomePageBody> {
     _loadCurrentPage();
   }
 
-  Future<void> _populateProjects() async {
+   Future<void> _populateProjects() async {
     try {
       teamRef = await getCurrentTeam();
-      if (teamRef != null) {
-        String newTeamId = teamRef!.id;
-        if (_currentTeamId != newTeamId) {
-          _currentTeamId = newTeamId;
-          _projectList = await getTeamProjects(teamRef!);
-          setState(() {
-            _projectsCount = _projectList.length;
-            _isLoading = false;
-          });
+      if (teamRef == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("No selected team available.")),
+        );
+      } else {
+        // Retrieve the team name
+        DocumentSnapshot teamDoc = await teamRef!.get();
+        if (teamDoc.exists && teamDoc.data() != null) {
+          teamName = teamDoc['title'];
         }
+
+        _projectList = await getTeamProjects(teamRef!);
+      }
+      if (mounted) {
+        setState(() {
+          _projectsCount = _projectList.length;
+          _projectList;
+          _isLoading = false;
+        });
       }
     } catch (e) {
       print("Error in _populateProjects(): $e");

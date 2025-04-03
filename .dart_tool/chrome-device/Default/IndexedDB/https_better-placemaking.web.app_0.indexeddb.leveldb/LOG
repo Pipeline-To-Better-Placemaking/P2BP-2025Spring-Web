@@ -1,3 +1,4 @@
-2025/03/07-17:41:38.581 a803 Creating DB /private/var/folders/sq/tzc2627x05zcrcs_hn4jngrr0000gn/T/flutter_tools.diuzAI/flutter_tools_chrome_device.F2SfTa/Default/IndexedDB/https_better-placemaking.web.app_0.indexeddb.leveldb since it was missing.
-2025/03/07-17:41:38.584 a803 Reusing MANIFEST /private/var/folders/sq/tzc2627x05zcrcs_hn4jngrr0000gn/T/flutter_tools.diuzAI/flutter_tools_chrome_device.F2SfTa/Default/IndexedDB/https_better-placemaking.web.app_0.indexeddb.leveldb/MANIFEST-000001
-2025/03/07-17:41:38.589 f703 Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/04/03-14:09:45.515 6607 Reusing MANIFEST /private/var/folders/sq/tzc2627x05zcrcs_hn4jngrr0000gn/T/flutter_tools.fWPxoc/flutter_tools_chrome_device.cwPtM9/Default/IndexedDB/https_better-placemaking.web.app_0.indexeddb.leveldb/MANIFEST-000001
+2025/04/03-14:09:45.515 6607 Recovering log #3
+2025/04/03-14:09:45.516 6607 Reusing old log /private/var/folders/sq/tzc2627x05zcrcs_hn4jngrr0000gn/T/flutter_tools.fWPxoc/flutter_tools_chrome_device.cwPtM9/Default/IndexedDB/https_better-placemaking.web.app_0.indexeddb.leveldb/000003.log 
+2025/04/03-14:09:45.530 6607 Manual compaction at level-0 from '\x00\x04\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x05\x00\x00\x00' @ 0 : 0; will stop at (end)

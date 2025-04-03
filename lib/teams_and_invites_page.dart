@@ -196,7 +196,7 @@ class _TeamsAndInvitesPageState extends State<TeamsAndInvitesPage> {
                               SliverFillRemaining(
                                 child: Center(
                                   child: Text(
-                                      "You have no invites! Pull down to refresh."),
+                                      "You have no invites! Refresh the page."),
                                 ),
                               ),
                             ],

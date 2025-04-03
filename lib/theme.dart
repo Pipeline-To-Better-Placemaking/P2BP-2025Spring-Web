@@ -29,9 +29,17 @@ final MaterialColor p2bpDarkBlue =
 /// Primary yellow color used across the app
 final MaterialColor p2bpYellow = generateMaterialColor(const Color(0xFFFFCC00));
 
+/// Primary accent yellow, used for toggle switches
+final MaterialColor p2bpYellowAccent =
+    generateMaterialColor(const Color(0xFFF2C413));
+
 /// Primary bottom sheet background color when a gradient is not used
 final MaterialColor bottomSheetBlue =
     generateMaterialColor(const Color(0xFFDDE6F2));
+
+/// Red color used for critical text on backgrounds using p2bpBlue color
+final MaterialColor criticalRed =
+    generateMaterialColor(const Color(0xFFFF5252));
 
 final LinearGradient defaultGrad = LinearGradient(
   begin: Alignment.topLeft,

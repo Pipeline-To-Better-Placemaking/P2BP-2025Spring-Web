@@ -50,12 +50,6 @@ class _ResultsPageState extends State<ResultsPage> {
       testRefs: originalProject.testRefs.toList(),
       tests: originalProject.tests!.toList(),
     );
-
-    // Print the copied project data
-    print('Deep Copied Project: ${copiedProject.title}');
-    print('Copied Polygon Points: ${copiedProject.polygonPoints}');
-    print('Copied Tests: ${copiedProject.tests}');
-
     return copiedProject;
   }
 
@@ -226,31 +220,22 @@ class _ResultsPageState extends State<ResultsPage> {
   void toggleTest(Test test, bool isChecked) {
     setState(() {
       if (isChecked) {
-        // Print to check if we're adding the test back
+        // Adding tests that are toggled on
         if (!visualized.tests!.contains(test)) {
           visualized.tests?.add(test);
-          //("Added test with ID: ${test.testID} back to activeProject.tests.");
-        } else {
-          //print("Test with ID: ${test.testID} was already present.");
         }
       } else {
-        // Print to check if we're removing the test
+        // Removing tests thaat aren't selected
         visualized.tests?.remove(test);
-        //print("Removed test with ID: ${test.testID} from activeProject.tests.");
       }
     });
   }
 
   void filterToggledOnTests() {
     // Filter the tests based on their visibility toggle state
-    //print("Before filtering, activeProject.tests: ${visualized.tests}\n\n\n");
     visualized.tests = visualized.tests?.where((test) {
-      bool isVisible = _testVisibility[test.testID] ?? false;
-      print("Checking test ID: ${test.testID}, isVisible: $isVisible\n");
       return _testVisibility[test.testID] == true;
     }).toList();
-
-    //print("\n\n\nAfter filtering, activeProject.tests: ${visualized.tests}");
   }
 
   LatLng _getPolygonCenter(List<LatLng> polygonPoints) {
@@ -267,8 +252,6 @@ class _ResultsPageState extends State<ResultsPage> {
 
   @override
   Widget build(BuildContext context) {
-    //print("1: ${visualized.tests}");
-    //print("2: ${widget.activeProject.tests}");
     // Calculate the center of the polygon
     LatLng polygonCenter =
         _getPolygonCenter(widget.activeProject.polygonPoints);
@@ -361,8 +344,7 @@ class _ResultsPageState extends State<ResultsPage> {
                         ),
                         trailing: Switch(
                           value: _testVisibility[test.testID] ?? false,
-                          onChanged: (value) =>
-                              _toggleTestVisibility(test.testID, value),
+                          onChanged: (value) => _toggleTestVisibility(test.testID, value),
                         ),
                       );
                     }).toList(), // Align children when expanded
@@ -417,11 +399,7 @@ class _ResultsPageState extends State<ResultsPage> {
             child: FloatingActionButton(
               heroTag: null,
               onPressed: () {
-                //print('Before navigating back, activeProject.tests: ${widget.activeProject.tests}\n');
-                //print('Before navigating back, visualized.tests: ${visualized.tests}\n');
                 Navigator.of(context).pop();
-                //print('After navigating back, activeProject.tests: ${widget.activeProject.tests}\n');
-                //print('Before navigating back, visualized.tests: ${visualized.tests}\n');
               },
               backgroundColor: Colors.black,
               child: Icon(Icons.arrow_back,
@@ -442,9 +420,6 @@ class _ResultsPageState extends State<ResultsPage> {
 
                 projectForPdf.tests = projectForPdf.tests?.where((test) {
                   bool isVisible = _testVisibility[test.testID] ?? false;
-                  print("Checking test ID: ${test.testID}, "
-                      "Collection ID: ${test.collectionID}, "
-                      "isVisible: $isVisible\n");
                   return isVisible;
                 }).toList();
 

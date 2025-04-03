@@ -472,13 +472,22 @@ List<pw.Padding> getPDFDataGraphs(PDFData testData) {
   for (final BarGraphData barData in testData.barGraphData) {
     graphs.add(
       pw.Padding(
-          padding: pw.EdgeInsets.all(5.0),
-          child: pw.Center(
-            child: pw.SizedBox(
-              height: 200,
-              child: pw.Expanded(child: _generateBarGraph(barData)),
+        padding: pw.EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
+        child: pw.Container(
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.black, width: 1.5),
+              borderRadius: pw.BorderRadius.all(pw.Radius.circular(3.0)),
             ),
-          )),
+            child: pw.Padding(
+              padding: pw.EdgeInsets.all(5.0),
+              child: pw.Center(
+                child: pw.SizedBox(
+                  height: 200,
+                  child: pw.Expanded(child: _generateBarGraph(barData)),
+                ),
+              ),
+            )),
+      ),
     );
   }
 

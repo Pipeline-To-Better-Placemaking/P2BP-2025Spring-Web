@@ -32,8 +32,8 @@ class VisualizedResults {
   });
 
   /// Factory constructor to create a TestMapData object from Firebase
-  static Future<VisualizedResults> fromFirebase(String testID, String collectionID, Map<String, dynamic> data) async {
-    
+  static Future<VisualizedResults> fromFirebase(
+      String testID, String collectionID, Map<String, dynamic> data) async {
     String collectionName = collectionID.split('/').first;
     //var polygonData = <List<LatLng>>[];
     List<List<LatLng>> additionalPolygonData = [];
@@ -47,8 +47,7 @@ class VisualizedResults {
     Set<Marker> markerIcons = {};
     Set<Circle> soundCircle = {};
 
-    if (collectionName == "nature_prevalence_tests")
-    {
+    if (collectionName == "nature_prevalence_tests") {
       // Extract polygon data from the nested 'design' array
       var designData = data['data']?['vegetation']?['design'];
       var nativeData = data['data']?['vegetation']?['native'];
@@ -62,39 +61,54 @@ class VisualizedResults {
       var swampData = data['data']?['waterBody']?['swamp'];
 
       // Collect additional polygon data from native, openField, and other vegetation
-      vegetationPolygonData.addAll(_extractPolygonsFromData(designData, collectionName));
-      polygonsWithColor.addAll(_parsePolygons(vegetationPolygonData, testID, collectionName, "design"));
+      vegetationPolygonData
+          .addAll(_extractPolygonsFromData(designData, collectionName));
+      polygonsWithColor.addAll(_parsePolygons(
+          vegetationPolygonData, testID, collectionName, "design"));
 
-      vegetationPolygonData.addAll(_extractPolygonsFromData(nativeData, collectionName));
-      polygonsWithColor.addAll(_parsePolygons(vegetationPolygonData, testID, collectionName, "native"));
+      vegetationPolygonData
+          .addAll(_extractPolygonsFromData(nativeData, collectionName));
+      polygonsWithColor.addAll(_parsePolygons(
+          vegetationPolygonData, testID, collectionName, "native"));
 
-      vegetationPolygonData.addAll(_extractPolygonsFromData(openFieldData, collectionName));
-      polygonsWithColor.addAll(_parsePolygons(vegetationPolygonData, testID, collectionName, "openField"));
+      vegetationPolygonData
+          .addAll(_extractPolygonsFromData(openFieldData, collectionName));
+      polygonsWithColor.addAll(_parsePolygons(
+          vegetationPolygonData, testID, collectionName, "openField"));
 
-      vegetationPolygonData.addAll(_extractPolygonsFromData(otherVegetationData, collectionName));
-      polygonsWithColor.addAll(_parsePolygons(vegetationPolygonData, testID, collectionName, "otherVegetation"));
+      vegetationPolygonData.addAll(
+          _extractPolygonsFromData(otherVegetationData, collectionName));
+      polygonsWithColor.addAll(_parsePolygons(
+          vegetationPolygonData, testID, collectionName, "otherVegetation"));
 
       // Collect additional polygon data from water bodies (lake, ocean, river, swamp)
-      waterBodyPolygonData.addAll(_extractPolygonsFromData(lakeData, collectionName));
-      polygonsWithColor.addAll(_parsePolygons(waterBodyPolygonData, testID, collectionName, "lake"));
+      waterBodyPolygonData
+          .addAll(_extractPolygonsFromData(lakeData, collectionName));
+      polygonsWithColor.addAll(
+          _parsePolygons(waterBodyPolygonData, testID, collectionName, "lake"));
 
-      waterBodyPolygonData.addAll(_extractPolygonsFromData(oceanData, collectionName));
-      polygonsWithColor.addAll(_parsePolygons(waterBodyPolygonData, testID, collectionName, "ocean"));
+      waterBodyPolygonData
+          .addAll(_extractPolygonsFromData(oceanData, collectionName));
+      polygonsWithColor.addAll(_parsePolygons(
+          waterBodyPolygonData, testID, collectionName, "ocean"));
 
-      waterBodyPolygonData.addAll(_extractPolygonsFromData(riverData, collectionName));
-      polygonsWithColor.addAll(_parsePolygons(waterBodyPolygonData, testID, collectionName, "river"));
+      waterBodyPolygonData
+          .addAll(_extractPolygonsFromData(riverData, collectionName));
+      polygonsWithColor.addAll(_parsePolygons(
+          waterBodyPolygonData, testID, collectionName, "river"));
 
-      waterBodyPolygonData.addAll(_extractPolygonsFromData(swampData, collectionName));
-      polygonsWithColor.addAll(_parsePolygons(waterBodyPolygonData, testID, collectionName, "swamp"));
-    }
-    else if (collectionName == "identifying_access_tests")
-    {
+      waterBodyPolygonData
+          .addAll(_extractPolygonsFromData(swampData, collectionName));
+      polygonsWithColor.addAll(_parsePolygons(
+          waterBodyPolygonData, testID, collectionName, "swamp"));
+    } else if (collectionName == "identifying_access_tests") {
       var parkingData = data['data']?['parking'];
-      additionalPolygonData.addAll(_extractPolygonsFromDataIdentifyingAccessTests(parkingData, collectionName));
-      polygonsWithColor.addAll(_parsePolygons(additionalPolygonData, testID, collectionName, "parking"));
-    }
-    else if (collectionName == "spatial_boundaries_tests")
-    {
+      additionalPolygonData.addAll(
+          _extractPolygonsFromDataIdentifyingAccessTests(
+              parkingData, collectionName));
+      polygonsWithColor.addAll(_parsePolygons(
+          additionalPolygonData, testID, collectionName, "parking"));
+    } else if (collectionName == "spatial_boundaries_tests") {
       /// Materials
       var concreteData = data['data']?['material']?['concrete'];
       var deckingData = data['data']?['material']?['decking'];
@@ -108,23 +122,35 @@ class VisualizedResults {
       var furnitureData = data['data']?['shelter']?['furniture'];
       var temporaryData = data['data']?['shelter']?['temporary'];
       var treeData = data['data']?['shelter']?['tree'];
-      
+
       /// Materials
-      materialPolygonData.addAll(_extractPolygonsFromData(concreteData, collectionName));
-      materialPolygonData.addAll(_extractPolygonsFromData(deckingData, collectionName));
-      materialPolygonData.addAll(_extractPolygonsFromData(naturalData, collectionName));
-      materialPolygonData.addAll(_extractPolygonsFromData(paversData, collectionName));
-      materialPolygonData.addAll(_extractPolygonsFromData(tileData, collectionName));
+      materialPolygonData
+          .addAll(_extractPolygonsFromData(concreteData, collectionName));
+      materialPolygonData
+          .addAll(_extractPolygonsFromData(deckingData, collectionName));
+      materialPolygonData
+          .addAll(_extractPolygonsFromData(naturalData, collectionName));
+      materialPolygonData
+          .addAll(_extractPolygonsFromData(paversData, collectionName));
+      materialPolygonData
+          .addAll(_extractPolygonsFromData(tileData, collectionName));
 
       /// Shelter
-      shelterPolygonData.addAll(_extractPolygonsFromData(canopyData, collectionName));
-      shelterPolygonData.addAll(_extractPolygonsFromData(constructedData, collectionName));
-      shelterPolygonData.addAll(_extractPolygonsFromData(furnitureData, collectionName));
-      shelterPolygonData.addAll(_extractPolygonsFromData(temporaryData, collectionName));
-      shelterPolygonData.addAll(_extractPolygonsFromData(treeData, collectionName));
+      shelterPolygonData
+          .addAll(_extractPolygonsFromData(canopyData, collectionName));
+      shelterPolygonData
+          .addAll(_extractPolygonsFromData(constructedData, collectionName));
+      shelterPolygonData
+          .addAll(_extractPolygonsFromData(furnitureData, collectionName));
+      shelterPolygonData
+          .addAll(_extractPolygonsFromData(temporaryData, collectionName));
+      shelterPolygonData
+          .addAll(_extractPolygonsFromData(treeData, collectionName));
 
-      polygonsWithColor.addAll(_parsePolygons(materialPolygonData, testID, collectionName, "material"));
-      polygonsWithColor.addAll(_parsePolygons(shelterPolygonData, testID, collectionName, "shelter"));
+      polygonsWithColor.addAll(_parsePolygons(
+          materialPolygonData, testID, collectionName, "material"));
+      polygonsWithColor.addAll(_parsePolygons(
+          shelterPolygonData, testID, collectionName, "shelter"));
     }
 
     // **Fetch polylines from Firebase based on the collectionIDs**
@@ -132,151 +158,189 @@ class VisualizedResults {
 
     // Fetch polylines for the Identifying Access Tests collection
     if (collectionName == "identifying_access_tests") {
-      fetchedPolylines = await loadPathsFromFirebaseIdentifyingAccessTests(testID, collectionName);
-      polylinesWithColor.addAll(_parsePolylines(fetchedPolylines, collectionName, "black"));
-    } 
+      fetchedPolylines = await loadPathsFromFirebaseIdentifyingAccessTests(
+          testID, collectionName);
+      polylinesWithColor
+          .addAll(_parsePolylines(fetchedPolylines, collectionName, "black"));
+    }
     // Fetch polylines for the Spatial Boundaries Tests collection
     else if (collectionName == "spatial_boundaries_tests") {
-      fetchedPolylines = await loadPathsFromFirebaseSpatialBoundariesTests(testID, collectionName);
-      polylinesWithColor.addAll(_parsePolylines(fetchedPolylines, collectionName, "constructed"));
+      fetchedPolylines = await loadPathsFromFirebaseSpatialBoundariesTests(
+          testID, collectionName);
+      polylinesWithColor.addAll(
+          _parsePolylines(fetchedPolylines, collectionName, "constructed"));
     }
     // Fetch polylines for the People in Motion tests collection
-    else if (collectionName == "people_in_motion_tests")
-    {
-      fetchedPolylines = await loadPathsFromFirebasePeopleInMotionTests(testID, collectionName, "activityOnWheels");
-      polylinesWithColor.addAll(_parsePolylines(fetchedPolylines, collectionName, "activityOnWheels"));
+    else if (collectionName == "people_in_motion_tests") {
+      fetchedPolylines = await loadPathsFromFirebasePeopleInMotionTests(
+          testID, collectionName, "activityOnWheels");
+      polylinesWithColor.addAll(_parsePolylines(
+          fetchedPolylines, collectionName, "activityOnWheels"));
 
-      fetchedPolylines = await loadPathsFromFirebasePeopleInMotionTests(testID, collectionName, "handicapAssistedWheels");
-      polylinesWithColor.addAll(_parsePolylines(fetchedPolylines, collectionName, "handicapAssistedWheels"));
+      fetchedPolylines = await loadPathsFromFirebasePeopleInMotionTests(
+          testID, collectionName, "handicapAssistedWheels");
+      polylinesWithColor.addAll(_parsePolylines(
+          fetchedPolylines, collectionName, "handicapAssistedWheels"));
 
-      fetchedPolylines = await loadPathsFromFirebasePeopleInMotionTests(testID, collectionName, "running");
-      polylinesWithColor.addAll(_parsePolylines(fetchedPolylines, collectionName, "running"));
+      fetchedPolylines = await loadPathsFromFirebasePeopleInMotionTests(
+          testID, collectionName, "running");
+      polylinesWithColor
+          .addAll(_parsePolylines(fetchedPolylines, collectionName, "running"));
 
-      fetchedPolylines = await loadPathsFromFirebasePeopleInMotionTests(testID, collectionName, "swimming");
-      polylinesWithColor.addAll(_parsePolylines(fetchedPolylines, collectionName, "swimming"));
+      fetchedPolylines = await loadPathsFromFirebasePeopleInMotionTests(
+          testID, collectionName, "swimming");
+      polylinesWithColor.addAll(
+          _parsePolylines(fetchedPolylines, collectionName, "swimming"));
 
-      fetchedPolylines = await loadPathsFromFirebasePeopleInMotionTests(testID, collectionName, "walking");
-      polylinesWithColor.addAll(_parsePolylines(fetchedPolylines, collectionName, "walking"));
+      fetchedPolylines = await loadPathsFromFirebasePeopleInMotionTests(
+          testID, collectionName, "walking");
+      polylinesWithColor
+          .addAll(_parsePolylines(fetchedPolylines, collectionName, "walking"));
     }
 
     /// Fetching markers with its own unique icons on the map being displayed
     /// Absence of Order Test
-    if (collectionName == "absence_of_order_tests")
-    {
+    if (collectionName == "absence_of_order_tests") {
       /// Extracting behaviorPoints
       markerIcons.addAll(_parseMarkers([
-        ...(data['data']?['behaviorPoints'] as List<dynamic>? ?? []).map((behaviorPoint) {
+        ...(data['data']?['behaviorPoints'] as List<dynamic>? ?? [])
+            .map((behaviorPoint) {
           var location = behaviorPoint?['location'];
-            if (location != null) {
-              return LatLng(location.latitude, location.longitude);
-            }
-            return null;
-          }).whereType<LatLng>(),], "behavior"));
+          if (location != null) {
+            return LatLng(location.latitude, location.longitude);
+          }
+          return null;
+        }).whereType<LatLng>(),
+      ], "behavior"));
 
       /// Extracting maintenancePoints
       markerIcons.addAll(_parseMarkers([
-        ...(data['data']?['maintenancePoints'] as List<dynamic>? ?? []).map((maintenancePoint) {
+        ...(data['data']?['maintenancePoints'] as List<dynamic>? ?? [])
+            .map((maintenancePoint) {
           var location = maintenancePoint?['location'];
           if (location != null) {
             return LatLng(location.latitude, location.longitude);
           }
           return null;
-        }).whereType<LatLng>()], "maintenance"));
+        }).whereType<LatLng>()
+      ], "maintenance"));
     }
+
     /// Acoustic Profile Test
-    else if (collectionName == "acoustic_profile_tests")
-    {
+    else if (collectionName == "acoustic_profile_tests") {
       /// Extracting the location of where the test is being done
-      soundCircle.addAll(_parseSoundCircle([        
-        ...(data['data']?['dataPoints'] as List<dynamic>? ?? [])]));
+      soundCircle.addAll(_parseSoundCircle(
+          [...(data['data']?['dataPoints'] as List<dynamic>? ?? [])]));
     }
+
     /// People in Place test
-    else if (collectionName == "people_in_place_tests")
-    {
+    else if (collectionName == "people_in_place_tests") {
       /// Extracting the location of the place the test happens
-      markerIcons.addAll(_parseMarkers([        
-        ...(data['data']?['persons'] as List<dynamic>? ?? []).map((standingPoint) {
+      markerIcons.addAll(_parseMarkers([
+        ...(data['data']?['persons'] as List<dynamic>? ?? [])
+            .map((standingPoint) {
           var location = standingPoint?['location'];
           if (location != null) {
             return LatLng(location.latitude, location.longitude);
           }
           return null;
-        }).whereType<LatLng>()], "people"));
+        }).whereType<LatLng>()
+      ], "people"));
     }
+
     /// Lighting Profile Test
-    else if (collectionName == "lighting_profile_tests")
-    {
+    else if (collectionName == "lighting_profile_tests") {
       /// Extracting building, rhythmic, and task data
-      markerIcons.addAll(_parseMarkers([...(data['data']?['building'] as List<dynamic>? ?? [])], "building"));
-      markerIcons.addAll(_parseMarkers([...(data['data']?['rhythmic'] as List<dynamic>? ?? [])], "rhythmic"));
-      markerIcons.addAll(_parseMarkers([...(data['data']?['task'] as List<dynamic>? ?? [])], "task"));
+      markerIcons.addAll(_parseMarkers(
+          [...(data['data']?['building'] as List<dynamic>? ?? [])],
+          "building"));
+      markerIcons.addAll(_parseMarkers(
+          [...(data['data']?['rhythmic'] as List<dynamic>? ?? [])],
+          "rhythmic"));
+      markerIcons.addAll(_parseMarkers(
+          [...(data['data']?['task'] as List<dynamic>? ?? [])], "task"));
     }
+
     /// Nature Prevalence Test
-    else if (collectionName == "nature_prevalence_tests")
-    {
+    else if (collectionName == "nature_prevalence_tests") {
       /// Extracting domesticated animal data points
       /// Extracting cat data point
-      markerIcons.addAll(_parseMarkers([        
-        ...(data['data']?['animal']?['domesticated']?['cat'] is List ? 
-            (data['data']?['animal']?['domesticated']?['cat'] as List)
+      markerIcons.addAll(_parseMarkers([
+        ...(data['data']?['animal']?['domesticated']?['cat'] is List
+            ? (data['data']?['animal']?['domesticated']?['cat'] as List)
                 .map((point) {
-                  return LatLng(point.latitude, point.longitude);
-                }).toList() : [])], "cat"));
+                return LatLng(point.latitude, point.longitude);
+              }).toList()
+            : [])
+      ], "cat"));
 
       /// Extracting dog data point
-      markerIcons.addAll(_parseMarkers([       
-         ...(data['data']?['animal']?['domesticated']?['dog'] is List ? 
-            (data['data']?['animal']?['domesticated']?['dog'] as List)
+      markerIcons.addAll(_parseMarkers([
+        ...(data['data']?['animal']?['domesticated']?['dog'] is List
+            ? (data['data']?['animal']?['domesticated']?['dog'] as List)
                 .map((point) {
-                  return LatLng(point.latitude, point.longitude);
-                }).toList() : [])], "dog"));
-      
-      /// Extracting other data point 
-      markerIcons.addAll(_parseMarkers([        
-        ...(data['data']?['animal']?['domesticated']?['other'] is List ? 
-            (data['data']?['animal']?['domesticated']?['other'] as List)
+                return LatLng(point.latitude, point.longitude);
+              }).toList()
+            : [])
+      ], "dog"));
+
+      /// Extracting other data point
+      markerIcons.addAll(_parseMarkers([
+        ...(data['data']?['animal']?['domesticated']?['other'] is List
+            ? (data['data']?['animal']?['domesticated']?['other'] as List)
                 .map((point) {
-                  return LatLng(point['point'].latitude, point['point'].longitude);
-                }).toList() : []),], "other"));
+                return LatLng(
+                    point['point'].latitude, point['point'].longitude);
+              }).toList()
+            : []),
+      ], "other"));
 
       /// Extracting Wild Animal data points
       /// Extracting bird data points
-      markerIcons.addAll(_parseMarkers([        
-        ...(data['data']?['animal']?['wild']?['bird'] is List ? 
-            (data['data']?['animal']?['wild']?['bird'] as List)
-                .map((point) {
-                  return LatLng(point.latitude, point.longitude);
-                }).toList() : [])], "bird"));
-      
+      markerIcons.addAll(_parseMarkers([
+        ...(data['data']?['animal']?['wild']?['bird'] is List
+            ? (data['data']?['animal']?['wild']?['bird'] as List).map((point) {
+                return LatLng(point.latitude, point.longitude);
+              }).toList()
+            : [])
+      ], "bird"));
+
       /// Extracting duck data points
-      markerIcons.addAll(_parseMarkers([        
-        ...(data['data']?['animal']?['wild']?['duck'] is List ? 
-            (data['data']?['animal']?['wild']?['duck'] as List)
-                .map((point) {
-                  return LatLng(point.latitude, point.longitude);
-                }).toList() : [])], "duck"));
-      
+      markerIcons.addAll(_parseMarkers([
+        ...(data['data']?['animal']?['wild']?['duck'] is List
+            ? (data['data']?['animal']?['wild']?['duck'] as List).map((point) {
+                return LatLng(point.latitude, point.longitude);
+              }).toList()
+            : [])
+      ], "duck"));
+
       /// Extracting rabbit data points
-      markerIcons.addAll(_parseMarkers([        
-        ...(data['data']?['animal']?['wild']?['rabbit'] is List ? 
-            (data['data']?['animal']?['wild']?['rabbit'] as List)
+      markerIcons.addAll(_parseMarkers([
+        ...(data['data']?['animal']?['wild']?['rabbit'] is List
+            ? (data['data']?['animal']?['wild']?['rabbit'] as List)
                 .map((point) {
-                  return LatLng(point.latitude, point.longitude);
-                }).toList() : [])], "rabbit"));
+                return LatLng(point.latitude, point.longitude);
+              }).toList()
+            : [])
+      ], "rabbit"));
 
       /// Extracting squirrel data points
-      markerIcons.addAll(_parseMarkers([        
-        ...(data['data']?['animal']?['wild']?['squirrel'] is List ? 
-            (data['data']?['animal']?['wild']?['squirrel'] as List)
+      markerIcons.addAll(_parseMarkers([
+        ...(data['data']?['animal']?['wild']?['squirrel'] is List
+            ? (data['data']?['animal']?['wild']?['squirrel'] as List)
                 .map((point) {
-                  return LatLng(point.latitude, point.longitude);
-                }).toList() : [])], "squirrel"));
-      markerIcons.addAll(_parseMarkers([        
-        ...(data['data']?['animal']?['wild']?['turtle'] is List ? 
-            (data['data']?['animal']?['wild']?['turtle'] as List)
+                return LatLng(point.latitude, point.longitude);
+              }).toList()
+            : [])
+      ], "squirrel"));
+      markerIcons.addAll(_parseMarkers([
+        ...(data['data']?['animal']?['wild']?['turtle'] is List
+            ? (data['data']?['animal']?['wild']?['turtle'] as List)
                 .map((point) {
-                  return LatLng(point.latitude, point.longitude);
-                }).toList() : [])], "turtle"));
+                return LatLng(point.latitude, point.longitude);
+              }).toList()
+            : [])
+      ], "turtle"));
     }
 
     return VisualizedResults(
@@ -284,7 +348,8 @@ class VisualizedResults {
       collectionID: collectionID,
       testName: data['title'],
       isComplete: data['isComplete'] ?? false,
-      scheduledTime: (data['scheduledTime'] as Timestamp?)?.toDate() ?? DateTime(1970, 1, 1), // Convert Firestore Timestamp to DateTime
+      scheduledTime: (data['scheduledTime'] as Timestamp?)?.toDate() ??
+          DateTime(1970, 1, 1), // Convert Firestore Timestamp to DateTime
       markers: markerIcons,
       polylines: polylinesWithColor,
       polygons: polygonsWithColor,
@@ -294,7 +359,8 @@ class VisualizedResults {
 
   /// Generic marker parsing function
   static Set<Marker> _parseMarkers(List<dynamic> markersData, String icon) {
-    BitmapDescriptor markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+    BitmapDescriptor markerIcon =
+        BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
     Set<Marker> resultMarkers = {};
 
     /// To get the correct asset for each tests to help identify what each point means
@@ -306,7 +372,8 @@ class VisualizedResults {
         markerIcon = maintenanceMisconductMarkerIcon;
         break;
       case 'acoustic':
-        markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+        markerIcon =
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
         break;
       case 'people':
         markerIcon = peopleMarkerIcon;
@@ -322,39 +389,41 @@ class VisualizedResults {
         break;
       case 'cat':
         markerIcon = catMarkerIcon;
-        break;   
+        break;
       case 'dog':
         markerIcon = dogMarkerIcon;
-        break; 
+        break;
       case 'other':
         markerIcon = otherAnimalMarker;
-        break;  
+        break;
       case 'bird':
         markerIcon = birdMarkerIcon;
-        break; 
+        break;
       case 'duck':
         markerIcon = duckMarkerIcon;
-        break; 
+        break;
       case 'rabbit':
         markerIcon = rabbitMarkerIcon;
-        break; 
+        break;
       case 'squirrel':
         markerIcon = squirrelMarkerIcon;
-        break; 
+        break;
       case 'turtle':
         markerIcon = turtleMarkerIcon;
-        break; 
+        break;
     }
 
     final random = Random(); // Create a random instance outside the loop
     for (var marker in markersData) {
-        final randomId = random.nextInt(1000000); // Generate a random number for each marker
+      final randomId =
+          random.nextInt(1000000); // Generate a random number for each marker
 
-        resultMarkers.add(Marker(
-          markerId: MarkerId("${marker.latitude}_${marker.longitude}_${icon}_$randomId"),
-          position: LatLng(marker.latitude, marker.longitude),
-          icon: markerIcon,
-        ));
+      resultMarkers.add(Marker(
+        markerId: MarkerId(
+            "${marker.latitude}_${marker.longitude}_${icon}_$randomId"),
+        position: LatLng(marker.latitude, marker.longitude),
+        icon: markerIcon,
+      ));
     }
     return resultMarkers;
   }
@@ -362,7 +431,7 @@ class VisualizedResults {
   static Set<Circle> _parseSoundCircle(List<dynamic> soundData) {
     Set<Circle> soundCircles = {};
     Map<String, int> locationCounts = {}; // To track overlapping locations
-    var uuid = Uuid();  // Create an instance of Uuid
+    var uuid = Uuid(); // Create an instance of Uuid
 
     for (var dataPoint in soundData) {
       var location = dataPoint?['standingPoint']?['point'];
@@ -383,7 +452,8 @@ class VisualizedResults {
         }
 
         if (mainSoundType != null) {
-          soundTypeCounts[mainSoundType] = (soundTypeCounts[mainSoundType] ?? 0) + 1;
+          soundTypeCounts[mainSoundType] =
+              (soundTypeCounts[mainSoundType] ?? 0) + 1;
         }
       }
 
@@ -403,20 +473,22 @@ class VisualizedResults {
       locationCounts[locationKey] = index + 1;
 
       // Increase opacity for each additional overlapping circle
-      double opacityFactor = (0.2 + (index * 0.1)).clamp(0, 1); // Min 20%, max 100%
+      double opacityFactor =
+          (0.2 + (index * 0.1)).clamp(0, 1); // Min 20%, max 100%
 
       // Instead of soundColor.red, soundColor.green, soundColor.blue
       Color fillColor = Color.fromARGB(
         (opacityFactor * 255).toInt(), // Calculate opacity based on the factor
-        0,  // Red channel (0 for no color)
-        0,  // Green channel (0 for no color)
-        0,  // Blue channel (0 for no color)
+        0, // Red channel (0 for no color)
+        0, // Green channel (0 for no color)
+        0, // Blue channel (0 for no color)
       );
 
       // Create a circle with a random CircleId
       soundCircles.add(
         Circle(
-          circleId: CircleId(uuid.v4()), // Use uuid.v4() to generate a random ID
+          circleId:
+              CircleId(uuid.v4()), // Use uuid.v4() to generate a random ID
           center: LatLng(location.latitude, location.longitude),
           radius: avgDecibels * 3, // Example scaling factor
           fillColor: fillColor,
@@ -447,12 +519,13 @@ class VisualizedResults {
   }
 
   /// Generic polyline parsing function
-  static Set<Polyline> _parsePolylines(List<dynamic> polylinesData, String collectionName, String polylineColor) {
+  static Set<Polyline> _parsePolylines(List<dynamic> polylinesData,
+      String collectionName, String polylineColor) {
     return polylinesData.map((polyline) {
       List<LatLng> points = (polyline['points'] as List)
           .map((point) => LatLng(point['lat'], point['lng']))
           .toList();
-      
+
       Color color = Color(0xFF000000);
 
       switch (polylineColor) {
@@ -490,7 +563,9 @@ class VisualizedResults {
 
   /// Identifying Access Tests
   /// For getting polylines
-  static Future<List<Map<String, dynamic>>> loadPathsFromFirebaseIdentifyingAccessTests(String testID, String collectionName) async {
+  static Future<List<Map<String, dynamic>>>
+      loadPathsFromFirebaseIdentifyingAccessTests(
+          String testID, String collectionName) async {
     List<Map<String, dynamic>> polylinesData = [];
 
     try {
@@ -505,10 +580,16 @@ class VisualizedResults {
         return polylinesData; // Return empty list if no document is found
       }
 
-      Map<String, dynamic> polylineData = snapshot.data() as Map<String, dynamic>;
-      
+      Map<String, dynamic> polylineData =
+          snapshot.data() as Map<String, dynamic>;
+
       // Handle different categories (bikeRack, parking, etc.)
-      var categories = ['bikeRack', 'parking', 'taxiAndRideShare', 'transportStation']; // Add other categories as needed
+      var categories = [
+        'bikeRack',
+        'parking',
+        'taxiAndRideShare',
+        'transportStation'
+      ]; // Add other categories as needed
       for (var category in categories) {
         var categoryData = polylineData['data']?[category];
         if (categoryData != null && categoryData is List) {
@@ -517,7 +598,8 @@ class VisualizedResults {
             var pathInfo = pathData['pathInfo'];
 
             if (pathInfo is Map<String, dynamic>) {
-              List<Map<String, double>> points = (pathInfo['path'] as List).map((point) {
+              List<Map<String, double>> points =
+                  (pathInfo['path'] as List).map((point) {
                 if (point is GeoPoint) {
                   return {'lat': point.latitude, 'lng': point.longitude};
                 }
@@ -533,7 +615,8 @@ class VisualizedResults {
 
                 // Generate unique ID with random ID
                 polylinesData.add({
-                  'id': "${snapshot.id}_${category}_${pathData['category']}_${categoryData.indexOf(pathData)}_$randomId", // Unique ID for each path
+                  'id':
+                      "${snapshot.id}_${category}_${pathData['category']}_${categoryData.indexOf(pathData)}_$randomId", // Unique ID for each path
                   'testType': collectionName,
                   'category': category,
                   'categoryLabel': pathData['category'] ?? 'unknown',
@@ -553,7 +636,9 @@ class VisualizedResults {
 
   /// Spatial Boundaries Test
   /// For getting polylines
-  static Future<List<Map<String, dynamic>>> loadPathsFromFirebaseSpatialBoundariesTests(String testID, String collectionName) async {
+  static Future<List<Map<String, dynamic>>>
+      loadPathsFromFirebaseSpatialBoundariesTests(
+          String testID, String collectionName) async {
     List<Map<String, dynamic>> polylinesData = [];
 
     try {
@@ -568,10 +653,17 @@ class VisualizedResults {
         return polylinesData; // Return empty list if no document is found
       }
 
-      Map<String, dynamic> polylineData = snapshot.data() as Map<String, dynamic>;
+      Map<String, dynamic> polylineData =
+          snapshot.data() as Map<String, dynamic>;
 
       // Handle different categories (bikeRack, parking, etc.)
-      var categories = ['buildingWall', 'curb', 'fench', 'partialWall', 'planter']; // Add other categories as needed
+      var categories = [
+        'buildingWall',
+        'curb',
+        'fence',
+        'partialWall',
+        'planter'
+      ]; // Add other categories as needed
       for (var category in categories) {
         var categoryData = polylineData['data']?['constructed']?[category];
         if (categoryData != null && categoryData is List) {
@@ -580,7 +672,8 @@ class VisualizedResults {
             var pathInfo = pathData;
 
             if (pathInfo is Map<String, dynamic>) {
-              List<Map<String, double>> points = (pathInfo['polyline'] as List).map((point) {
+              List<Map<String, double>> points =
+                  (pathInfo['polyline'] as List).map((point) {
                 if (point is GeoPoint) {
                   return {'lat': point.latitude, 'lng': point.longitude};
                 }
@@ -596,7 +689,8 @@ class VisualizedResults {
 
                 // Generate unique ID with random ID
                 polylinesData.add({
-                  'id': "${snapshot.id}_${category}_${pathData['category']}_${categoryData.indexOf(pathData)}_$randomId", // Unique ID for each path
+                  'id':
+                      "${snapshot.id}_${category}_${pathData['category']}_${categoryData.indexOf(pathData)}_$randomId", // Unique ID for each path
                   'category': category,
                   'categoryLabel': pathData['category'] ?? 'unknown',
                   'points': uniquePoints, // Use the deduplicated points
@@ -615,7 +709,9 @@ class VisualizedResults {
 
   /// People In Motion Test
   /// For getting polylines
-  static Future<List<Map<String, dynamic>>> loadPathsFromFirebasePeopleInMotionTests(String testID, String collectionName, String category) async {
+  static Future<List<Map<String, dynamic>>>
+      loadPathsFromFirebasePeopleInMotionTests(
+          String testID, String collectionName, String category) async {
     List<Map<String, dynamic>> polylinesData = [];
 
     try {
@@ -630,42 +726,45 @@ class VisualizedResults {
         return polylinesData; // Return empty list if no document is found
       }
 
-      Map<String, dynamic> polylineData = snapshot.data() as Map<String, dynamic>;
+      Map<String, dynamic> polylineData =
+          snapshot.data() as Map<String, dynamic>;
 
       // Categories of paths
-        var categoryData = polylineData['data']?[category];
-        if (categoryData != null && categoryData is List) {
-          // If it's a list, iterate over the items
-          for (var pathData in categoryData) {
-            var pathInfo = pathData;
+      var categoryData = polylineData['data']?[category];
+      if (categoryData != null && categoryData is List) {
+        // If it's a list, iterate over the items
+        for (var pathData in categoryData) {
+          var pathInfo = pathData;
 
-            // If pathInfo is a valid Map, process the polyline
-            if (pathInfo is Map<String, dynamic>) {
-              List<Map<String, double>> points = (pathInfo['polyline'] as List).map((point) {
-                if (point is GeoPoint) {
-                  return {'lat': point.latitude, 'lng': point.longitude};
-                }
-                return {'lat': 0.0, 'lng': 0.0}; // Handle invalid points
-              }).toList();
-
-              // Remove duplicates from points
-              List<Map<String, double>> uniquePoints = points.toSet().toList();
-
-              if (uniquePoints.isNotEmpty) {
-                // Generate a random ID
-                String randomId = Random().nextInt(1000000).toString();
-
-                // Generate unique ID with random ID
-                polylinesData.add({
-                  'id': "${snapshot.id}_${category}_${pathData['category']}_${categoryData.indexOf(pathData)}_$randomId", // Unique ID for each path
-                  'category': category,
-                  'categoryLabel': pathData['category'] ?? 'unknown',
-                  'points': uniquePoints, // Use the deduplicated points
-                });
+          // If pathInfo is a valid Map, process the polyline
+          if (pathInfo is Map<String, dynamic>) {
+            List<Map<String, double>> points =
+                (pathInfo['polyline'] as List).map((point) {
+              if (point is GeoPoint) {
+                return {'lat': point.latitude, 'lng': point.longitude};
               }
+              return {'lat': 0.0, 'lng': 0.0}; // Handle invalid points
+            }).toList();
+
+            // Remove duplicates from points
+            List<Map<String, double>> uniquePoints = points.toSet().toList();
+
+            if (uniquePoints.isNotEmpty) {
+              // Generate a random ID
+              String randomId = Random().nextInt(1000000).toString();
+
+              // Generate unique ID with random ID
+              polylinesData.add({
+                'id':
+                    "${snapshot.id}_${category}_${pathData['category']}_${categoryData.indexOf(pathData)}_$randomId", // Unique ID for each path
+                'category': category,
+                'categoryLabel': pathData['category'] ?? 'unknown',
+                'points': uniquePoints, // Use the deduplicated points
+              });
             }
           }
         }
+      }
     } catch (e) {
       print("Error loading paths: $e");
     }
@@ -675,7 +774,8 @@ class VisualizedResults {
 
   /// Helper method to extract polygons from various categories (e.g., native, lake, etc.)
   /// Nature Prevalence Test/Spatial Boundaries Test for Polygons
-  static List<List<LatLng>> _extractPolygonsFromData(dynamic data, String collectionName) {
+  static List<List<LatLng>> _extractPolygonsFromData(
+      dynamic data, String collectionName) {
     List<List<LatLng>> polygonData = [];
 
     if (data != null && data is List) {
@@ -683,40 +783,45 @@ class VisualizedResults {
         if (item['polygon'] != null && item['polygon'] is List) {
           polygonData.add(List<LatLng>.from(item['polygon'].map((point) {
             if (point is GeoPoint) {
-              return LatLng(point.latitude, point.longitude); // Convert to LatLng
+              return LatLng(
+                  point.latitude, point.longitude); // Convert to LatLng
             }
             return null;
           }).whereType<LatLng>()));
         }
       }
     }
-    
+
     return polygonData;
   }
 
   /// Identifying Access Test for Polygons
-  static List<List<LatLng>> _extractPolygonsFromDataIdentifyingAccessTests(dynamic data, String collectionName) {
+  static List<List<LatLng>> _extractPolygonsFromDataIdentifyingAccessTests(
+      dynamic data, String collectionName) {
     List<List<LatLng>> polygonData = [];
 
     if (data != null && data is List) {
       for (var item in data) {
-        if (item['polygonInfo']?['polygon'] != null && item['polygonInfo']?['polygon'] is List) {
-          polygonData.add(List<LatLng>.from(item['polygonInfo']?['polygon'].map((point) {
+        if (item['polygonInfo']?['polygon'] != null &&
+            item['polygonInfo']?['polygon'] is List) {
+          polygonData.add(
+              List<LatLng>.from(item['polygonInfo']?['polygon'].map((point) {
             if (point is GeoPoint) {
-              return LatLng(point.latitude, point.longitude); // Convert to LatLng
+              return LatLng(
+                  point.latitude, point.longitude); // Convert to LatLng
             }
             return null;
           }).whereType<LatLng>()));
         }
-        
       }
     }
-    
+
     return polygonData;
   }
 
   /// Generic parsing Polygon function
-  static Set<Polygon> _parsePolygons(List<dynamic> polygonData, String testID, String collectionName, String polygonColor) {
+  static Set<Polygon> _parsePolygons(List<dynamic> polygonData, String testID,
+      String collectionName, String polygonColor) {
     Set<Polygon> polygons = <Polygon>{};
 
     Color strokeColor = Color(0xFF000000);
@@ -771,11 +876,12 @@ class VisualizedResults {
           String randomId = Random().nextInt(1000000).toString();
 
           polygons.add(Polygon(
-            polygonId: PolygonId("polygon_${collectionName}_${testID}_${polygonColor}_${timestamp}_${randomId}_${polygons.length}"),
+            polygonId: PolygonId(
+                "polygon_${collectionName}_${testID}_${polygonColor}_${timestamp}_${randomId}_${polygons.length}"),
             points: item,
-            strokeColor: strokeColor, 
-            fillColor: fillColor, 
-            strokeWidth: 5,  // Set the stroke width (adjust as needed)
+            strokeColor: strokeColor,
+            fillColor: fillColor,
+            strokeWidth: 5, // Set the stroke width (adjust as needed)
           ));
         }
       }

@@ -77,7 +77,8 @@ class _HomePageBodyState extends State<HomePageBody> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred while retrieving your name: $e')),
+        SnackBar(
+            content: Text('An error occurred while retrieving your name: $e')),
       );
     }
   }
@@ -91,7 +92,8 @@ class _HomePageBodyState extends State<HomePageBody> {
   // Load the saved page on startup
   Future<void> _loadCurrentPage() async {
     final prefs = await SharedPreferences.getInstance();
-    String savedPage = prefs.getString('currentPage') ?? 'Home'; // Default to 'Home' if no page is saved
+    String savedPage = prefs.getString('currentPage') ??
+        'Home'; // Default to 'Home' if no page is saved
     setState(() {
       _currentPage = savedPage;
     });
@@ -144,7 +146,8 @@ class _HomePageBodyState extends State<HomePageBody> {
           TextButton.icon(
             onPressed: () => _updatePage("Settings"),
             icon: const Icon(Icons.settings, color: Colors.white),
-            label: const Text('Settings', style: TextStyle(color: Colors.white)),
+            label:
+                const Text('Settings', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -199,7 +202,8 @@ class _HomePageBodyState extends State<HomePageBody> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(top: 50), // Increased padding to avoid overlap
+                  padding: const EdgeInsets.only(
+                      top: 50), // Increased padding to avoid overlap
                   child: SizedBox(
                     width: double.infinity,
                     child: ShaderMask(
@@ -255,7 +259,8 @@ class _HomePageBodyState extends State<HomePageBody> {
                       top: 25,
                       bottom: 25,
                     ),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 15,
                       mainAxisSpacing: 25,
@@ -317,8 +322,10 @@ class _HomePageBodyState extends State<HomePageBody> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final maxWidth = constraints.maxWidth;
-            final double cardWidth = maxWidth > 800 ? 800 : maxWidth * 0.01; // Dynamically adjust card width
-            
+            final double cardWidth = maxWidth > 800
+                ? 800
+                : maxWidth * 0.01; // Dynamically adjust card width
+
             return Container(
               width: cardWidth,
               decoration: BoxDecoration(
@@ -403,9 +410,12 @@ class _HomePageBodyState extends State<HomePageBody> {
                             if (project.tests == null) {
                               await project.loadAllTestData();
                             }
+                            if (!context.mounted) return;
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => ResultsPage(activeProject: project)),
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      ResultsPage(activeProject: project)),
                             );
                           },
                           style: ElevatedButton.styleFrom(

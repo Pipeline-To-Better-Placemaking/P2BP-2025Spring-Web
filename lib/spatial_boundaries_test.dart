@@ -56,7 +56,7 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
   final List<LatLng> _polylinePoints = [];
   final Set<Marker> _polylineMarkers = {};
 
-  final SpatialBoundariesData _newData = SpatialBoundariesData();
+  final SpatialBoundariesData _newData = SpatialBoundariesData.empty();
   BoundaryType? _boundaryType;
   ConstructedBoundaryType? _constructedType;
   MaterialBoundaryType? _materialType;
@@ -164,29 +164,25 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
 
   /// Convert markers to polygon and save the data to be submitted later.
   void _finalizePolygon() {
-    Set<Polygon> tempPolygon;
+    Polygon tempPolygon;
     try {
       // Create polygon and add it to the visible set of polygons.
-      tempPolygon = finalizePolygon(_polygonPoints);
-      final colors = getPolygonColors(_boundaryType!);
-      Polygon coloredPolygon = Polygon(
-        polygonId: tempPolygon.first.polygonId,
-        points: tempPolygon.first.points,
-        strokeColor: colors['stroke']!,
-        fillColor: colors['fill']!,
-        strokeWidth: tempPolygon.first.strokeWidth,
+      tempPolygon = finalizePolygon(
+        _polygonPoints,
+        strokeColor: _boundaryType!.color,
       );
-      _polygons.add(coloredPolygon);
+
+      _polygons.add(tempPolygon);
 
       if (_boundaryType == BoundaryType.material && _materialType != null) {
         _newData.material.add(MaterialBoundary(
-          polygon: coloredPolygon,
+          polygon: tempPolygon,
           materialType: _materialType!,
         ));
       } else if (_boundaryType == BoundaryType.shelter &&
           _shelterType != null) {
         _newData.shelter.add(ShelterBoundary(
-          polygon: coloredPolygon,
+          polygon: tempPolygon,
           shelterType: _shelterType!,
         ));
       } else {
@@ -199,23 +195,6 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
     } catch (e, stacktrace) {
       print('Exception in _finalizePolygon(): $e');
       print('Stacktrace: $stacktrace');
-    }
-  }
-
-  /// Returns stroke and fill colors for a boundary polygon based on its type.
-  Map<String, Color> getPolygonColors(BoundaryType type) {
-    if (type == BoundaryType.material) {
-      return {
-        'stroke': Color(0xFF00897B),
-        'fill': Color(0xFF4DB6AC).withValues(alpha: 0.3),
-      };
-    } else if (type == BoundaryType.shelter) {
-      return {
-        'stroke': Color(0xFFF57C00),
-        'fill': Color(0xFFFFB74D).withValues(alpha: 0.3),
-      };
-    } else {
-      throw Exception('Unexpected boundary type');
     }
   }
 
@@ -245,55 +224,33 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
 
   /// Convert markers to polyline and save the data to be submitted later.
   void _finalizePolyline() {
-    Polyline? tempPolyline;
+    Polyline tempPolyline;
     try {
-      // Create polyline and add it to the visible set of polylines.
-      tempPolyline = createPolyline(
-        _polylinePoints,
-        ConstructedBoundary.polylineColor,
-      );
-      if (tempPolyline == null) {
-        throw Exception('Failed to create Polyline from given points.');
-      }
-
-      // Get the correct color for this boundary type
-      final polylineColor = getPolylineColor(_boundaryType!);
-
-      // Create a new polyline with the appropriate color
-      Polyline coloredPolyline = Polyline(
-        polylineId: tempPolyline.polylineId,
-        points: tempPolyline.points,
-        color: polylineColor,
-        width: tempPolyline.width,
-      );
-
-      _polylines.add(coloredPolyline);
-
-      if (_boundaryType == BoundaryType.constructed &&
-          _constructedType != null) {
-        _newData.constructed.add(ConstructedBoundary(
-          polyline: coloredPolyline,
-          constructedType: _constructedType!,
-        ));
-      } else {
+      if (_boundaryType != BoundaryType.constructed ||
+          _constructedType == null) {
         throw Exception('Invalid boundary type in _finalizePolyline(),'
             '_boundaryType = $_boundaryType');
       }
+
+      tempPolyline = Polyline(
+        polylineId: PolylineId(_polylinePoints.toString()),
+        points: _polylinePoints.toList(),
+        color: _boundaryType!.color,
+        width: 4,
+      );
+
+      _polylines.add(tempPolyline);
+
+      _newData.constructed.add(ConstructedBoundary(
+        polyline: tempPolyline,
+        constructedType: _constructedType!,
+      ));
 
       // Reset everything to be able to make new boundary.
       _resetPlacementVariables();
     } catch (e, stacktrace) {
       print('Exception in _finalizePolyline(): $e');
       print('Stacktrace: $stacktrace');
-    }
-  }
-
-  /// Returns stroke color for a boundary polyline based on its type.
-  Color getPolylineColor(BoundaryType type) {
-    if (type == BoundaryType.constructed) {
-      return Color(0xFFD81B60);
-    } else {
-      throw Exception('Unexpected boundary value');
     }
   }
 

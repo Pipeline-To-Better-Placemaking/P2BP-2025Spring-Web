@@ -40,7 +40,7 @@ class _LightingProfileTestPageState extends State<LightingProfileTestPage> {
   final Set<Marker> _markers = {};
   final Set<Polygon> _polygons = {};
 
-  final LightingProfileData _newData = LightingProfileData();
+  final LightingProfileData _newData = LightingProfileData.empty();
 
   Timer? _timer;
   Timer? _outsidePointTimer;
@@ -106,27 +106,16 @@ class _LightingProfileTestPageState extends State<LightingProfileTestPage> {
         });
       }
 
-      _newData.lights.add(Light(
-        point: point,
-        lightType: _selectedType!,
-      ));
-      final markerId = MarkerId(point.toString());
+      _newData.lights.add(Light.fromLatLng(point, _selectedType!));
+      final markerId = _newData.lights.last.marker.markerId;
       setState(() {
-        // Create marker
-        _markers.add(
-          Marker(
-            markerId: markerId,
-            position: point,
-            consumeTapEvents: true,
-            onTap: () {
-              // If the marker is tapped again, it will be removed
-              _newData.lights.removeWhere((light) => light.point == point);
-              setState(() {
-                _markers.removeWhere((marker) => marker.markerId == markerId);
-              });
-            },
-          ),
-        );
+        _markers.add(_newData.lights.last.marker.copyWith(onTapParam: () {
+          _newData.lights
+              .removeWhere((light) => light.marker.markerId == markerId);
+          setState(() {
+            _markers.removeWhere((marker) => marker.markerId == markerId);
+          });
+        }));
       });
     } catch (e, stacktrace) {
       print('Error in lighting_profile_test.dart, _togglePoint(): $e');
@@ -144,6 +133,7 @@ class _LightingProfileTestPageState extends State<LightingProfileTestPage> {
         if (_remainingSeconds <= 0) {
           _isTestRunning = false;
           timer.cancel();
+          _setLightType(null);
           showDialog(
             context: context,
             barrierDismissible: false,

@@ -15,25 +15,6 @@ const Color directionsTransparency = Color(0xDFDDE6F2);
 /// Default yellow color, used mainly for text on blue gradient background.
 const Color placeYellow = Color(0xFFFFD31F);
 
-/// Colors used for Vegetation in Nature Prevalence Test
-class VegetationColors {
-  static const Color nativeGreen = Color(0x6508AC12);
-  static const Color designGreen = Color(0x656DFD75);
-  static const Color openFieldGreen = Color(0x65C7FF80);
-  static const Color otherGreen = Color(0x6C00FF3C);
-}
-
-/// Colors used for Bodies of Water in Nature Prevalence Test
-class WaterBodyColors {
-  static const Color oceanBlue = Color(0x651020FF);
-  static const Color riverBlue = Color(0x656253EA);
-  static const Color lakeBlue = Color(0x652FB3DD);
-  static const Color swampBlue = Color(0x65009595);
-
-  /// Used if retrieval from class map is null (should only be used if error)
-  static const Color nullBlue = Color(0x934800FF);
-}
-
 /// Primary blue color used across the app
 final MaterialColor p2bpBlue = generateMaterialColor(const Color(0xFF2F6DCF));
 

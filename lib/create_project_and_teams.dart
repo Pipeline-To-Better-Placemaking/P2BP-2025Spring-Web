@@ -1,10 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'homepage.dart';
 import 'project_map_creation.dart';
 import 'teams_and_invites_page.dart';
 import 'firestore_functions.dart';
+import 'homepage.dart';
 import 'widgets.dart';
 import 'theme.dart';
 import 'db_schema_classes.dart';
@@ -19,9 +17,6 @@ class CreateProjectAndTeamsPage extends StatefulWidget {
   State<CreateProjectAndTeamsPage> createState() =>
       _CreateProjectAndTeamsPageState();
 }
-
-final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-User? loggedInUser = FirebaseAuth.instance.currentUser;
 
 class _CreateProjectAndTeamsPageState extends State<CreateProjectAndTeamsPage> {
   PageView page = PageView.project;
@@ -111,6 +106,7 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
   // TODO: add cover photo?
   String projectDescription = '';
   String projectTitle = '';
+  String projectAddress = '';
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -127,6 +123,7 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 25),
             child: Column(
+              spacing: 5,
               children: <Widget>[
                 Align(
                   alignment: Alignment.centerLeft,
@@ -140,7 +137,6 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 5),
                 PhotoUpload(
                   width: 380,
                   height: 130,
@@ -152,7 +148,7 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
                     return;
                   },
                 ),
-                const SizedBox(height: 15.0),
+                const SizedBox(height: 10.0),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -165,13 +161,12 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 5),
                 CreationTextBox(
                   maxLength: 60,
                   labelText: 'Project Name',
                   maxLines: 1,
                   minLines: 1,
-                  // Error mesasge field includes validation (3 characters min)
+                  // Error message field includes validation (3 characters min)
                   errorMessage:
                       'Project names must be at least 3 characters long.',
                   onChanged: (titleText) {
@@ -180,7 +175,6 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
                     });
                   },
                 ),
-                const SizedBox(height: 10.0),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -193,18 +187,58 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 5),
                 CreationTextBox(
                   maxLength: 240,
                   labelText: 'Project Description',
                   maxLines: 3,
                   minLines: 3,
-                  // Error mesasge field includes validation (3 characters min)
+                  // Error message field includes validation (3 characters min)
                   errorMessage:
                       'Project descriptions must be at least 3 characters long.',
                   onChanged: (descriptionText) {
                     setState(() {
                       projectDescription = descriptionText;
+                    });
+                  },
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    spacing: 5,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Project Address',
+                        textAlign: TextAlign.left,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16.0,
+                          color: Colors.blue[900],
+                        ),
+                      ),
+                      Tooltip(
+                        triggerMode: TooltipTriggerMode.tap,
+                        enableTapToDismiss: true,
+                        showDuration: Duration(seconds: 3),
+                        preferBelow: false,
+                        message:
+                            'Enter a central address for the designated project location. \nIf no such address exists, give an approximate location.',
+                        child:
+                            Icon(Icons.help, size: 18, color: Colors.blue[900]),
+                      ),
+                    ],
+                  ),
+                ),
+                CreationTextBox(
+                  maxLength: 120,
+                  labelText: 'Project Address',
+                  maxLines: 2,
+                  minLines: 2,
+                  errorMessage:
+                      'Project address must be at least 3 characters long.',
+                  onChanged: (addressText) {
+                    setState(() {
+                      projectAddress = addressText;
                     });
                   },
                 ),
@@ -217,18 +251,20 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
                     backgroundColor: const Color(0xFF4871AE),
                     icon: const Icon(Icons.chevron_right),
                     onPressed: () async {
-                      if (await getCurrentTeam() == null){
-                        // TODO: Display error for creating project before team
+                      if (await getCurrentTeam() == null) {
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                               content: Text(
                                   'You are not in a team! Join a team first.')),
                         );
-                      }
-                      else if (_formKey.currentState!.validate()) {
+                      } else if (_formKey.currentState!.validate()) {
                         Project partialProject = Project.partialProject(
-                            title: projectTitle,
-                            description: projectDescription);
+                          title: projectTitle,
+                          description: projectDescription,
+                          address: projectAddress,
+                        );
+                        if (!context.mounted) return;
                         Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -237,7 +273,7 @@ class _CreateProjectWidgetState extends State<CreateProjectWidget> {
                       } // function
                     },
                   ),
-                )
+                ),
               ],
             ),
           ),
@@ -294,7 +330,7 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
 
       _isLoading = false;
     });
-    print('membersList: $membersList');
+
     return membersList.isNotEmpty ? membersList : [];
   }
 
@@ -407,7 +443,7 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
                   labelText: 'Team Name',
                   maxLines: 1,
                   minLines: 1,
-                  // Error mesasge field includes validation (3 characters min)
+                  // Error message field includes validation (3 characters min)
                   errorMessage:
                       'Team names must be at least 3 characters long.',
                   onChanged: (teamText) {
@@ -443,7 +479,6 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
                         itemCount = 0;
                       }
                     });
-                    print('Members text field: $memberText');
                   },
                 ),
                 const SizedBox(height: 10.0),
@@ -483,11 +518,12 @@ class _CreateTeamWidgetState extends State<CreateTeamWidget> {
                     icon: const Icon(Icons.chevron_right),
                     onPressed: () async {
                       if (_formKey.currentState!.validate()) {
-                        // TODO: If the form is valid, display a snackbar, await database
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Processing Data')),
+                          const SnackBar(content: Text('Saving data...')),
                         );
-                        await saveTeam(membersList: invitedMembers, teamName: teamName);
+                        await saveTeam(
+                            membersList: invitedMembers, teamName: teamName);
+                        if (!context.mounted) return;
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(

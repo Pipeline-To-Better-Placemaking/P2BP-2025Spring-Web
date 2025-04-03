@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:p2b/pdf_output.dart';
 import 'results_map_data.dart';
 import 'db_schema_classes.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart' show Factory;
 import 'package:intl/intl.dart';
+import 'dart:convert';
 
 class ResultsPage extends StatefulWidget {
-  final Project projectData;
+  final Project activeProject;
 
-  const ResultsPage({Key? key, required this.projectData}) : super(key: key);
+  const ResultsPage({Key? key, required this.activeProject}) : super(key: key);
 
   @override
   _ResultsPageState createState() => _ResultsPageState();
+  
 }
 
 class _ResultsPageState extends State<ResultsPage> {
@@ -30,11 +33,39 @@ class _ResultsPageState extends State<ResultsPage> {
   // New property to store the project polygon
   Polygon? _projectPolygon;
 
+  late Project visualized;
+
+  // A method to create a deep copy of the Project
+  Project _deepCopyProject(Project originalProject) {
+    Project copiedProject = Project(
+      creationTime: originalProject.creationTime,
+      teamRef: originalProject.teamRef,
+      projectAdmin: originalProject.projectAdmin,
+      projectID: originalProject.projectID,
+      title: originalProject.title,
+      description: originalProject.description,
+      address: originalProject.address,
+      polygonPoints: List.from(originalProject.polygonPoints), // Deep copy for list
+      polygonArea: originalProject.polygonArea,
+      standingPoints: List.from(originalProject.standingPoints), // Deep copy for list
+      testRefs: List.from(originalProject.testRefs), // Deep copy for list
+      tests: originalProject.tests!.toList(),
+    );
+
+    // Print the copied project data
+    print('Deep Copied Project: ${copiedProject.title}');
+    print('Copied Polygon Points: ${copiedProject.polygonPoints}');
+    print('Copied Tests: ${copiedProject.tests}');
+
+    return copiedProject;
+  }
+
   @override
   void initState() {
     super.initState();
     _loadTestData();
     _loadProjectPolygon(); // Load the project polygon
+    visualized = _deepCopyProject(widget.activeProject);
   }
 
   /// **Fetch test data from Firestore**
@@ -42,7 +73,7 @@ class _ResultsPageState extends State<ResultsPage> {
     try {
       List<VisualizedResults> testData = [];
 
-      for (var testReference in widget.projectData.testRefs) {
+      for (var testReference in widget.activeProject.testRefs) {
         DocumentSnapshot testDoc = await testReference.get(); 
         Map<String, dynamic> data = testDoc.data() as Map<String, dynamic>;
 
@@ -71,12 +102,12 @@ class _ResultsPageState extends State<ResultsPage> {
   void _loadProjectPolygon() {
 
     // Use the polygonPoints from your project data
-    List<LatLng> polygonPoints = List<LatLng>.from(widget.projectData.polygonPoints);
+    List<LatLng> polygonPoints = List<LatLng>.from(widget.activeProject.polygonPoints);
 
     setState(() {
       // Create the polygon using the points
       _projectPolygon = Polygon(
-        polygonId: PolygonId(widget.projectData.projectID),
+        polygonId: PolygonId(widget.activeProject.projectID),
         points: polygonPoints,
         strokeColor: Colors.red,
         strokeWidth: 2,
@@ -187,6 +218,43 @@ class _ResultsPageState extends State<ResultsPage> {
     });
   }
 
+  List<Test> getVisibleTests() {
+    return visualized.tests
+            ?.where((test) => _testVisibility[test.testID] == true)
+            .toList() ??
+        [];
+  }
+
+void toggleTest(Test test, bool isChecked) {
+  setState(() {
+    if (isChecked) {
+      // Print to check if we're adding the test back
+      if (!visualized.tests!.contains(test)) {
+        visualized.tests?.add(test);
+        //("Added test with ID: ${test.testID} back to activeProject.tests.");
+      } else {
+        //print("Test with ID: ${test.testID} was already present.");
+      }
+    } else {
+      // Print to check if we're removing the test
+      visualized.tests?.remove(test);
+      //print("Removed test with ID: ${test.testID} from activeProject.tests.");
+    }
+  });
+}
+
+  void filterToggledOnTests() {
+  // Filter the tests based on their visibility toggle state
+  //print("Before filtering, activeProject.tests: ${visualized.tests}\n\n\n");
+  visualized.tests = visualized.tests?.where((test) {
+    bool isVisible = _testVisibility[test.testID] ?? false;
+    //print("Checking test ID: ${test.testID}, isVisible: $isVisible\n");
+    return _testVisibility[test.testID] == true;
+  }).toList();
+
+   //print("\n\n\nAfter filtering, activeProject.tests: ${visualized.tests}");
+}
+
   LatLng _getPolygonCenter(List<LatLng> polygonPoints) {
     double sumLat = 0;
     double sumLng = 0;
@@ -201,11 +269,13 @@ class _ResultsPageState extends State<ResultsPage> {
 
   @override
   Widget build(BuildContext context) {
+    //print("1: ${visualized.tests}");
+    //print("2: ${widget.activeProject.tests}");
     // Calculate the center of the polygon
-    LatLng polygonCenter = _getPolygonCenter(widget.projectData.polygonPoints);
+    LatLng polygonCenter = _getPolygonCenter(widget.activeProject.polygonPoints);
 
     // Calculate the zoom level dynamically based on the polygon's size
-    double zoomLevel = _calculateZoomLevel(widget.projectData.polygonPoints);
+    double zoomLevel = _calculateZoomLevel(widget.activeProject.polygonPoints);
 
     // Create a Set for the project polygon to ensure it's always displayed
     if (_projectPolygon != null) {
@@ -269,25 +339,29 @@ class _ResultsPageState extends State<ResultsPage> {
                 ),
               ),
             ),
-            if (_testData.isEmpty)
-              Center(child: CircularProgressIndicator()) // Show a loading indicator
-            else
-              ...categorizedTests.entries.map((entry) => ExpansionTile(
-                    title: Text(entry.key, style: TextStyle(fontWeight: FontWeight.bold)),
-                    tilePadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 8.0), // Optional padding for ExpansionTile
-                    expandedAlignment: Alignment.topLeft,
-                    children: entry.value.map((test) => ListTile(
-                      title: Text(test.testName),
-                      subtitle: Text(
-                        "Scheduled: ${DateFormat('hh:mm a, MMMM d, yyyy').format(test.scheduledTime)}",
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      trailing: Switch(
-                        value: _testVisibility[test.testID] ?? false,
-                        onChanged: (value) => _toggleTestVisibility(test.testID, value),
-                      ),
-                    )).toList(), // Align children when expanded
-                  )),
+if (_testData.isEmpty)
+  Center(child: CircularProgressIndicator()) // Show a loading indicator
+else
+  ...categorizedTests.entries.map((entry) => ExpansionTile(
+        title: Text(entry.key, style: TextStyle(fontWeight: FontWeight.bold)),
+        tilePadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 8.0), // Optional padding for ExpansionTile
+        expandedAlignment: Alignment.topLeft,
+        children: entry.value.map((test) {
+
+          return ListTile(
+            title: Text(test.testName),
+            subtitle: Text(
+              "Scheduled: ${DateFormat('hh:mm a, MMMM d, yyyy').format(test.scheduledTime)}",
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            trailing: Switch(
+              value: _testVisibility[test.testID] ?? false,
+              onChanged: (value) => _toggleTestVisibility(test.testID, value),
+            ),
+          );
+        }).toList(), // Align children when expanded
+      )),
+
           ],
         ),
       ),
@@ -327,16 +401,42 @@ class _ResultsPageState extends State<ResultsPage> {
                     Factory<VerticalDragGestureRecognizer>(() => VerticalDragGestureRecognizer()), // Prevents scrolling
                   }.toSet(), // Enable gestures when drawer is closed
           ),
+          // Button to go back
           Positioned(
             bottom: 40.0,
             left: 10.0,
             child: FloatingActionButton(
               heroTag: null,
               onPressed: () {
+                //print('Before navigating back, activeProject.tests: ${widget.activeProject.tests}\n');
+                //print('Before navigating back, visualized.tests: ${visualized.tests}\n');
                 Navigator.of(context).pop();
+                //print('After navigating back, activeProject.tests: ${widget.activeProject.tests}\n');
+                //print('Before navigating back, visualized.tests: ${visualized.tests}\n');
               },
               backgroundColor: Colors.black,
               child: Icon(Icons.arrow_back, color: Colors.white, size: 48), // Increased size for better visibility
+            ),
+          ),
+
+          // Button to go to the PDF output page
+          Positioned(
+            bottom: 40.0,
+            right: 10.0, // Place it on the right side
+            child: FloatingActionButton(
+              heroTag: null,
+              onPressed: () {
+                filterToggledOnTests();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PdfReportPage(activeProject: visualized,
+                    ),
+                  ),
+                );
+              },
+              backgroundColor: Colors.red, // Change color for differentiation
+              child: Icon(Icons.picture_as_pdf, color: Colors.white, size: 48), // PDF icon
             ),
           ),
         ],

@@ -43,7 +43,7 @@ class _PeopleInPlaceTestPageState extends State<PeopleInPlaceTestPage> {
   final List<LatLng> _loggedPoints = [];
   final Set<Marker> _standingPointMarkers = {};
 
-  final PeopleInPlaceData _newData = PeopleInPlaceData();
+  final PeopleInPlaceData _newData = PeopleInPlaceData.empty();
 
   int _remainingSeconds = -1;
   Timer? _timer;
@@ -185,44 +185,37 @@ class _PeopleInPlaceTestPageState extends State<PeopleInPlaceTestPage> {
     }
 
     final MarkerId markerId = MarkerId(point.toString());
-    AssetMapBitmap markerIcon =
-        peopleInPlaceIconMap[(person.posture, person.gender)]!;
 
     // Add this data point to set of visible markers and other data lists.
     setState(() {
-      _markers.add(
-        Marker(
-          markerId: markerId,
-          position: point,
-          icon: markerIcon,
-          infoWindow: InfoWindow(
-              title: 'Age: ${person.ageRange.displayName}', // for example
-              snippet: 'Gender: ${person.gender.displayName}\n'
-                  'Activities: ${[
-                for (final activity in person.activities) activity.displayName
-              ]}\n'
-                  'Posture: ${person.posture.displayName}'),
-          onTap: () {
-            // Use a short delay to ensure the marker is rendered,
-            // then show its info window using the same markerId.
-            if (_openMarkerId == markerId) {
-              mapController.hideMarkerInfoWindow(markerId);
+      _markers.add(person.marker.copyWith(
+        infoWindowParam: InfoWindow(
+            title: 'Age: ${person.ageRange.displayName}',
+            snippet: 'Gender: ${person.gender.displayName}\n'
+                'Activities: ${[
+              for (final activity in person.activities) activity.displayName
+            ]}\n'
+                'Posture: ${person.posture.displayName}'),
+        onTapParam: () {
+          // Use a short delay to ensure the marker is rendered,
+          // then show its info window using the same markerId.
+          if (_openMarkerId == markerId) {
+            mapController.hideMarkerInfoWindow(markerId);
+            setState(() {
+              _openMarkerId = null;
+            });
+          } else {
+            Future.delayed(Duration(milliseconds: 300), () {
+              mapController.showMarkerInfoWindow(markerId);
               setState(() {
-                _openMarkerId = null;
+                _openMarkerId = markerId;
               });
-            } else {
-              Future.delayed(Duration(milliseconds: 300), () {
-                mapController.showMarkerInfoWindow(markerId);
-                setState(() {
-                  _openMarkerId = markerId;
-                });
-              });
-            }
-          },
-        ),
-      );
+            });
+          }
+        },
+      ));
 
-      _loggedPoints.add(person.location);
+      _loggedPoints.add(person.marker.position);
       _newData.persons.add(person);
     });
 
@@ -446,8 +439,8 @@ class _PeopleInPlaceTestPageState extends State<PeopleInPlaceTestPage> {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           subtitle: Text(
-            '${person.location.latitude.toStringAsFixed(4)}, '
-            '${person.location.longitude.toStringAsFixed(4)}',
+            '${person.marker.position.latitude.toStringAsFixed(4)}, '
+            '${person.marker.position.longitude.toStringAsFixed(4)}',
             textAlign: TextAlign.left,
           ),
           trailing: IconButton(
@@ -456,13 +449,14 @@ class _PeopleInPlaceTestPageState extends State<PeopleInPlaceTestPage> {
             onPressed: () {
               setState(() {
                 // Construct the markerId the same way it was created.
-                final markerId = MarkerId(person.location.toString());
+                final markerId = MarkerId(person.marker.position.toString());
                 // Remove the marker from the markers set.
                 _markers.removeWhere((marker) => marker.markerId == markerId);
                 // Remove the point from data.
                 _newData.persons.removeAt(index);
                 // Remove the point from the list.
-                _loggedPoints.removeWhere((point) => point == person.location);
+                _loggedPoints
+                    .removeWhere((point) => point == person.marker.position);
               });
             },
           ),
@@ -486,8 +480,8 @@ class _DescriptionFormState extends State<_DescriptionForm> {
 
   int? _selectedAgeRange;
   int? _selectedGender;
-  final List<bool> _selectedActivities = List.of(
-      [for (final _ in ActivityTypeInPlace.values) false],
+  final List<bool> _selectedActivities = List.generate(
+      ActivityTypeInPlace.values.length, (index) => false,
       growable: false);
   int? _selectedPosture;
 
@@ -503,7 +497,7 @@ class _DescriptionFormState extends State<_DescriptionForm> {
       }
     }
 
-    person = PersonInPlace(
+    person = PersonInPlace.fromLatLng(
       location: widget.location,
       ageRange: AgeRangeType.values[_selectedAgeRange!],
       gender: GenderType.values[_selectedGender!],

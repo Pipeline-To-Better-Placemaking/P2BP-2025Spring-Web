@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:p2b/db_schema_classes.dart';
+import 'package:p2b/firestore_functions.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -325,39 +326,45 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
         );
         pdfPage = (pmData);
       }
-    //   case 'acoustic_profile_tests':
-    //     {
-    //       AcousticProfileData data = (test as AcousticProfileTest).data;
-    //       PDFData apData;
-    //       String standingPointTitle = '';
-    //       Map<String, double> dataMap = {};
-    //       double sum = 0;
-    //
-    //       for (final dataPoint in data.dataPoints) {
-    //         standingPointTitle = dataPoint.standingPoint.title;
-    //         for (final measurement in dataPoint.measurements) {
-    //           sum += measurement.decibels;
-    //         }
-    //         dataMap.putIfAbsent(
-    //             standingPointTitle, () => (sum / test.intervalCount));
-    //         sum = 0;
-    //       }
-    //       apData = PDFData(
-    //         barGraphData: [
-    //           BarGraphData(
-    //               color: PdfColors.cyan,
-    //               dataMap: dataMap,
-    //               graphTitle: 'Decibels by Standing Point',
-    //               yAxisLabel: 'Decibels'),
-    //         ],
-    //         pieGraphData: [],
-    //         displayName: AcousticProfileTest.displayName,
-    //         date: DateFormat.yMMMd().format(test.scheduledTime.toDate()),
-    //         time: DateFormat.jmv().format(test.scheduledTime.toDate()),
-    //         testTitle: test.title,
-    //       );
-    //       pdfPage = (apData);
-    //     }
+    case 'acoustic_profile_tests':
+      {
+        AcousticProfileData data = (test as AcousticProfileTest).data;
+        PDFData apData;
+        String standingPointTitle = '';
+        Map<String, double> dataMap = {};
+        double sum = 0;
+
+        for (final dataPoint in data.dataPoints) {
+          standingPointTitle = dataPoint.standingPoint.title;
+          for (final measurement in dataPoint.measurements) {
+            sum += measurement.decibels;
+          }
+          dataMap.putIfAbsent(standingPointTitle,
+              () => (sum / (test.intervalCount).toDouble()));
+          sum = 0;
+        }
+
+        if (dataMap.values.length < 2) {
+          dataMap.putIfAbsent('', () => 0);
+        }
+
+        apData = PDFData(
+          barGraphData: [
+            BarGraphData(
+              color: PdfColors.cyan,
+              dataMap: dataMap,
+              graphTitle: 'Decibels by Standing Point',
+              yAxisLabel: 'Decibels',
+            ),
+          ],
+          pieGraphData: [],
+          displayName: AcousticProfileTest.displayName,
+          date: DateFormat.yMMMd().format(test.scheduledTime.toDate()),
+          time: DateFormat.jmv().format(test.scheduledTime.toDate()),
+          testTitle: test.title,
+        );
+        pdfPage = (apData);
+      }
     case 'spatial_boundaries_tests':
       {
         PDFData sbData;
@@ -530,6 +537,8 @@ Future<Uint8List> generateReport(
   List<pw.Widget> widgets = [];
   List<Test> rawTests = [];
   PDFData? pdfData;
+  List<Member> contributors;
+  List<String> contributorsNames = [];
   // Load images data before building the PDF, but was not implemented
   // final imageData = await _loadImage(data.mapImagePath);
   const baseColor = PdfColors.black;
@@ -544,6 +553,10 @@ Future<Uint8List> generateReport(
     bold: await PdfGoogleFonts.openSansBold(),
   );
 
+  contributors = await getTeamMembers(activeProject.teamRef!.id);
+  for (Member contributor in contributors) {
+    contributorsNames.add(contributor.fullName);
+  }
   // First Page
   document.addPage(
     pw.Page(
@@ -584,19 +597,22 @@ Future<Uint8List> generateReport(
                   decoration: pw.TextDecoration.underline, fontSize: 16),
             ),
             pw.Text("${activeProject.polygonArea.toStringAsFixed(3)} sq. ft."),
-            pw.SizedBox(height: 20),
-            pw.Row(
-              children: [
-                pw.Expanded(
-                  // Contributor Loop should either be a manual entry by the user on 'who to thank'
-                  // https://davbfr.github.io/dart_pdf/ -> certificate for an example
-                  // Or Pull data from Team, to list all the people on the team who contributed.
-                  child: pw.Text(
-                      'Contributors:\n ${activeProject} \n\nSponsor: UCF Professor Herbert Tommy James',
-                      textAlign: pw.TextAlign.center),
-                ),
-              ],
+            pw.SizedBox(height: 10),
+            pw.Text(
+              'Contributors: ',
+              style: pw.TextStyle(
+                  decoration: pw.TextDecoration.underline, fontSize: 16),
+              textAlign: pw.TextAlign.center,
             ),
+            pw.Text('${contributorsNames.join(', ')}'),
+            pw.SizedBox(height: 10),
+            pw.Text(
+              'Sponsor: ',
+              style: pw.TextStyle(
+                  decoration: pw.TextDecoration.underline, fontSize: 16),
+              textAlign: pw.TextAlign.center,
+            ),
+            pw.Text('UCF Professor Herbert Tommy James'),
           ],
         );
       },
@@ -704,13 +720,13 @@ pw.Widget _generateBarGraph(BarGraphData barGraphData) {
   // Process data
   List<double> dataSet = barGraphData.values;
   // Top bar chart
+  print("${barGraphData.values} ${barGraphData.labels}");
   return pw.Chart(
     left: pw.Container(
       alignment: pw.Alignment.center,
       margin: const pw.EdgeInsets.only(right: 5),
       child: pw.Transform.rotateBox(
         angle: pi / 2,
-        // TODO: dynamic label?
         child: pw.Text(barGraphData.yAxisLabel),
       ),
     ),

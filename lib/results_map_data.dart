@@ -196,20 +196,21 @@ class VisualizedResults {
           testID, collectionName, "walking");
       polylinesWithColor
           .addAll(_parsePolylines(fetchedPolylines, collectionName, "walking"));
-    }
-    else if (collectionName == "section_cutter_tests") {
-      fetchedPolylines = await loadPathsFromFirebaseSectionCutterTests(
-          testID, collectionName);
-      polylinesWithColor.addAll(
-          _parsePolylines(fetchedPolylines, collectionName, "section"));
+    } else if (collectionName == "section_cutter_tests") {
+      fetchedPolylines =
+          await loadPathsFromFirebaseSectionCutterTests(testID, collectionName);
+      polylinesWithColor
+          .addAll(_parsePolylines(fetchedPolylines, collectionName, "section"));
     }
 
     /// Fetching markers with its own unique icons on the map being displayed
     /// Absence of Order Test
     if (collectionName == "absence_of_order_tests") {
+      print("Absence");
+
       /// Extracting behaviorPoints
       markerIcons.addAll(_parseMarkers([
-        ...(data['data']?['behaviorPoints'] as List<dynamic>? ?? [])
+        ...(data['data']?['behavior'] as List<dynamic>? ?? [])
             .map((behaviorPoint) {
           var location = behaviorPoint?['location'];
           if (location != null) {
@@ -221,7 +222,7 @@ class VisualizedResults {
 
       /// Extracting maintenancePoints
       markerIcons.addAll(_parseMarkers([
-        ...(data['data']?['maintenancePoints'] as List<dynamic>? ?? [])
+        ...(data['data']?['maintenance'] as List<dynamic>? ?? [])
             .map((maintenancePoint) {
           var location = maintenancePoint?['location'];
           if (location != null) {
@@ -781,10 +782,9 @@ class VisualizedResults {
 
   /// Section Cutter Test
   /// For getting the section line
-  static Future<List<Map<String, dynamic>>> 
+  static Future<List<Map<String, dynamic>>>
       loadPathsFromFirebaseSectionCutterTests(
           String testID, String collectionName) async {
-
     List<Map<String, dynamic>> polylinesData = [];
 
     try {
@@ -799,7 +799,8 @@ class VisualizedResults {
         return polylinesData; // Return empty list if no document is found
       }
 
-      Map<String, dynamic> polylineData = snapshot.data() as Map<String, dynamic>;
+      Map<String, dynamic> polylineData =
+          snapshot.data() as Map<String, dynamic>;
 
       // Extract linePoints (which is now a simple list of GeoPoints)
       var linePoints = polylineData['linePoints'];

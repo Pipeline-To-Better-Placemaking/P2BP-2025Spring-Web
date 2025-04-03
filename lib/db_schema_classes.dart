@@ -5,15 +5,15 @@ import 'package:file_selector/file_selector.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'absence_of_order_test.dart';
-import 'acoustic_profile_test.dart';
-import 'assets.dart';
-import 'google_maps_functions.dart';
-import 'lighting_profile_test.dart';
-import 'people_in_motion_test.dart';
-import 'people_in_place_test.dart';
-import 'section_cutter_test.dart';
-import 'spatial_boundaries_test.dart';
+import 'package:p2b/absence_of_order_test.dart';
+import 'package:p2b/acoustic_profile_test.dart';
+import 'package:p2b/assets.dart';
+import 'package:p2b/google_maps_functions.dart';
+import 'package:p2b/lighting_profile_test.dart';
+import 'package:p2b/people_in_motion_test.dart';
+import 'package:p2b/people_in_place_test.dart';
+import 'package:p2b/section_cutter_test.dart';
+import 'package:p2b/spatial_boundaries_test.dart';
 
 import 'firestore_functions.dart';
 import 'identifying_access_test.dart';
@@ -37,8 +37,8 @@ class Team {
   String teamID = '';
   String title = '';
   List teamMembers = [];
-  List projects = [];
-  int numProjects = 0;
+  List<DocumentReference> projects = [];
+  int numProjects = 0; // this has no reason to exist imo
 
   Team({
     required this.teamID,

@@ -394,7 +394,7 @@ class _ResultsPageState extends State<ResultsPage> {
           ),
           // Button to go back
           Positioned(
-            bottom: 40.0,
+            bottom: 50.0,
             left: 10.0,
             child: FloatingActionButton(
               heroTag: null,
@@ -410,8 +410,8 @@ class _ResultsPageState extends State<ResultsPage> {
 
           // Button to go to the PDF output page
           Positioned(
-            bottom: 40.0,
-            right: 10.0, // Place it on the right side
+            bottom: 120.0,
+            left: 10.0, // Place it on the right side
             child: FloatingActionButton(
               heroTag: null,
               onPressed: () {

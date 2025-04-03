@@ -1,22 +1,21 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show Factory;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:p2b/pdf_output.dart';
-import 'results_map_data.dart';
-import 'db_schema_classes.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/foundation.dart' show Factory;
 import 'package:intl/intl.dart';
-import 'dart:convert';
+import 'package:p2b/pdf_output.dart';
+
+import 'db_schema_classes.dart';
+import 'results_map_data.dart';
 
 class ResultsPage extends StatefulWidget {
   final Project activeProject;
 
-  const ResultsPage({Key? key, required this.activeProject}) : super(key: key);
+  const ResultsPage({super.key, required this.activeProject});
 
   @override
-  _ResultsPageState createState() => _ResultsPageState();
-  
+  State<ResultsPage> createState() => _ResultsPageState();
 }
 
 class _ResultsPageState extends State<ResultsPage> {
@@ -45,10 +44,10 @@ class _ResultsPageState extends State<ResultsPage> {
       title: originalProject.title,
       description: originalProject.description,
       address: originalProject.address,
-      polygonPoints: List.from(originalProject.polygonPoints), // Deep copy for list
+      polygonPoints: originalProject.polygonPoints.toList(),
       polygonArea: originalProject.polygonArea,
-      standingPoints: List.from(originalProject.standingPoints), // Deep copy for list
-      testRefs: List.from(originalProject.testRefs), // Deep copy for list
+      standingPoints: originalProject.standingPoints.toList(),
+      testRefs: originalProject.testRefs.toList(),
       tests: originalProject.tests!.toList(),
     );
 
@@ -74,7 +73,7 @@ class _ResultsPageState extends State<ResultsPage> {
       List<VisualizedResults> testData = [];
 
       for (var testReference in widget.activeProject.testRefs) {
-        DocumentSnapshot testDoc = await testReference.get(); 
+        DocumentSnapshot testDoc = await testReference.get();
         Map<String, dynamic> data = testDoc.data() as Map<String, dynamic>;
 
         VisualizedResults test = await VisualizedResults.fromFirebase(
@@ -87,7 +86,7 @@ class _ResultsPageState extends State<ResultsPage> {
 
       setState(() {
         _testData = testData;
-        _testVisibility = {for (var test in _testData) test.testID: false}; 
+        _testVisibility = {for (var test in _testData) test.testID: false};
         _isLoading = false;
       });
     } catch (e) {
@@ -100,9 +99,9 @@ class _ResultsPageState extends State<ResultsPage> {
 
   /// **Load the project polygon and center map**
   void _loadProjectPolygon() {
-
     // Use the polygonPoints from your project data
-    List<LatLng> polygonPoints = List<LatLng>.from(widget.activeProject.polygonPoints);
+    List<LatLng> polygonPoints =
+        List<LatLng>.from(widget.activeProject.polygonPoints);
 
     setState(() {
       // Create the polygon using the points
@@ -149,16 +148,15 @@ class _ResultsPageState extends State<ResultsPage> {
       )),
     );
   }
-  
+
   /// **Calculate a zoom level based on the size of the polygon**
   /// Function to calculate the zoom level dynamically
   double _calculateZoomLevel(List<LatLng> polygonPoints) {
-
     // Calculate polygon area using the Shoelace formula
     double area = _calculatePolygonArea(polygonPoints);
 
     // Adjust zoom level based on area size
-    if (area < 0.00001) { 
+    if (area < 0.00001) {
       return 17.0; // Super close zoom for tiny polygons
     } else if (area < 0.0001) {
       return 16.0; // Small polygons
@@ -178,8 +176,8 @@ class _ResultsPageState extends State<ResultsPage> {
     int j = points.length - 1; // Last point index
 
     for (int i = 0; i < points.length; i++) {
-      area += (points[j].longitude + points[i].longitude) * 
-              (points[j].latitude - points[i].latitude);
+      area += (points[j].longitude + points[i].longitude) *
+          (points[j].latitude - points[i].latitude);
       j = i; // Move to the next vertex
     }
 
@@ -225,35 +223,35 @@ class _ResultsPageState extends State<ResultsPage> {
         [];
   }
 
-void toggleTest(Test test, bool isChecked) {
-  setState(() {
-    if (isChecked) {
-      // Print to check if we're adding the test back
-      if (!visualized.tests!.contains(test)) {
-        visualized.tests?.add(test);
-        //("Added test with ID: ${test.testID} back to activeProject.tests.");
+  void toggleTest(Test test, bool isChecked) {
+    setState(() {
+      if (isChecked) {
+        // Print to check if we're adding the test back
+        if (!visualized.tests!.contains(test)) {
+          visualized.tests?.add(test);
+          //("Added test with ID: ${test.testID} back to activeProject.tests.");
+        } else {
+          //print("Test with ID: ${test.testID} was already present.");
+        }
       } else {
-        //print("Test with ID: ${test.testID} was already present.");
+        // Print to check if we're removing the test
+        visualized.tests?.remove(test);
+        //print("Removed test with ID: ${test.testID} from activeProject.tests.");
       }
-    } else {
-      // Print to check if we're removing the test
-      visualized.tests?.remove(test);
-      //print("Removed test with ID: ${test.testID} from activeProject.tests.");
-    }
-  });
-}
+    });
+  }
 
   void filterToggledOnTests() {
-  // Filter the tests based on their visibility toggle state
-  //print("Before filtering, activeProject.tests: ${visualized.tests}\n\n\n");
-  visualized.tests = visualized.tests?.where((test) {
-    bool isVisible = _testVisibility[test.testID] ?? false;
-    //print("Checking test ID: ${test.testID}, isVisible: $isVisible\n");
-    return _testVisibility[test.testID] == true;
-  }).toList();
+    // Filter the tests based on their visibility toggle state
+    //print("Before filtering, activeProject.tests: ${visualized.tests}\n\n\n");
+    visualized.tests = visualized.tests?.where((test) {
+      bool isVisible = _testVisibility[test.testID] ?? false;
+      print("Checking test ID: ${test.testID}, isVisible: $isVisible\n");
+      return _testVisibility[test.testID] == true;
+    }).toList();
 
-   //print("\n\n\nAfter filtering, activeProject.tests: ${visualized.tests}");
-}
+    //print("\n\n\nAfter filtering, activeProject.tests: ${visualized.tests}");
+  }
 
   LatLng _getPolygonCenter(List<LatLng> polygonPoints) {
     double sumLat = 0;
@@ -272,7 +270,8 @@ void toggleTest(Test test, bool isChecked) {
     //print("1: ${visualized.tests}");
     //print("2: ${widget.activeProject.tests}");
     // Calculate the center of the polygon
-    LatLng polygonCenter = _getPolygonCenter(widget.activeProject.polygonPoints);
+    LatLng polygonCenter =
+        _getPolygonCenter(widget.activeProject.polygonPoints);
 
     // Calculate the zoom level dynamically based on the polygon's size
     double zoomLevel = _calculateZoomLevel(widget.activeProject.polygonPoints);
@@ -295,7 +294,9 @@ void toggleTest(Test test, bool isChecked) {
     };
 
     // Categorize tests based on their testName
-    for (var test in _testData.where((test) => test.isComplete && !test.collectionID.startsWith("section_cutter_tests/"))) {
+    for (var test in _testData.where((test) =>
+        test.isComplete &&
+        !test.collectionID.startsWith("section_cutter_tests/"))) {
       if (test.collectionID.startsWith("absence_of_order_tests")) {
         categorizedTests["Absence of Order"]!.add(test);
       } else if (test.collectionID.startsWith("acoustic_profile_tests")) {
@@ -339,29 +340,33 @@ void toggleTest(Test test, bool isChecked) {
                 ),
               ),
             ),
-if (_testData.isEmpty)
-  Center(child: CircularProgressIndicator()) // Show a loading indicator
-else
-  ...categorizedTests.entries.map((entry) => ExpansionTile(
-        title: Text(entry.key, style: TextStyle(fontWeight: FontWeight.bold)),
-        tilePadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 8.0), // Optional padding for ExpansionTile
-        expandedAlignment: Alignment.topLeft,
-        children: entry.value.map((test) {
-
-          return ListTile(
-            title: Text(test.testName),
-            subtitle: Text(
-              "Scheduled: ${DateFormat('hh:mm a, MMMM d, yyyy').format(test.scheduledTime)}",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            trailing: Switch(
-              value: _testVisibility[test.testID] ?? false,
-              onChanged: (value) => _toggleTestVisibility(test.testID, value),
-            ),
-          );
-        }).toList(), // Align children when expanded
-      )),
-
+            if (_testData.isEmpty)
+              Center(
+                  child:
+                      CircularProgressIndicator()) // Show a loading indicator
+            else
+              ...categorizedTests.entries.map((entry) => ExpansionTile(
+                    title: Text(entry.key,
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    tilePadding: EdgeInsets.symmetric(
+                        vertical: 10.0,
+                        horizontal: 8.0), // Optional padding for ExpansionTile
+                    expandedAlignment: Alignment.topLeft,
+                    children: entry.value.map((test) {
+                      return ListTile(
+                        title: Text(test.testName),
+                        subtitle: Text(
+                          "Scheduled: ${DateFormat('hh:mm a, MMMM d, yyyy').format(test.scheduledTime)}",
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        trailing: Switch(
+                          value: _testVisibility[test.testID] ?? false,
+                          onChanged: (value) =>
+                              _toggleTestVisibility(test.testID, value),
+                        ),
+                      );
+                    }).toList(), // Align children when expanded
+                  )),
           ],
         ),
       ),
@@ -373,7 +378,8 @@ else
         // Ensure unintended movement stops when opening the drawer
         if (isOpen) {
           Future.delayed(Duration(milliseconds: 100), () {
-            _mapController?.animateCamera(CameraUpdate.scrollBy(0, 0)); // Lock the camera
+            _mapController
+                ?.animateCamera(CameraUpdate.scrollBy(0, 0)); // Lock the camera
           });
         }
       },
@@ -393,12 +399,15 @@ else
             },
             mapType: MapType.satellite,
             gestureRecognizers: isDrawerOpen
-                ? <Factory<OneSequenceGestureRecognizer>>{}.toSet() // Disable gestures
+                ? <Factory<OneSequenceGestureRecognizer>>{}
+                    .toSet() // Disable gestures
                 : {
                     Factory<PanGestureRecognizer>(() => PanGestureRecognizer()),
-                    Factory<ScaleGestureRecognizer>(() => ScaleGestureRecognizer()),
+                    Factory<ScaleGestureRecognizer>(
+                        () => ScaleGestureRecognizer()),
                     Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-                    Factory<VerticalDragGestureRecognizer>(() => VerticalDragGestureRecognizer()), // Prevents scrolling
+                    Factory<VerticalDragGestureRecognizer>(() =>
+                        VerticalDragGestureRecognizer()), // Prevents scrolling
                   }.toSet(), // Enable gestures when drawer is closed
           ),
           // Button to go back
@@ -415,7 +424,9 @@ else
                 //print('Before navigating back, visualized.tests: ${visualized.tests}\n');
               },
               backgroundColor: Colors.black,
-              child: Icon(Icons.arrow_back, color: Colors.white, size: 48), // Increased size for better visibility
+              child: Icon(Icons.arrow_back,
+                  color: Colors.white,
+                  size: 48), // Increased size for better visibility
             ),
           ),
 
@@ -426,17 +437,29 @@ else
             child: FloatingActionButton(
               heroTag: null,
               onPressed: () {
-                filterToggledOnTests();
+                // filterToggledOnTests();
+                final Project projectForPdf = _deepCopyProject(visualized);
+
+                projectForPdf.tests = projectForPdf.tests?.where((test) {
+                  bool isVisible = _testVisibility[test.testID] ?? false;
+                  print("Checking test ID: ${test.testID}, "
+                      "Collection ID: ${test.collectionID}, "
+                      "isVisible: $isVisible\n");
+                  return isVisible;
+                }).toList();
+
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => PdfReportPage(activeProject: visualized,
+                    builder: (context) => PdfReportPage(
+                      activeProject: projectForPdf,
                     ),
                   ),
                 );
               },
               backgroundColor: Colors.red, // Change color for differentiation
-              child: Icon(Icons.picture_as_pdf, color: Colors.white, size: 48), // PDF icon
+              child: Icon(Icons.picture_as_pdf,
+                  color: Colors.white, size: 48), // PDF icon
             ),
           ),
         ],

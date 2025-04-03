@@ -197,6 +197,12 @@ class VisualizedResults {
       polylinesWithColor
           .addAll(_parsePolylines(fetchedPolylines, collectionName, "walking"));
     }
+    else if (collectionName == "section_cutter_tests") {
+      fetchedPolylines = await loadPathsFromFirebaseSectionCutterTests(
+          testID, collectionName);
+      polylinesWithColor.addAll(
+          _parsePolylines(fetchedPolylines, collectionName, "section"));
+    }
 
     /// Fetching markers with its own unique icons on the map being displayed
     /// Absence of Order Test
@@ -550,6 +556,9 @@ class VisualizedResults {
         case 'handicapAssistedWheels':
           color = Colors.purple;
           break;
+        case 'section':
+          color = Colors.green;
+          break;
       }
 
       return Polyline(
@@ -576,7 +585,6 @@ class VisualizedResults {
           .get();
 
       if (!snapshot.exists) {
-        //print("No document found for testID: $testID");
         return polylinesData; // Return empty list if no document is found
       }
 
@@ -649,7 +657,6 @@ class VisualizedResults {
           .get();
 
       if (!snapshot.exists) {
-        //print("No document found for testID: $testID");
         return polylinesData; // Return empty list if no document is found
       }
 
@@ -763,6 +770,58 @@ class VisualizedResults {
               });
             }
           }
+        }
+      }
+    } catch (e) {
+      print("Error loading paths: $e");
+    }
+
+    return polylinesData;
+  }
+
+  /// Section Cutter Test
+  /// For getting the section line
+  static Future<List<Map<String, dynamic>>> 
+      loadPathsFromFirebaseSectionCutterTests(
+          String testID, String collectionName) async {
+
+    List<Map<String, dynamic>> polylinesData = [];
+
+    try {
+      // Fetch the specific document by testID
+      DocumentSnapshot snapshot = await FirebaseFirestore.instance
+          .collection('section_cutter_tests')
+          .doc(testID)
+          .get();
+
+      if (!snapshot.exists) {
+        // No document found for testID
+        return polylinesData; // Return empty list if no document is found
+      }
+
+      Map<String, dynamic> polylineData = snapshot.data() as Map<String, dynamic>;
+
+      // Extract linePoints (which is now a simple list of GeoPoints)
+      var linePoints = polylineData['linePoints'];
+      if (linePoints != null && linePoints is List) {
+        List<Map<String, double>> points = linePoints.map((point) {
+          if (point is GeoPoint) {
+            return {'lat': point.latitude, 'lng': point.longitude};
+          }
+          return {'lat': 0.0, 'lng': 0.0}; // Handle invalid points
+        }).toList();
+
+        // Remove duplicates from points
+        List<Map<String, double>> uniquePoints = points.toSet().toList();
+
+        if (uniquePoints.isNotEmpty) {
+          // Generate a random ID
+          String randomId = Random().nextInt(1000000).toString();
+
+          polylinesData.add({
+            'id': "${snapshot.id}_$randomId",
+            'points': uniquePoints, // Use the deduplicated points
+          });
         }
       }
     } catch (e) {

@@ -274,12 +274,11 @@ class _ResultsPageState extends State<ResultsPage> {
       "People in Motion": [],
       "People in Place": [],
       "Spatial Boundaries": [],
+      "Section Cutter": []
     };
 
     // Categorize tests based on their testName
-    for (var test in _testData.where((test) =>
-        test.isComplete &&
-        !test.collectionID.startsWith("section_cutter_tests/"))) {
+    for (var test in _testData.where((test) => test.isComplete)) {
       if (test.collectionID.startsWith("absence_of_order_tests")) {
         categorizedTests["Absence of Order"]!.add(test);
       } else if (test.collectionID.startsWith("acoustic_profile_tests")) {
@@ -296,7 +295,9 @@ class _ResultsPageState extends State<ResultsPage> {
         categorizedTests["People in Place"]!.add(test);
       } else if (test.collectionID.startsWith("spatial_boundaries_tests")) {
         categorizedTests["Spatial Boundaries"]!.add(test);
-      }
+      } else if (test.collectionID.startsWith("section_cutter_tests")) {
+        categorizedTests["Section Cutter"]!.add(test);
+      }  
     }
 
     // Sort each category by scheduledTime

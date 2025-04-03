@@ -21,13 +21,13 @@ final storageRef = FirebaseStorage.instance.ref();
 
 // Allows user to see the pdf in browser so they know what they are getting
 class PdfReportPage extends StatelessWidget {
-  final Project projectData;
+  final Project activeProject;
 
-  const PdfReportPage({super.key, required this.projectData});
+  const PdfReportPage({super.key, required this.activeProject});
 
   // generate the PDF
   Future<Uint8List> _generatePdf() async {
-    return generateReport(PdfPageFormat.a4, projectData);
+    return generateReport(PdfPageFormat.a4, activeProject);
   }
 
   // TODO: Create a GoogleMap widget in a SizedBox of certain size. Takes in data.
@@ -104,11 +104,11 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
           count = dataMap[light.lightType] ?? 0;
           dataMap[light.lightType] = count + 1;
         }
-        // mapImage = await generateMapImage(
-        //   projectPolygon: projectPolygon,
-        //   markers: lpMarkers,
-        // );
-        // print(mapImage);
+        mapImage = await generateMapImage(
+          projectPolygon: projectPolygon,
+          markers: lpMarkers,
+        );
+        print(mapImage);
         lpData = PDFData(
             testTitle: test.title,
             barGraphData: [
@@ -429,7 +429,7 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
 
 // PDF Generation Logic
 Future<Uint8List> generateReport(
-    PdfPageFormat pageFormat, Project projectData) async {
+    PdfPageFormat pageFormat, Project activeProject) async {
   List<Test> rawTests = [];
   PDFData? pdfData;
   // Load images data before building the PDF, but was not implemented
@@ -454,7 +454,7 @@ Future<Uint8List> generateReport(
       build: (context) {
         return pw.Column(
           children: [
-            pw.Text(projectData.title,
+            pw.Text(activeProject.title,
                 style: const pw.TextStyle(
                   color: baseColor,
                   fontSize: 40,
@@ -467,7 +467,7 @@ Future<Uint8List> generateReport(
                   child: pw.Column(
                     children: [
                       pw.Text(
-                        projectData.description,
+                        activeProject.description,
                         style: const pw.TextStyle(fontSize: 16),
                         textAlign: pw.TextAlign.justify,
                       ),
@@ -505,11 +505,11 @@ Future<Uint8List> generateReport(
   );
 
   // Get all the test information sorted into the correct representation.
-  if (projectData.tests == null) {
-    await projectData.loadAllTestData();
+  if (activeProject.tests == null) {
+    await activeProject.loadAllTestData();
   }
-  projectPolygon = getProjectPolygon(projectData.polygonPoints);
-  rawTests = projectData.tests ?? [];
+  projectPolygon = getProjectPolygon(activeProject.polygonPoints);
+  rawTests = activeProject.tests ?? [];
   for (Test currentTest in rawTests) {
     // If a test isn't complete, skip it
     if (!currentTest.isComplete) continue;

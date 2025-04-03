@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:p2b/pdf_output.dart';
+import 'package:p2b/pdf_processing_page.dart';
 import 'package:provider/provider.dart';
 import 'homepage_state.dart';
 import 'create_project_and_teams.dart';
@@ -333,7 +334,7 @@ class _HomePageBodyState extends State<HomePageBody> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => PdfReportPage(projectData: project),
+              builder: (context) => PdfProcessingPage(activeProject: project),
             ),
           );
         },

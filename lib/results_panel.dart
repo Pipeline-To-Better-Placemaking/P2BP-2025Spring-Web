@@ -297,7 +297,7 @@ class _ResultsPageState extends State<ResultsPage> {
         categorizedTests["Spatial Boundaries"]!.add(test);
       } else if (test.collectionID.startsWith("section_cutter_tests")) {
         categorizedTests["Section Cutter"]!.add(test);
-      }  
+      }
     }
 
     // Sort each category by scheduledTime
@@ -345,7 +345,8 @@ class _ResultsPageState extends State<ResultsPage> {
                         ),
                         trailing: Switch(
                           value: _testVisibility[test.testID] ?? false,
-                          onChanged: (value) => _toggleTestVisibility(test.testID, value),
+                          onChanged: (value) =>
+                              _toggleTestVisibility(test.testID, value),
                         ),
                       );
                     }).toList(), // Align children when expanded
@@ -357,7 +358,6 @@ class _ResultsPageState extends State<ResultsPage> {
         setState(() {
           isDrawerOpen = isOpen;
         });
-
         // Ensure unintended movement stops when opening the drawer
         if (isOpen) {
           Future.delayed(Duration(milliseconds: 100), () {
@@ -381,9 +381,13 @@ class _ResultsPageState extends State<ResultsPage> {
               _mapController = controller;
             },
             mapType: MapType.satellite,
+            zoomControlsEnabled: !isDrawerOpen,
+            zoomGesturesEnabled: !isDrawerOpen,
             gestureRecognizers: isDrawerOpen
-                ? <Factory<OneSequenceGestureRecognizer>>{}
-                    .toSet() // Disable gestures
+                ? {
+                    Factory<LongPressGestureRecognizer>(
+                        () => LongPressGestureRecognizer())
+                  }.toSet() // Disable gestures
                 : {
                     Factory<PanGestureRecognizer>(() => PanGestureRecognizer()),
                     Factory<ScaleGestureRecognizer>(

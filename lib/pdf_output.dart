@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
@@ -12,6 +13,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'google_maps_functions.dart';
+import 'package:web/web.dart' as web;
 
 // Create a storage reference from app
 final storageRef = FirebaseStorage.instance.ref();
@@ -78,7 +80,6 @@ Future<List<PDFData>> retrieveAllPDFInfo(
 
 Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
   PDFData? pdfPage;
-  print(test.collectionID);
   switch (test.collectionID) {
     case 'lighting_profile_tests':
       {
@@ -705,6 +706,12 @@ Future<Uint8List> generateReport(
     );
     widgets = [];
   }
+  final documentImage = await (document.save());
+  web.HTMLAnchorElement()
+    ..href =
+        'data:application/octet-stream;charset=utf-16le;base64,${base64.encode(documentImage.toList())}'
+    ..setAttribute('download', 'results_pdf.pdf')
+    ..click();
   return document.save();
 } // End of generateReport()
 

@@ -27,10 +27,6 @@ class PdfReportPage extends StatelessWidget {
     return generateReport(PdfPageFormat.a4, activeProject);
   }
 
-  // TODO: Create a GoogleMap widget in a SizedBox of certain size. Takes in data.
-  // Then in a for loop: data is put into map. Map is rendered. Screenshot map.
-  // Save screenshot to an array. Or do this in switch statement.
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

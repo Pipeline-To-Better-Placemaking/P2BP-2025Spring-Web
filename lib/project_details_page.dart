@@ -415,7 +415,7 @@ class TestCard extends StatelessWidget {
                         )
                       : SizedBox(),
                   // Show the button only if the testID starts with 'section_cutter_tests'
-                  if (test.testID.startsWith("section_cutter_tests"))
+                  if (test.collectionID.startsWith("section_cutter_tests"))
                     SizedBox(
                       width: 30,
                       child: IconButton(

@@ -723,7 +723,6 @@ pw.Widget _generateBarGraph(BarGraphData barGraphData) {
   // Process data
   List<double> dataSet = barGraphData.values;
   // Top bar chart
-  print("${barGraphData.values} ${barGraphData.labels}");
   return pw.Chart(
     left: pw.Container(
       alignment: pw.Alignment.center,

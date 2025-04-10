@@ -522,6 +522,7 @@ class CircularIconMapButton extends StatelessWidget {
       child: IconButton(
         icon: icon,
         onPressed: onPressed,
+        iconSize: 35.0,
       ),
     );
   }

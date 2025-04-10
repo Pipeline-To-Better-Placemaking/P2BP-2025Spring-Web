@@ -44,8 +44,6 @@ dependencies:
   cloud_firestore: ^5.1.0     # For Firestore database
   firebase_database: ^11.3.0  # For Realtime Database (optional, depending on your use case)
   google_maps_flutter: ^2.10.0
-  # flutter_google_maps: ^1.0.0
-  # google_maps_flutter_web: ^0.5.10
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -63,6 +61,7 @@ dependencies:
   printing: ^5.14.2
   screenshot: ^3.0.0
   web: ^1.1.1
+  collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:

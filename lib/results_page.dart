@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:p2b/theme.dart';
+import 'package:p2b/pdf_output.dart';
 import 'package:p2b/widgets.dart';
 import 'package:collection/collection.dart';
 import 'google_maps_functions.dart';
@@ -17,9 +17,21 @@ class ResultsPage extends StatefulWidget {
   State<ResultsPage> createState() => _ResultsPageState();
 }
 
+const Map<String, String> testStaticStrings = {
+  AbsenceOfOrderTest.displayName: AbsenceOfOrderTest.collectionIDStatic,
+  AcousticProfileTest.displayName: AcousticProfileTest.collectionIDStatic,
+  IdentifyingAccessTest.displayName: IdentifyingAccessTest.collectionIDStatic,
+  LightingProfileTest.displayName: LightingProfileTest.collectionIDStatic,
+  NaturePrevalenceTest.displayName: NaturePrevalenceTest.collectionIDStatic,
+  PeopleInMotionTest.displayName: PeopleInMotionTest.collectionIDStatic,
+  PeopleInPlaceTest.displayName: PeopleInPlaceTest.collectionIDStatic,
+  SectionCutterTest.displayName: SectionCutterTest.collectionIDStatic,
+  SpatialBoundariesTest.displayName: SpatialBoundariesTest.collectionIDStatic,
+};
+
 class _ResultsPageState extends State<ResultsPage> {
   bool _drawerIsOpen = false;
-  bool _isLoading = false;
+  bool _isLoading = true;
   late GoogleMapController _mapController;
 
   final Set<Polygon> _polygons = {};
@@ -29,11 +41,13 @@ class _ResultsPageState extends State<ResultsPage> {
 
   LatLng _location = defaultLocation;
   double _zoom = 18;
+  MapType _currentMapType = MapType.satellite;
   late final Polygon _projectPolygon;
   late final List<mp.LatLng> _projectPoints;
 
   final Map<String, List<TestTile>> _collectionIDToListTiles = {};
   late final List<TestExpansionTile> _expansionTiles;
+  final List<Test> _pdfTests = [];
 
   @override
   void initState() {
@@ -45,9 +59,15 @@ class _ResultsPageState extends State<ResultsPage> {
     _expansionTiles = _getExpansionTiles();
   }
 
+  /// Updates visibility of testData, including their respective shapes.
+  ///
+  /// Toggles visibility of shapes for given testData object. Also adds or
+  /// removes it from the list of PDF tests to be sent to the PDF page
+  /// accordingly.
   void _updateVisibility(TestData testData) {
     if (testData.visibility == true) {
       setState(() {
+        _pdfTests.add(testData.test);
         _polygons.addAll(testData.polygons);
         _polylines.addAll(testData.polylines);
         _markers.addAll(testData.markers);
@@ -55,6 +75,7 @@ class _ResultsPageState extends State<ResultsPage> {
       });
     } else {
       setState(() {
+        _pdfTests.remove(testData.test);
         _polygons.removeAll(testData.polygons);
         _polylines.removeAll(testData.polylines);
         _markers.removeAll(testData.markers);
@@ -68,6 +89,14 @@ class _ResultsPageState extends State<ResultsPage> {
     _moveToLocation();
   }
 
+  void _toggleMapType() {
+    setState(() {
+      _currentMapType = _currentMapType == MapType.satellite
+          ? MapType.normal
+          : MapType.satellite;
+    });
+  }
+
   /// Moves camera to project location.
   void _moveToLocation() {
     _mapController.animateCamera(
@@ -77,86 +106,29 @@ class _ResultsPageState extends State<ResultsPage> {
     );
   }
 
+  /// Creates expansion tiles list for results drawer.
+  ///
+  /// Returns a [List] of [ExpansionTile]s to use in the results drawer.
+  /// Populates the Expansion Tiles with their appropriate children
+  /// ([TestTile]s)
   List<TestExpansionTile> _getExpansionTiles() {
     List<TestExpansionTile> expansionTiles = [];
     _processProject();
-
-    expansionTiles.add(
-      TestExpansionTile(
-        testType: AbsenceOfOrderTest.displayName,
-        testTiles:
-            _collectionIDToListTiles[AbsenceOfOrderTest.collectionIDStatic] ??
-                [],
-      ),
-    );
-    expansionTiles.add(
-      TestExpansionTile(
-        testType: AcousticProfileTest.displayName,
-        testTiles:
-            _collectionIDToListTiles[AcousticProfileTest.collectionIDStatic] ??
-                [],
-      ),
-    );
-    expansionTiles.add(
-      TestExpansionTile(
-        testType: IdentifyingAccessTest.displayName,
-        testTiles: _collectionIDToListTiles[
-                IdentifyingAccessTest.collectionIDStatic] ??
-            [],
-      ),
-    );
-    expansionTiles.add(
-      TestExpansionTile(
-        testType: LightingProfileTest.displayName,
-        testTiles:
-            _collectionIDToListTiles[LightingProfileTest.collectionIDStatic] ??
-                [],
-      ),
-    );
-    expansionTiles.add(
-      TestExpansionTile(
-        testType: NaturePrevalenceTest.displayName,
-        testTiles:
-            _collectionIDToListTiles[NaturePrevalenceTest.collectionIDStatic] ??
-                [],
-      ),
-    );
-    expansionTiles.add(
-      TestExpansionTile(
-        testType: PeopleInMotionTest.displayName,
-        testTiles:
-            _collectionIDToListTiles[PeopleInMotionTest.collectionIDStatic] ??
-                [],
-      ),
-    );
-    expansionTiles.add(
-      TestExpansionTile(
-        testType: PeopleInPlaceTest.displayName,
-        testTiles:
-            _collectionIDToListTiles[PeopleInPlaceTest.collectionIDStatic] ??
-                [],
-      ),
-    );
-    expansionTiles.add(
-      TestExpansionTile(
-        testType: SectionCutterTest.displayName,
-        testTiles:
-            _collectionIDToListTiles[SectionCutterTest.collectionIDStatic] ??
-                [],
-      ),
-    );
-    expansionTiles.add(
-      TestExpansionTile(
-        testType: SpatialBoundariesTest.displayName,
-        testTiles: _collectionIDToListTiles[
-                SpatialBoundariesTest.collectionIDStatic] ??
-            [],
-      ),
-    );
-
+    for (String name in testStaticStrings.keys) {
+      expansionTiles.add(TestExpansionTile(
+          testType: name,
+          testTiles: _collectionIDToListTiles[testStaticStrings[name]] ?? []));
+    }
+    setState(() {
+      _isLoading = false;
+    });
     return expansionTiles;
   }
 
+  /// Process all data from project object into appropriate representation.
+  ///
+  /// Extracts polygons, polylines, markers, circles from all project's test
+  /// and puts them in their appropriate testData object.
   void _processProject() {
     final Set<Polygon> polygons = {};
     final Set<Polyline> polylines = {};
@@ -328,21 +300,81 @@ class _ResultsPageState extends State<ResultsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Results Page')),
-      body: GoogleMap(
-        onMapCreated: _onMapCreated,
-        initialCameraPosition: CameraPosition(
-          target: _location,
-          zoom: _zoom,
-        ),
-        mapType: MapType.satellite,
-        myLocationButtonEnabled: false,
-        zoomGesturesEnabled: !_drawerIsOpen,
-        scrollGesturesEnabled: !_drawerIsOpen,
-        polygons: {_projectPolygon, ..._polygons},
-        polylines: _polylines,
-        markers: _markers,
-        circles: _circles,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: Text('Results Page'),
+        backgroundColor: const Color(0xEDFFFFFF),
+      ),
+      body: Stack(
+        children: <Widget>[
+          GoogleMap(
+            onMapCreated: _onMapCreated,
+            initialCameraPosition: CameraPosition(
+              target: _location,
+              zoom: _zoom,
+            ),
+            mapType: _currentMapType,
+            myLocationButtonEnabled: false,
+            zoomGesturesEnabled: !_drawerIsOpen,
+            scrollGesturesEnabled: !_drawerIsOpen,
+            polygons: {_projectPolygon, ..._polygons},
+            polylines: _polylines,
+            markers: _markers,
+            circles: _circles,
+          ),
+          Padding(
+            padding:
+                const EdgeInsets.only(right: 15.0, top: kToolbarHeight + 15.0),
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Column(
+                spacing: 10,
+                children: <Widget>[
+                  // Map type button
+                  CircularIconMapButton(
+                    backgroundColor: Colors.green,
+                    borderColor: Color(0xFF2D6040),
+                    onPressed: () {
+                      _toggleMapType();
+                    },
+                    icon: const Icon(Icons.map),
+                  ),
+                  // PDF page button
+                  CircularIconMapButton(
+                    backgroundColor: Colors.red,
+                    borderColor: Color(0xFF2D6040),
+                    onPressed: () {
+                      // Create project to pass to PDF with only visible tests.
+                      Project projectForPdf = Project(
+                        teamRef: widget.activeProject.teamRef,
+                        projectAdmin: widget.activeProject.projectAdmin,
+                        projectID: widget.activeProject.projectID,
+                        title: widget.activeProject.title,
+                        description: widget.activeProject.description,
+                        address: widget.activeProject.address,
+                        polygonPoints: widget.activeProject.polygonPoints,
+                        polygonArea: widget.activeProject.polygonArea,
+                        standingPoints: widget.activeProject.standingPoints,
+                        testRefs: widget.activeProject.testRefs,
+                        tests: _pdfTests,
+                      );
+                      // Go to PDF Page
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PdfReportPage(
+                            activeProject: projectForPdf,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                  ),
+                ],
+              ),
+            ),
+          )
+        ],
       ),
       drawer: Drawer(
         child: ListView(
@@ -361,7 +393,7 @@ class _ResultsPageState extends State<ResultsPage> {
                 ),
               ),
             ),
-            // Show a loading indicator
+            if (_isLoading) CircularProgressIndicator(),
             ..._expansionTiles,
           ],
         ),
@@ -459,6 +491,9 @@ class TestData {
   final String time;
   bool? visibility;
 
+  /// TestData object containing the extracted shapes from a test object, and
+  /// the test itself to send through to the PDF page. Also contains a
+  /// visibility boolean to update visible shapes accordingly.
   TestData({
     required this.test,
     this.polygons = const {},

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'create_project_and_teams.dart';
 import 'settings_page.dart';
 import 'teams_and_invites_page.dart';
-import 'results_panel.dart';
+import 'results_page.dart';
 import 'edit_project_panel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -48,7 +48,7 @@ class _HomePageBodyState extends State<HomePageBody> {
     _loadCurrentPage();
   }
 
-   Future<void> _populateProjects() async {
+  Future<void> _populateProjects() async {
     try {
       teamRef = await getCurrentTeam();
       if (teamRef == null) {

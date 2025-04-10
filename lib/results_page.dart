@@ -407,9 +407,10 @@ class _ResultsPageState extends State<ResultsPage> {
   }
 }
 
-class TestExpansionTile extends StatefulWidget {
+class TestExpansionTile extends StatelessWidget {
   final String testType;
   final List<TestTile> testTiles;
+
   const TestExpansionTile({
     super.key,
     required this.testType,
@@ -417,22 +418,17 @@ class TestExpansionTile extends StatefulWidget {
   });
 
   @override
-  State<TestExpansionTile> createState() => _TestExpansionTileState();
-}
-
-class _TestExpansionTileState extends State<TestExpansionTile> {
-  @override
   Widget build(BuildContext context) {
     return ExpansionTile(
       title: Text(
-        widget.testType,
+        testType,
         style: TextStyle(fontWeight: FontWeight.bold),
       ),
       tilePadding: EdgeInsets.symmetric(
           vertical: 10.0,
           horizontal: 8.0), // Optional padding for ExpansionTile
       expandedAlignment: Alignment.topLeft,
-      children: widget.testTiles,
+      children: testTiles,
     );
   }
 }

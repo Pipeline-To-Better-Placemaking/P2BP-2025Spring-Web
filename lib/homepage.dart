@@ -37,7 +37,6 @@ class _HomePageBodyState extends State<HomePageBody> {
   int _projectsCount = 0;
   bool _isLoading = true;
   String _currentPage = "Home";
-  String _currentTeamId = '';
   String teamName = 'Team Name';
 
   @override
@@ -48,9 +47,15 @@ class _HomePageBodyState extends State<HomePageBody> {
     _loadCurrentPage();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   Future<void> _populateProjects() async {
     try {
       teamRef = await getCurrentTeam();
+      if (!mounted) return;
       if (teamRef == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("No selected team available.")),
@@ -64,13 +69,12 @@ class _HomePageBodyState extends State<HomePageBody> {
 
         _projectList = await getTeamProjects(teamRef!);
       }
-      if (mounted) {
-        setState(() {
-          _projectsCount = _projectList.length;
-          _projectList;
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _projectsCount = _projectList.length;
+        _projectList;
+        _isLoading = false;
+      });
     } catch (e) {
       print("Error in _populateProjects(): $e");
     }
@@ -86,6 +90,7 @@ class _HomePageBodyState extends State<HomePageBody> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('An error occurred while retrieving your name: $e')),
@@ -116,7 +121,6 @@ class _HomePageBodyState extends State<HomePageBody> {
       _currentPage = newPage;
     });
     _saveCurrentPage(newPage); // Save the current page when it changes
-    _populateProjects(); // Call your project population method if necessary
   }
 
   int _getPageIndex(String currentPage) {
@@ -283,7 +287,7 @@ class _HomePageBodyState extends State<HomePageBody> {
                         context: context,
                         bannerImage: 'assets/RedHouse.png',
                         project: project,
-                        teamName: 'Team: Eola Design Group',
+                        teamName: teamName,
                         index: index,
                       );
                     },
@@ -322,6 +326,7 @@ class _HomePageBodyState extends State<HomePageBody> {
           if (project.tests == null) {
             await project.loadAllTestData();
           }
+          if (!context.mounted) return;
           Navigator.push(
             context,
             MaterialPageRoute(

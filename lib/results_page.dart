@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:p2b/homepage.dart';
 import 'package:p2b/pdf_output.dart';
 import 'package:p2b/widgets.dart';
 import 'package:collection/collection.dart';
@@ -304,6 +305,16 @@ class _ResultsPageState extends State<ResultsPage> {
       appBar: AppBar(
         title: Text('Results Page'),
         backgroundColor: const Color(0xEDFFFFFF),
+        actionsPadding: EdgeInsets.only(right: 15.0),
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            icon: Icon(Icons.home),
+            iconSize: 35.0,
+          )
+        ],
       ),
       body: Stack(
         children: <Widget>[

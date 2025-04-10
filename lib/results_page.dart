@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:p2b/homepage.dart';
 import 'package:p2b/pdf_output.dart';
 import 'package:p2b/widgets.dart';
 import 'package:collection/collection.dart';
@@ -170,6 +169,7 @@ class _ResultsPageState extends State<ResultsPage> {
                     radius: radius,
                     fillColor: Color(0x90F000F0),
                     strokeWidth: 2,
+                    strokeColor: Color(0x90F000F0),
                   );
                 },
               ),
@@ -200,6 +200,18 @@ class _ResultsPageState extends State<ResultsPage> {
               polygons: polygons.toSet(),
               polylines: polylines.toSet(),
               displayName: IdentifyingAccessTest.displayName,
+            );
+          }
+        case (LightingProfileTest.collectionIDStatic):
+          {
+            markers.addAll((test as LightingProfileTest)
+                .data
+                .lights
+                .map((light) => light.marker));
+            testData = TestData(
+              test: test,
+              markers: markers.toSet(),
+              displayName: LightingProfileTest.displayName,
             );
           }
         case (NaturePrevalenceTest.collectionIDStatic):

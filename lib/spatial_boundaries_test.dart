@@ -6,10 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
+import 'package:p2b/extensions.dart';
 import 'assets.dart';
 
-import 'db_schema_classes.dart';
-import 'firestore_functions.dart';
+import 'db_schema_classes/project_class.dart';
+import 'db_schema_classes/specific_test_classes/spatial_boundaries_test_class.dart';
 import 'google_maps_functions.dart';
 import 'spatial_boundaries_instructions.dart';
 import 'theme.dart';
@@ -74,7 +75,7 @@ class _SpatialBoundariesTestPageState extends State<SpatialBoundariesTestPage> {
   @override
   void initState() {
     super.initState();
-    _projectPolygon = getProjectPolygon(widget.activeProject.polygonPoints);
+    _projectPolygon = widget.activeProject.polygon.clone();
     _location = getPolygonCentroid(_projectPolygon);
     _projectArea = _projectPolygon.toMPLatLngList();
     _zoom = getIdealZoom(_projectArea, _location.toMPLatLng());

@@ -5,29 +5,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
+import 'package:p2b/extensions.dart';
 import 'assets.dart';
-import 'firestore_functions.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-import 'db_schema_classes.dart';
+import 'db_schema_classes/project_class.dart';
+import 'db_schema_classes/specific_test_classes/nature_prevalence_test_class.dart';
 import 'google_maps_functions.dart';
 
-class NaturePrevalence extends StatefulWidget {
+class NaturePrevalenceTestPage extends StatefulWidget {
   final Project activeProject;
   final NaturePrevalenceTest activeTest;
 
   /// IMPORTANT: When navigating to this page, pass in project details. The
   /// project details page already contains project info, so you should use
   /// that data.
-  const NaturePrevalence(
+  const NaturePrevalenceTestPage(
       {super.key, required this.activeProject, required this.activeTest});
 
   @override
-  State<NaturePrevalence> createState() => _NaturePrevalenceState();
+  State<NaturePrevalenceTestPage> createState() =>
+      _NaturePrevalenceTestPageState();
 }
 
-class _NaturePrevalenceState extends State<NaturePrevalence> {
+class _NaturePrevalenceTestPageState extends State<NaturePrevalenceTestPage> {
   bool _isTestRunning = false;
   bool _polygonMode = false;
   bool _pointMode = false;
@@ -74,7 +76,7 @@ class _NaturePrevalenceState extends State<NaturePrevalence> {
   @override
   void initState() {
     super.initState();
-    _projectPolygon = getProjectPolygon(widget.activeProject.polygonPoints);
+    _projectPolygon = widget.activeProject.polygon.clone();
     _location = getPolygonCentroid(_projectPolygon);
     _projectArea = _projectPolygon.toMPLatLngList();
     _zoom = getIdealZoom(_projectArea, _location.toMPLatLng()) - 0.4;

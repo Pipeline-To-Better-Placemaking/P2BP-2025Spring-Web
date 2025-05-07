@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'db_schema_classes.dart';
-import 'theme.dart';
-import 'project_details_page.dart';
+import 'db_schema_classes/project_class.dart';
 import 'theme.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -342,17 +340,6 @@ class _SearchScreenState extends State<SearchScreen> {
                     trailing: ElevatedButton(
                       onPressed: () {
                         // Handle result action
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ProjectDetailsPage(
-                                activeProject: Project.partialProject(
-                                    title: 'No data sent',
-                                    description:
-                                        'Accessed without project data',
-                                    address: 'No data found.'),
-                              ),
-                            ));
                       },
                       child: const Text("Select"),
                     ),

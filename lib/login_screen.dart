@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore package
 import 'package:p2b/ForgotPassword.dart';
+import 'db_schema_classes/member_class.dart';
 import 'register.dart';
 import 'homepage.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
   @override
-  _LoginPageState createState() => _LoginPageState();
+  State<StatefulWidget> createState() => _LoginScreenState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool _obscureText = true; // Toggle for password visibility
-
-  String _fullName = '';  // Variable to store full name
 
   @override
   void dispose() {
@@ -35,9 +34,12 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _loginUser() async {
     try {
+      String? emailText = _emailController.text.trim();
+
       // Sign in using Firebase Auth
-      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailText,
         password: _passwordController.text,
       );
 
@@ -46,7 +48,7 @@ class _LoginPageState extends State<LoginPage> {
       if (user != null && !user.emailVerified) {
         // Log the user out immediately
         await FirebaseAuth.instance.signOut();
-
+        if (!mounted) return;
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -59,40 +61,17 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      // Add/Update last login time in Firestore
-      await _firestore.collection('users').doc(userCredential.user?.uid).set({
-        'lastLogin': FieldValue.serverTimestamp(), // Add last login timestamp
-      }, SetOptions(merge: true)); // Merge data to avoid overwriting
+      final member = await Member.login(user!);
 
-
-      // Fetch the user's full name from Firestore
-      String userId = userCredential.user!.uid;
-      var userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-
-      if (userDoc.exists) {
-        // Retrieve full name from Firestore if available
-        String fullName = userDoc['fullName'] ?? 'User';
-        setState(() {
-          _fullName = fullName;
-        });
-
-        // Successfully logged in, navigate to the home screen
-        ScaffoldMessenger.of(context).clearSnackBars(); // Clear any existing snackbars
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Welcome, $_fullName!')),
-        );
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => HomePage()), // Replace with your home page
-        );
-      } else {
-        // Handle case where user data does not exist in Firestore (shouldn't happen if user data is properly saved)
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('User data not found in Firestore')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Welcome, ${member.fullName}!')),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomePage(member: member)),
+      );
     } on FirebaseAuthException catch (e) {
       String errorMessage;
 
@@ -183,16 +162,23 @@ class _LoginPageState extends State<LoginPage> {
                             borderSide: BorderSide(color: Colors.white),
                           ),
                           focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white, width: 2.0),
+                            borderSide:
+                                BorderSide(color: Colors.white, width: 2.0),
                           ),
                           errorBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
+                            borderSide: BorderSide(
+                                color: const Color.fromARGB(255, 255, 255, 255),
+                                width: 2.0),
                           ),
                           focusedErrorBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
+                            borderSide: BorderSide(
+                                color: const Color.fromARGB(255, 255, 255, 255),
+                                width: 2.0),
                           ),
                           prefixIcon: Icon(Icons.email, color: Colors.white),
-                          errorStyle: TextStyle(color: const Color.fromARGB(255, 255, 255, 255), fontSize: 18),
+                          errorStyle: TextStyle(
+                              color: const Color.fromARGB(255, 255, 255, 255),
+                              fontSize: 18),
                         ),
                         keyboardType: TextInputType.emailAddress,
                         style: TextStyle(color: Colors.white),
@@ -221,19 +207,28 @@ class _LoginPageState extends State<LoginPage> {
                             borderSide: BorderSide(color: Colors.white),
                           ),
                           focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white, width: 2.0),
+                            borderSide:
+                                BorderSide(color: Colors.white, width: 2.0),
                           ),
                           errorBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
+                            borderSide: BorderSide(
+                                color: const Color.fromARGB(255, 255, 255, 255),
+                                width: 2.0),
                           ),
                           focusedErrorBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: const Color.fromARGB(255, 255, 255, 255), width: 2.0),
+                            borderSide: BorderSide(
+                                color: const Color.fromARGB(255, 255, 255, 255),
+                                width: 2.0),
                           ),
                           prefixIcon: Icon(Icons.lock, color: Colors.white),
-                          errorStyle: TextStyle(color: const Color.fromARGB(255, 255, 255, 255), fontSize: 18),
+                          errorStyle: TextStyle(
+                              color: const Color.fromARGB(255, 255, 255, 255),
+                              fontSize: 18),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscureText ? Icons.visibility_off : Icons.visibility,
+                              _obscureText
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                               color: Colors.white,
                             ),
                             onPressed: _togglePasswordVisibility,
@@ -276,7 +271,8 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => ForgotPassword()),
+                        MaterialPageRoute(
+                            builder: (context) => ForgotPassword()),
                       );
                     },
                     child: Text(
@@ -296,7 +292,8 @@ class _LoginPageState extends State<LoginPage> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => RegisterPage()),
+                            MaterialPageRoute(
+                                builder: (context) => RegisterPage()),
                           );
                         },
                         child: Text(
@@ -310,15 +307,6 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
             SizedBox(height: 16),
-            _fullName.isNotEmpty
-                ? Text(
-                    'Logged in as $_fullName',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.white,
-                    ),
-                  )
-                : Container(),
           ],
         ),
       ),

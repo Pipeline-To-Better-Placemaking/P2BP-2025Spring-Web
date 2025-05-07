@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'db_schema_classes/member_class.dart';
 import 'theme.dart';
 
 import 'google_maps_functions.dart';
@@ -1114,5 +1115,43 @@ class AdaptiveSafeArea extends StatelessWidget {
   Widget build(BuildContext context) {
     // Wrap with SafeArea only on Android
     return Platform.isAndroid ? SafeArea(child: child) : child;
+  }
+}
+
+class MemberInviteCard extends StatelessWidget {
+  final Member member;
+  final bool invited;
+  final VoidCallback inviteMember;
+
+  const MemberInviteCard({
+    super.key,
+    required this.member,
+    required this.invited,
+    required this.inviteMember,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          children: <Widget>[
+            CircleAvatar(),
+            SizedBox(width: 15),
+            Expanded(
+              child: Text(member.fullName),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: InkWell(
+                onTap: inviteMember,
+                child: Text(invited ? "Invite sent!" : "Invite"),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

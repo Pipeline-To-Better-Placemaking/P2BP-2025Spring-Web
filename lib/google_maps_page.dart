@@ -2,15 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math';
-import 'firestore_functions.dart';
-import 'db_schema_classes.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'homepage.dart';
-import 'widgets.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class GoogleMapsPage extends StatefulWidget {
-  
   @override
   _GoogleMapsPageState createState() => _GoogleMapsPageState();
 }
@@ -49,11 +42,15 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
   Future<void> _checkAndFetchLocation() async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission is required to use this feature.')),
+            const SnackBar(
+                content: Text(
+                    'Location permission is required to use this feature.')),
           );
           setState(() {
             _isLoading = false;
@@ -77,7 +74,9 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
     } catch (e) {
       print('Error checking location permissions: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to retrieve location. Please check your GPS settings.')),
+        const SnackBar(
+            content: Text(
+                'Unable to retrieve location. Please check your GPS settings.')),
       );
       setState(() {
         _isLoading = false;
@@ -88,7 +87,8 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
   Future<void> _getCurrentLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       setState(() {
@@ -157,8 +157,10 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
         if (point.latitude <= max(p1.latitude, p2.latitude)) {
           if (point.longitude <= max(p1.longitude, p2.longitude)) {
             if (p1.latitude != p2.latitude) {
-              xinters = (point.latitude - p1.latitude) * (p2.longitude - p1.longitude) /
-                  (p2.latitude - p1.latitude) + p1.longitude;
+              xinters = (point.latitude - p1.latitude) *
+                      (p2.longitude - p1.longitude) /
+                      (p2.latitude - p1.latitude) +
+                  p1.longitude;
               if (p1.longitude == p2.longitude || point.longitude <= xinters) {
                 inside = !inside;
               }
@@ -207,12 +209,16 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
   }
 
   List<LatLng> _sortPointsClockwise(List<LatLng> points) {
-    double centerX = points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length;
-    double centerY = points.map((p) => p.longitude).reduce((a, b) => a + b) / points.length;
+    double centerX =
+        points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length;
+    double centerY =
+        points.map((p) => p.longitude).reduce((a, b) => a + b) / points.length;
 
     points.sort((a, b) {
-      double angleA = _calculateAngle(centerX, centerY, a.latitude, a.longitude);
-      double angleB = _calculateAngle(centerX, centerY, b.latitude, b.longitude);
+      double angleA =
+          _calculateAngle(centerX, centerY, a.latitude, a.longitude);
+      double angleB =
+          _calculateAngle(centerX, centerY, b.latitude, b.longitude);
       return angleA.compareTo(angleB);
     });
 
@@ -226,7 +232,8 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
   void _addFlagMarker() {
     if (_polygon == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please create a polygon before adding flags.')),
+        const SnackBar(
+            content: Text('Please create a polygon before adding flags.')),
       );
       return;
     }
@@ -268,7 +275,8 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
               children: [
                 GoogleMap(
                   onMapCreated: _onMapCreated,
-                  initialCameraPosition: CameraPosition(target: _currentPosition, zoom: 14.0),
+                  initialCameraPosition:
+                      CameraPosition(target: _currentPosition, zoom: 14.0),
                   polygons: _polygon == null ? {} : {_polygon!},
                   markers: _markers,
                   onTap: _addPointsMode ? _togglePoint : null,
@@ -333,8 +341,7 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
                     ),
                   ),
                 ),
-                Positioned
-                (
+                Positioned(
                   bottom: 20,
                   right: 55,
                   child: MouseRegion(
@@ -353,7 +360,6 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
                     ),
                   ),
                 ),
-                
               ],
             ),
     );
@@ -361,7 +367,9 @@ class _GoogleMapsPageState extends State<GoogleMapsPage> {
 
   void _toggleMapType() {
     setState(() {
-      _currentMapType = _currentMapType == MapType.satellite ? MapType.normal : MapType.satellite;
+      _currentMapType = _currentMapType == MapType.satellite
+          ? MapType.normal
+          : MapType.satellite;
     });
   }
 }

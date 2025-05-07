@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'theme.dart';
 import 'google_maps_functions.dart';
-import 'db_schema_classes.dart';
-import 'firestore_functions.dart';
+import 'db_schema_classes/project_class.dart';
+import 'db_schema_classes/standing_point_class.dart';
 
 class StandingPointsPage extends StatefulWidget {
   final Project activeProject;
@@ -53,7 +53,7 @@ class _StandingPointsPageState extends State<StandingPointsPage> {
   /// centers the map over it.
   void initProjectArea() {
     setState(() {
-      _polygons.add( getProjectPolygon(widget.activeProject.polygonPoints));
+      _polygons.add(widget.activeProject.polygon.clone());
       _location = getPolygonCentroid(_polygons.first);
       // Take some latitude away to center considering bottom sheet.
       _location = LatLng(_location.latitude * .999999, _location.longitude);

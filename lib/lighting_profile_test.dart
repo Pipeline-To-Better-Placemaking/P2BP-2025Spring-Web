@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
-import 'firestore_functions.dart';
+import 'package:p2b/extensions.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-import 'db_schema_classes.dart';
+import 'db_schema_classes/project_class.dart';
+import 'db_schema_classes/specific_test_classes/lighting_profile_test_class.dart';
 import 'google_maps_functions.dart';
 
 class LightingProfileTestPage extends StatefulWidget {
@@ -50,7 +51,7 @@ class _LightingProfileTestPageState extends State<LightingProfileTestPage> {
   @override
   void initState() {
     super.initState();
-    _polygons.add(getProjectPolygon(widget.activeProject.polygonPoints));
+    _polygons.add(widget.activeProject.polygon.clone());
     _location = getPolygonCentroid(_polygons.first);
     _projectArea = _polygons.first.toMPLatLngList();
     _zoom = getIdealZoom(_projectArea, _location.toMPLatLng());

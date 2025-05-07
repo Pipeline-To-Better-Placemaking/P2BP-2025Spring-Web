@@ -5,8 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
-import 'db_schema_classes.dart';
-import 'firestore_functions.dart';
+import 'package:p2b/extensions.dart';
+import 'db_schema_classes/project_class.dart';
+import 'db_schema_classes/specific_test_classes/people_in_motion_test_class.dart';
 import 'people_in_motion_instructions.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -72,7 +73,7 @@ class _PeopleInMotionTestPageState extends State<PeopleInMotionTestPage> {
   @override
   void initState() {
     super.initState();
-    _polygons.add(getProjectPolygon(widget.activeProject.polygonPoints));
+    _polygons.add(widget.activeProject.polygon.clone());
     _location = getPolygonCentroid(_polygons.first);
     _projectArea = _polygons.first.toMPLatLngList();
     _zoom = getIdealZoom(_projectArea, _location.toMPLatLng());

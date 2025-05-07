@@ -1,6 +1,9 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-
-import 'db_schema_classes.dart';
+import 'db_schema_classes/specific_test_classes/absence_of_order_test_class.dart';
+import 'db_schema_classes/specific_test_classes/lighting_profile_test_class.dart';
+import 'db_schema_classes/specific_test_classes/nature_prevalence_test_class.dart';
+import 'db_schema_classes/specific_test_classes/people_in_motion_test_class.dart';
+import 'db_schema_classes/specific_test_classes/people_in_place_test_class.dart';
 
   final AssetMapBitmap catMarkerIcon = AssetMapBitmap(
     'assets/cat_marker.png',

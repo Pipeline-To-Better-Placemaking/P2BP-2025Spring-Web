@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:p2b/extensions.dart';
 import 'package:p2b/pdf_output.dart';
 import 'package:p2b/widgets.dart';
 import 'package:collection/collection.dart';
 import 'google_maps_functions.dart';
-import 'db_schema_classes.dart';
-import 'firestore_functions.dart';
+import 'db_schema_classes/specific_test_classes/absence_of_order_test_class.dart';
+import 'db_schema_classes/specific_test_classes/access_profile_test_class.dart';
+import 'db_schema_classes/specific_test_classes/acoustic_profile_test_class.dart';
+import 'db_schema_classes/specific_test_classes/lighting_profile_test_class.dart';
+import 'db_schema_classes/specific_test_classes/nature_prevalence_test_class.dart';
+import 'db_schema_classes/specific_test_classes/people_in_motion_test_class.dart';
+import 'db_schema_classes/specific_test_classes/people_in_place_test_class.dart';
+import 'db_schema_classes/specific_test_classes/section_cutter_test_class.dart';
+import 'db_schema_classes/specific_test_classes/spatial_boundaries_test_class.dart';
+import 'db_schema_classes/project_class.dart';
+import 'db_schema_classes/test_class.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
 
 class ResultsPage extends StatefulWidget {
@@ -17,10 +27,10 @@ class ResultsPage extends StatefulWidget {
   State<ResultsPage> createState() => _ResultsPageState();
 }
 
-const Map<String, String> testStaticStrings = {
+Map<String, String> testStaticStrings = {
   AbsenceOfOrderTest.displayName: AbsenceOfOrderTest.collectionIDStatic,
   AcousticProfileTest.displayName: AcousticProfileTest.collectionIDStatic,
-  IdentifyingAccessTest.displayName: IdentifyingAccessTest.collectionIDStatic,
+  AccessProfileTest.displayName: AccessProfileTest.collectionIDStatic,
   LightingProfileTest.displayName: LightingProfileTest.collectionIDStatic,
   NaturePrevalenceTest.displayName: NaturePrevalenceTest.collectionIDStatic,
   PeopleInMotionTest.displayName: PeopleInMotionTest.collectionIDStatic,
@@ -52,7 +62,7 @@ class _ResultsPageState extends State<ResultsPage> {
   @override
   void initState() {
     super.initState();
-    _projectPolygon = getProjectPolygon(widget.activeProject.polygonPoints);
+    _projectPolygon = widget.activeProject.polygon.clone();
     _location = getPolygonCentroid(_projectPolygon);
     _projectPoints = _projectPolygon.toMPLatLngList();
     _zoom = getIdealZoom(_projectPoints, _location.toMPLatLng());
@@ -137,7 +147,7 @@ class _ResultsPageState extends State<ResultsPage> {
     TestData testData;
 
     if (widget.activeProject.tests == null) {
-      widget.activeProject.loadAllTestData();
+      widget.activeProject.loadAllTestInfo();
     }
     for (final Test test in widget.activeProject.tests!) {
       switch (test.collectionID) {
@@ -181,9 +191,9 @@ class _ResultsPageState extends State<ResultsPage> {
               displayName: AcousticProfileTest.displayName,
             );
           }
-        case (IdentifyingAccessTest.collectionIDStatic):
+        case (AccessProfileTest.collectionIDStatic):
           {
-            polygons.addAll((test as IdentifyingAccessTest)
+            polygons.addAll((test as AccessProfileTest)
                 .data
                 .parkingStructures
                 .map((parkingStructure) => parkingStructure.polygon));
@@ -199,7 +209,7 @@ class _ResultsPageState extends State<ResultsPage> {
               test: test,
               polygons: polygons.toSet(),
               polylines: polylines.toSet(),
-              displayName: IdentifyingAccessTest.displayName,
+              displayName: AccessProfileTest.displayName,
             );
           }
         case (LightingProfileTest.collectionIDStatic):
@@ -370,16 +380,16 @@ class _ResultsPageState extends State<ResultsPage> {
                       // Create project to pass to PDF with only visible tests.
                       Project projectForPdf = Project(
                         teamRef: widget.activeProject.teamRef,
-                        projectAdmin: widget.activeProject.projectAdmin,
-                        projectID: widget.activeProject.projectID,
                         title: widget.activeProject.title,
                         description: widget.activeProject.description,
                         address: widget.activeProject.address,
-                        polygonPoints: widget.activeProject.polygonPoints,
                         polygonArea: widget.activeProject.polygonArea,
                         standingPoints: widget.activeProject.standingPoints,
                         testRefs: widget.activeProject.testRefs,
                         tests: _pdfTests,
+                        id: widget.activeProject.id,
+                        memberRefMap: widget.activeProject.memberRefMap,
+                        polygon: widget.activeProject.polygon,
                       );
                       // Go to PDF Page
                       Navigator.push(

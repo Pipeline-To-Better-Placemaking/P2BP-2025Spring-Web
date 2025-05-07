@@ -2,17 +2,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'change_email_page.dart';
 import 'change_name_page.dart';
-import 'Login.dart';
+import 'login_screen.dart';
+import 'db_schema_classes/member_class.dart';
 import 'theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'change_password_page.dart';
-import 'firestore_functions.dart';
 import 'strings.dart';
 import 'submit_bug_report_page.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  final Member member;
+  const SettingsPage({super.key, required this.member});
 
   @override
   State<StatefulWidget> createState() => _SettingsPageState();
@@ -27,7 +28,7 @@ class _SettingsPageState extends State<SettingsPage> {
         // Sends to login screen and removes everything else from nav stack
         Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => LoginPage()),
+            MaterialPageRoute(builder: (context) => LoginScreen()),
             (Route route) => false);
       } else {
         throw Exception('context-unmounted');
@@ -151,7 +152,9 @@ class _SettingsPageState extends State<SettingsPage> {
           children: <Widget>[
             Column(
               children: <Widget>[
-                ProfileIconEditStack(),
+                ProfileIconEditStack(
+                  member: widget.member,
+                ),
                 const SizedBox(height: 8),
               ],
             ),
@@ -186,7 +189,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ChangeNamePage(),
+                    builder: (context) => ChangeNamePage(
+                      member: widget.member,
+                    ),
                   ),
                 );
               },
@@ -342,7 +347,8 @@ class _DarkModeSwitchListTileState extends State<DarkModeSwitchListTile> {
 }
 
 class ProfileIconEditStack extends StatefulWidget {
-  const ProfileIconEditStack({super.key});
+  final Member member;
+  const ProfileIconEditStack({super.key, required this.member});
 
   @override
   State<ProfileIconEditStack> createState() => _ProfileIconEditStackState();
@@ -359,7 +365,7 @@ class _ProfileIconEditStackState extends State<ProfileIconEditStack> {
 
     try {
       // Get user's full name from firebase
-      final String fullName = await getUserFullName(_currentUser?.uid);
+      final String fullName = widget.member.fullName;
 
       // Adds the first letter of each word of the full name to result string
       final splitFullNameList = fullName.split(' ');

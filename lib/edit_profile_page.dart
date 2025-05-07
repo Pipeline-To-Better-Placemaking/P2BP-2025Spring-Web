@@ -51,12 +51,7 @@ class EditProfilePage extends StatelessWidget {
                     borderRadius: BorderRadius.all(Radius.circular(10)),
                   ),
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChangeNamePage(),
-                      ),
-                    );
+                    Navigator.pop(context);
                   },
                 ),
               ],

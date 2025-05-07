@@ -7,8 +7,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:p2b/db_schema_classes.dart';
-import 'package:p2b/firestore_functions.dart';
+import 'package:p2b/extensions.dart';
+import 'db_schema_classes/member_class.dart';
+import 'db_schema_classes/project_class.dart';
+import 'db_schema_classes/specific_test_classes/absence_of_order_test_class.dart';
+import 'db_schema_classes/specific_test_classes/access_profile_test_class.dart';
+import 'db_schema_classes/specific_test_classes/acoustic_profile_test_class.dart';
+import 'db_schema_classes/specific_test_classes/lighting_profile_test_class.dart';
+import 'db_schema_classes/specific_test_classes/nature_prevalence_test_class.dart';
+import 'db_schema_classes/specific_test_classes/people_in_motion_test_class.dart';
+import 'db_schema_classes/specific_test_classes/people_in_place_test_class.dart';
+import 'db_schema_classes/specific_test_classes/section_cutter_test_class.dart';
+import 'db_schema_classes/specific_test_classes/spatial_boundaries_test_class.dart';
+import 'db_schema_classes/test_class.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -112,7 +123,7 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
             time: DateFormat.jmv().format(test.scheduledTime.toDate()));
         pdfPage = (lpData);
       }
-    case 'absence_of_order_tests':
+    case AbsenceOfOrderTest.collectionIDStatic:
       {
         PDFData aoData;
         AbsenceOfOrderData data = (test as AbsenceOfOrderTest).data;
@@ -135,7 +146,7 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
             time: DateFormat.jmv().format(test.scheduledTime.toDate()));
         pdfPage = (aoData);
       }
-    case 'nature_prevalence_tests':
+    case NaturePrevalenceTest.collectionIDStatic:
       {
         PDFData npData;
         NaturePrevalenceData data = (test as NaturePrevalenceTest).data;
@@ -200,10 +211,10 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
             time: DateFormat.jmv().format(test.scheduledTime.toDate()));
         pdfPage = (npData);
       }
-    case 'identifying_access_tests':
+    case AccessProfileTest.collectionIDStatic:
       {
         PDFData iaData;
-        IdentifyingAccessData data = (test as IdentifyingAccessTest).data;
+        AccessProfileData data = (test as AccessProfileTest).data;
         Map<String, double> polylineLengths = {
           AccessType.taxiAndRideShare.name: 0,
           AccessType.parking.name: 0,
@@ -256,13 +267,13 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
             ),
           ],
           pieGraphData: [],
-          displayName: IdentifyingAccessTest.displayName,
+          displayName: AccessProfileTest.displayName,
           date: DateFormat.yMMMd().format(test.scheduledTime.toDate()),
           time: DateFormat.jmv().format(test.scheduledTime.toDate()),
         );
         pdfPage = (iaData);
       }
-    case 'people_in_place_tests':
+    case PeopleInPlaceTest.collectionIDStatic:
       {
         PDFData ppData;
         PeopleInPlaceData data = (test as PeopleInPlaceTest).data;
@@ -291,7 +302,7 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
         );
         pdfPage = (ppData);
       }
-    case 'people_in_motion_tests':
+    case PeopleInMotionTest.collectionIDStatic:
       {
         PDFData pmData;
         PeopleInMotionData data = (test as PeopleInMotionTest).data;
@@ -323,7 +334,7 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
         );
         pdfPage = (pmData);
       }
-    case 'acoustic_profile_tests':
+    case AcousticProfileTest.collectionIDStatic:
       {
         AcousticProfileData data = (test as AcousticProfileTest).data;
         PDFData apData;
@@ -362,7 +373,7 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
         );
         pdfPage = (apData);
       }
-    case 'spatial_boundaries_tests':
+    case SpatialBoundariesTest.collectionIDStatic:
       {
         PDFData sbData;
         SpatialBoundariesData data = (test as SpatialBoundariesTest).data;
@@ -445,7 +456,7 @@ Future<PDFData?> retrievePDFInfo(Test test, Polygon projectPolygon) async {
             time: DateFormat.jmv().format(test.scheduledTime.toDate()));
         pdfPage = (sbData);
       }
-    case 'section_cutter_tests':
+    case SectionCutterTest.collectionIDStatic:
       {
         PDFData scData;
         Section data = (test as SectionCutterTest).data;
@@ -550,7 +561,8 @@ Future<Uint8List> generateReport(
     bold: await PdfGoogleFonts.openSansBold(),
   );
 
-  contributors = await getTeamMembers(activeProject.teamRef!.id);
+  final roleMap = await activeProject.team?.loadMembersInfo();
+  contributors = roleMap!.toSingleList();
   for (Member contributor in contributors) {
     contributorsNames.add(contributor.fullName);
   }
@@ -601,7 +613,7 @@ Future<Uint8List> generateReport(
                   decoration: pw.TextDecoration.underline, fontSize: 16),
               textAlign: pw.TextAlign.center,
             ),
-            pw.Text('${contributorsNames.join(', ')}'),
+            pw.Text(contributorsNames.join(', ')),
             pw.SizedBox(height: 10),
             pw.Text(
               'Sponsor: ',
@@ -616,7 +628,7 @@ Future<Uint8List> generateReport(
     ),
   );
 
-  projectPolygon = getProjectPolygon(activeProject.polygonPoints);
+  projectPolygon = activeProject.polygon.clone();
   rawTests = activeProject.tests ?? [];
   for (Test currentTest in rawTests) {
     // If a test isn't complete, skip it

@@ -1,28 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:p2b/db_schema_classes/member_class.dart';
 import 'create_project_and_teams.dart';
+import 'db_schema_classes/team_class.dart';
 import 'settings_page.dart';
 import 'teams_and_invites_page.dart';
 import 'results_page.dart';
 import 'edit_project_panel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'firestore_functions.dart';
 import 'project_details_page.dart';
-import 'db_schema_classes.dart';
+import 'db_schema_classes/project_class.dart';
 import 'theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  final Member member;
+  const HomePage({super.key, required this.member});
 
   @override
   Widget build(BuildContext context) {
-    return const HomePageBody();
+    return HomePageBody(member: member);
   }
 }
 
 class HomePageBody extends StatefulWidget {
-  const HomePageBody({super.key});
+  final Member member;
+  const HomePageBody({super.key, required this.member});
 
   @override
   // ignore: library_private_types_in_public_api
@@ -36,6 +39,7 @@ class _HomePageBodyState extends State<HomePageBody> {
   List<Project> _projectList = [];
   int _projectsCount = 0;
   bool _isLoading = true;
+  Team? _currentTeam;
   String _currentPage = "Home";
   String teamName = 'Team Name';
 
@@ -54,35 +58,29 @@ class _HomePageBodyState extends State<HomePageBody> {
 
   Future<void> _populateProjects() async {
     try {
-      teamRef = await getCurrentTeam();
-      if (!mounted) return;
-      if (teamRef == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("No selected team available.")),
-        );
-      } else {
-        // Retrieve the team name
-        DocumentSnapshot teamDoc = await teamRef!.get();
-        if (teamDoc.exists && teamDoc.data() != null) {
-          teamName = teamDoc['title'];
-        }
-
-        _projectList = await getTeamProjects(teamRef!);
+      _currentTeam = await widget.member.loadSelectedTeamInfo();
+      if (_currentTeam == null) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+        });
+        return;
       }
+
+      _projectList = await _currentTeam!.loadProjectsInfo();
       if (!mounted) return;
       setState(() {
-        _projectsCount = _projectList.length;
-        _projectList;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (e, s) {
       print("Error in _populateProjects(): $e");
+      print('Stacktrace: $s');
     }
   }
 
   Future<void> _getUserFirstName() async {
     try {
-      String fullName = await getUserFullName(_currentUser?.uid);
+      String fullName = widget.member.fullName;
       String firstName = fullName.split(' ').first;
       if (_firstName != firstName) {
         setState(() {
@@ -169,8 +167,10 @@ class _HomePageBodyState extends State<HomePageBody> {
         index: _getPageIndex(_currentPage),
         children: [
           SizedBox.expand(child: _buildHomeContent(context)),
-          const CreateProjectAndTeamsPage(),
-          const SettingsPage(),
+          CreateProjectAndTeamsPage(
+            member: widget.member,
+          ),
+          SettingsPage(member: widget.member),
         ],
       ),
     );
@@ -206,7 +206,9 @@ class _HomePageBodyState extends State<HomePageBody> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const TeamsAndInvitesPage(),
+                              builder: (context) => TeamsAndInvitesPage(
+                                member: widget.member,
+                              ),
                             ),
                           );
                         },
@@ -265,7 +267,7 @@ class _HomePageBodyState extends State<HomePageBody> {
 
           // Prevent GridView overflow
           Expanded(
-            child: _projectsCount > 0
+            child: _projectList.isNotEmpty
                 ? GridView.builder(
                     padding: const EdgeInsets.only(
                       left: 15,
@@ -280,14 +282,14 @@ class _HomePageBodyState extends State<HomePageBody> {
                       mainAxisSpacing: 25,
                       childAspectRatio: 2,
                     ),
-                    itemCount: _projectsCount,
+                    itemCount: _projectList.length,
                     itemBuilder: (BuildContext context, int index) {
                       final project = _projectList[index];
                       return buildProjectCard(
                         context: context,
                         bannerImage: 'assets/RedHouse.png',
                         project: project,
-                        teamName: teamName,
+                        teamName: project.team!.title,
                         index: index,
                       );
                     },
@@ -324,7 +326,7 @@ class _HomePageBodyState extends State<HomePageBody> {
       child: InkWell(
         onTap: () async {
           if (project.tests == null) {
-            await project.loadAllTestData();
+            await project.loadAllTestInfo();
           }
           if (!context.mounted) return;
           Navigator.push(
@@ -423,7 +425,7 @@ class _HomePageBodyState extends State<HomePageBody> {
                         ElevatedButton(
                           onPressed: () async {
                             if (project.tests == null) {
-                              await project.loadAllTestData();
+                              await project.loadAllTestInfo();
                             }
                             if (!context.mounted) return;
                             Navigator.push(

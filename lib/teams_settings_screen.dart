@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:p2b/db_schema_classes/member_class.dart';
 import 'manage_team_bottom_sheet.dart';
 import 'project_list_widget.dart';
 import 'dart:ui';
-import 'project_details_page.dart';
-import 'db_schema_classes.dart';
+import 'db_schema_classes/team_class.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'theme.dart';
 import 'change_team_name_bottom_sheet.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'project_list_widget.dart';
-//import 'teams_create_projects.dart';
 
 class TeamSettingsScreen extends StatefulWidget {
   final Team activeTeam;
 
-  const TeamSettingsScreen({super.key, required this.activeTeam});
+  const TeamSettingsScreen(
+      {super.key, required this.activeTeam, required Member member});
 
   @override
   State<TeamSettingsScreen> createState() => _TeamSettingsScreenState();
@@ -46,21 +45,7 @@ class _TeamSettingsScreenState extends State<TeamSettingsScreen> {
     });
   }
 
-  void handleProjectTap(int index) {
-    // Normal tap behavior, e.g., navigate to project details.
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ProjectDetailsPage(
-          activeProject: Project.partialProject(
-            title: 'No data sent',
-            description: 'Accessed without project data',
-            address: 'Accessed w/out project data',
-          ),
-        ),
-      ),
-    );
-  }
+  void handleProjectTap(int index) {}
 
   void _showInviteDialog(BuildContext context) {
     String email = '';

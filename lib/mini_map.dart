@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'db_schema_classes.dart';
+import 'package:p2b/extensions.dart';
+import 'db_schema_classes/project_class.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'firestore_functions.dart';
 import 'google_maps_functions.dart';
 
 class MiniMap extends StatefulWidget {
@@ -27,7 +27,7 @@ class _MiniMapState extends State<MiniMap> {
   @override
   void initState() {
     super.initState();
-    _polygons.add(getProjectPolygon(widget.activeProject.polygonPoints));
+    _polygons.add(widget.activeProject.polygon.clone());
     _location = getPolygonCentroid(_polygons.first);
     _zoom =
         getIdealZoom(_polygons.first.toMPLatLngList(), _location.toMPLatLng());

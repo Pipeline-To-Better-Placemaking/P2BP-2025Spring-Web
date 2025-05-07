@@ -2,14 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'create_test_form.dart';
 import 'show_project_options_dialog.dart';
 import 'theme.dart';
-
-import 'db_schema_classes.dart';
-import 'firestore_functions.dart';
+import 'db_schema_classes/misc_class_stuff.dart';
+import 'db_schema_classes/project_class.dart';
+import 'db_schema_classes/test_class.dart';
 import 'mini_map.dart';
 
 class ProjectDetailsPage extends StatefulWidget {
@@ -32,12 +31,32 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
   late int _testCount;
   bool _isLoading = true;
   Project? project;
-  late Widget _testListView;
+  String _coverImageUrl = '';
+  late final bool _isAdmin;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.activeProject.tests == null) {
+      _loadTests();
+    } else {
+      _isLoading = false;
+    }
+    _isAdmin = widget.activeProject.memberRefMap[GroupRole.owner]!.any(
+        (memberRef) => memberRef.id == FirebaseAuth.instance.currentUser!.uid);
+    _coverImageUrl = widget.activeProject.coverImageUrl;
+  }
+
+  void _loadTests() async {
+    await widget.activeProject.loadAllTestInfo();
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     _testCount = widget.activeProject.tests!.length;
-    _testListView = _buildTestListView();
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: CustomScrollView(
@@ -67,8 +86,7 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
                   padding: EdgeInsets
                       .zero, // Removes internal padding from IconButton
                   constraints: BoxConstraints(),
-                  icon: Icon(Icons.arrow_back,
-                      color: p2bpBlue, size: 20),
+                  icon: Icon(Icons.arrow_back, color: p2bpBlue, size: 20),
                   onPressed: () {
                     Navigator.pop(context);
                   },
@@ -213,8 +231,7 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (widget.activeProject.projectAdmin!.id ==
-                      loggedInUser!.uid)
+                  if (_isAdmin)
                     FilledButton.icon(
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.only(left: 15, right: 15),
@@ -260,9 +277,10 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
   }
 
   void _showCreateTestModal() async {
-    final Map<String, dynamic> ? newTestInfo = await showDialog(
+    final Map<String, dynamic>? newTestInfo = await showDialog(
       context: context,
-      barrierDismissible: true, // Disallows dismissal by tapping outside the dialog
+      barrierDismissible:
+          true, // Disallows dismissal by tapping outside the dialog
       builder: (BuildContext context) {
         return Dialog(
           shape: RoundedRectangleBorder(
@@ -271,19 +289,20 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
           child: Container(
             padding: EdgeInsets.all(16),
             height: 400, // You can adjust the height based on your content
-            width: 600,  // Adjust the width of the dialog
-            child: CreateTestForm(activeProject: widget.activeProject,),
+            width: 600, // Adjust the width of the dialog
+            child: CreateTestForm(
+              activeProject: widget.activeProject,
+            ),
           ),
         );
       },
     );
 
     if (newTestInfo == null) return;
-    final Test test = await saveTest(
+    Test.createNew(
       title: newTestInfo['title'],
       scheduledTime: newTestInfo['scheduledTime'],
-      projectRef:
-          _firestore.collection('projects').doc(widget.activeProject.projectID),
+      project: widget.activeProject,
       collectionID: newTestInfo['collectionID'],
       standingPoints: newTestInfo.containsKey('standingPoints')
           ? newTestInfo['standingPoints']
@@ -298,8 +317,9 @@ class _ProjectDetailsPageState extends State<ProjectDetailsPage> {
           ? newTestInfo['intervalCount']
           : null,
     );
+
     setState(() {
-      widget.activeProject.tests?.add(test);
+      // Update in case new test was added.
     });
   }
 
@@ -415,7 +435,7 @@ class TestCard extends StatelessWidget {
                         )
                       : SizedBox(),
                   // Show the button only if the testID starts with 'section_cutter_tests'
-                  if (test.testID.startsWith("section_cutter_tests"))
+                  if (test.id.startsWith("section_cutter_tests"))
                     SizedBox(
                       width: 30,
                       child: IconButton(

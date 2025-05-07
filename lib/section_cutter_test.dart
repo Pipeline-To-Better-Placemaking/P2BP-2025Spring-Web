@@ -2,27 +2,29 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:p2b/extensions.dart';
 import 'theme.dart';
 import 'widgets.dart';
 import 'project_details_page.dart';
-import 'db_schema_classes.dart';
-import 'firestore_functions.dart';
+import 'db_schema_classes/project_class.dart';
+import 'db_schema_classes/specific_test_classes/section_cutter_test_class.dart';
 import 'google_maps_functions.dart';
 import 'package:file_selector/file_selector.dart';
 
 //import 'homepage.dart';
 
-class SectionCutter extends StatefulWidget {
+class SectionCutterTestPage extends StatefulWidget {
   final Project activeProject;
   final SectionCutterTest activeTest;
 
   /// IMPORTANT: When navigating to this page, pass in project details. The
   /// project details page already contains project info, so you should use
   /// that data.
-  const SectionCutter({super.key, required this.activeTest, required this.activeProject});
+  const SectionCutterTestPage(
+      {super.key, required this.activeTest, required this.activeProject});
 
   @override
-  State<SectionCutter> createState() => _SectionCutterState();
+  State<SectionCutterTestPage> createState() => _SectionCutterTestPageState();
 }
 
 const XTypeGroup acceptedFileTypes = XTypeGroup(
@@ -30,7 +32,7 @@ const XTypeGroup acceptedFileTypes = XTypeGroup(
   extensions: <String>['jpg', 'png', 'pdf'],
 );
 
-class _SectionCutterState extends State<SectionCutter> {
+class _SectionCutterTestPageState extends State<SectionCutterTestPage> {
   bool _isLoadingUpload = false;
   bool _uploaded = false;
   bool _isLoading = false;
@@ -47,7 +49,7 @@ class _SectionCutterState extends State<SectionCutter> {
   final Set<Polygon> _polygons = {}; // Set of polygons
   Set<Polyline> _polyline = {};
   List<LatLng> _sectionPoints = [];
-  MapType _currentMapType = MapType.satellite; 
+  MapType _currentMapType = MapType.satellite;
 
   Project? project;
 
@@ -63,7 +65,7 @@ class _SectionCutterState extends State<SectionCutter> {
   /// centers the map over it.
   void initProjectArea() {
     setState(() {
-      _polygons.add(getProjectPolygon(widget.activeProject.polygonPoints));
+      _polygons.add(widget.activeProject.polygon.clone());
       _location = getPolygonCentroid(_polygons.first);
       // Take some lattitude away to center considering bottom sheet.
       _location = LatLng(_location.latitude * .999999, _location.longitude);
@@ -132,7 +134,8 @@ class _SectionCutterState extends State<SectionCutter> {
                                   setState(() {
                                     _failedToUpload = false;
                                     _uploaded = true;
-                                    _directions = "Click finish to finish test.";
+                                    _directions =
+                                        "Click finish to finish test.";
                                   });
                                 } else {
                                   setState(() {
@@ -192,9 +195,8 @@ class _SectionCutterState extends State<SectionCutter> {
                           setState(() {
                             _isLoadingUpload = true;
                           });
-                          
-                          Section data = await widget
-                              .activeTest!
+
+                          Section data = await widget.activeTest!
                               .saveXFile(sectionCutterFile!);
                           widget.activeTest!.submitData(data);
 
@@ -249,14 +251,15 @@ class _SectionCutterState extends State<SectionCutter> {
                       left: 10, // Adjust the distance from the left
                       child: IconButton(
                         icon: Icon(
-                          Icons.arrow_back, 
-                          color: _currentMapType == MapType.normal 
+                          Icons.arrow_back,
+                          color: _currentMapType == MapType.normal
                               ? Colors.black // Back button black in 2D mode
                               : Colors.white, // Default color in other modes
                           size: 48, // Bigger size
                         ),
                         onPressed: () {
-                          Navigator.pop(context); // Go back to the previous screen
+                          Navigator.pop(
+                              context); // Go back to the previous screen
                         },
                       ),
                     ),

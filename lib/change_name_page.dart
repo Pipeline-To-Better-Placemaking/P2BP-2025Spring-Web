@@ -1,13 +1,14 @@
 import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'db_schema_classes/member_class.dart';
 import 'strings.dart';
-import 'firestore_functions.dart';
 
 class ChangeNamePage extends StatelessWidget {
-  const ChangeNamePage({super.key});
+  final Member member;
+
+  const ChangeNamePage({super.key, required this.member});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +28,7 @@ class ChangeNamePage extends StatelessWidget {
             children: <Widget>[
               const Text(Strings.changeNameText),
               const SizedBox(height: 16),
-              ChangeNameForm(),
+              ChangeNameForm(member: member,),
               const SizedBox(height: 40),
             ],
           ),
@@ -38,7 +39,9 @@ class ChangeNamePage extends StatelessWidget {
 }
 
 class ChangeNameForm extends StatefulWidget {
-  const ChangeNameForm({super.key});
+  final Member member;
+
+  const ChangeNameForm({super.key, required this.member});
 
   @override
   State<ChangeNameForm> createState() => _ChangeNameFormState();
@@ -49,37 +52,8 @@ class _ChangeNameFormState extends State<ChangeNameForm> {
   final TextEditingController _fullNameController = TextEditingController();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   String _currentFullName = 'Loading...';
-  StreamSubscription? _userChangesListener;
 
   bool _isNameChanged = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _getUserFullName();
-  }
-
-  // Gets name from DB and then sets local field _currentFullName to that
-  Future<void> _getUserFullName() async {
-    try {
-      String name = await getUserFullName(_currentUser?.uid);
-
-      if (_currentFullName != name) {
-        setState(() {
-          _currentFullName = name;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'An error occurred while retrieving your name: $e',
-          ),
-        ),
-      );
-    }
-  }
 
   Future<void> _submitNameChange() async {
     if (_formKey.currentState!.validate()) {
@@ -87,13 +61,13 @@ class _ChangeNameFormState extends State<ChangeNameForm> {
         String newName = _fullNameController.text.trim();
         await FirebaseFirestore.instance
             .collection('users')
-            .doc(_currentUser?.uid)
+            .doc(widget.member.id)
             .update({'fullName': newName});
+        await _currentUser?.updateDisplayName(newName);
         setState(() {
+          widget.member.fullName = newName;
           _isNameChanged = true;
         });
-        // Refresh current name being displayed
-        _getUserFullName();
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -106,7 +80,6 @@ class _ChangeNameFormState extends State<ChangeNameForm> {
   @override
   void dispose() {
     _fullNameController.dispose();
-    _userChangesListener?.cancel();
     super.dispose();
   }
 
@@ -122,7 +95,7 @@ class _ChangeNameFormState extends State<ChangeNameForm> {
               fontSize: 20,
               color: Colors.black87,
             ),
-            'Your current name is:\n$_currentFullName',
+            'Your current name is:\n${widget.member.fullName}',
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -136,7 +109,7 @@ class _ChangeNameFormState extends State<ChangeNameForm> {
               if (value == null || value.isEmpty) {
                 return 'Please enter your new name';
               }
-              if (value == _currentFullName) {
+              if (value.trim() == widget.member.fullName) {
                 return 'This is already your name';
               }
               return null;

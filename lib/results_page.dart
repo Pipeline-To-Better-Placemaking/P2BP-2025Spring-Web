@@ -390,6 +390,8 @@ class _ResultsPageState extends State<ResultsPage> {
                         id: widget.activeProject.id,
                         memberRefMap: widget.activeProject.memberRefMap,
                         polygon: widget.activeProject.polygon,
+                        memberMap: widget.activeProject.memberMap,
+                        team: widget.activeProject.team,
                       );
                       // Go to PDF Page
                       Navigator.push(

@@ -81,7 +81,9 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       _isLoading = true;
     });
-    member = await Member.login(FirebaseAuth.instance.currentUser!);
+    member = FirebaseAuth.instance.currentUser != null
+        ? await Member.login(FirebaseAuth.instance.currentUser!)
+        : null;
     setState(() {
       _isLoading = false;
     });

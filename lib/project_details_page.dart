@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:p2b/db_schema_classes/specific_test_classes/section_cutter_test_class.dart';
 import 'create_test_form.dart';
 import 'show_project_options_dialog.dart';
 import 'theme.dart';
@@ -435,7 +436,7 @@ class TestCard extends StatelessWidget {
                         )
                       : SizedBox(),
                   // Show the button only if the testID starts with 'section_cutter_tests'
-                  if (test.id.startsWith("section_cutter_tests"))
+                  if (test.collectionID == SectionCutterTest.collectionIDStatic)
                     SizedBox(
                       width: 30,
                       child: IconButton(

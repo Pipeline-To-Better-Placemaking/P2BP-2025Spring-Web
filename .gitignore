@@ -1,0 +1,60 @@
+node_modules
+.env
+frontend_2/.DS_Store
+frontend_2/screens/.DS_Store
+frontend_2/screens/components/.DS_Store
+frontend_2/.expo/settings.json
+frontend_2/.expo/README.md
+frontend_2/.expo/packager-info.json
+package-lock.json
+frontend_web/src/api
+frontend_web/src/routes/firebase_config.js
+firebase-tools-instant-win.exe
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+/.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+.vscode/
+flutter_01.png
+
+# Firebase files
+firebase.json
+/lib/firebase_options.dart

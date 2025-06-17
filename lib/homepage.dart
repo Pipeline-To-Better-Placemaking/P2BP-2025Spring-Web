@@ -6,7 +6,7 @@ import 'settings_page.dart';
 import 'teams_and_invites_page.dart';
 import 'results_page.dart';
 import 'edit_project_panel.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:firebase_auth/firebase_auth.dart'; ** isn't being used **
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'project_details_page.dart';
 import 'db_schema_classes/project_class.dart';
@@ -35,9 +35,9 @@ class HomePageBody extends StatefulWidget {
 class _HomePageBodyState extends State<HomePageBody> {
   String _firstName = 'User';
   DocumentReference? teamRef;
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  // final User? _currentUser = FirebaseAuth.instance.currentUser; ** isn't being used **
   List<Project> _projectList = [];
-  int _projectsCount = 0;
+  // int _projectsCount = 0; ** isn't being used ** 
   bool _isLoading = true;
   Team? _currentTeam;
   String _currentPage = "Home";
@@ -311,179 +311,179 @@ class _HomePageBodyState extends State<HomePageBody> {
     );
   }
 
-  Widget buildProjectCard({
-    required BuildContext context,
-    required String bannerImage,
-    required Project project,
-    required String teamName,
-    required int index,
-  }) {
-    return Card(
-      elevation: 5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: () async {
-          if (project.tests == null) {
-            await project.loadAllTestInfo();
-          }
-          if (!context.mounted) return;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProjectDetailsPage(activeProject: project),
+Widget buildProjectCard({
+  required BuildContext context,
+  required String bannerImage,
+  required Project project,
+  required String teamName,
+  required int index,
+}) {
+  return Card(
+    elevation: 5,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: InkWell(
+      onTap: () async {
+        if (project.tests == null) {
+          await project.loadAllTestInfo();
+        }
+        if (!context.mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProjectDetailsPage(activeProject: project),
+          ),
+        );
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxWidth = constraints.maxWidth;
+          final double cardWidth = maxWidth > 800 ? 800 : maxWidth * 0.01;
+
+          return Container(
+            width: cardWidth,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF3874CB), Color(0xFF183769)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                  child: Image.asset(
+                    bannerImage,
+                    width: double.infinity,
+                    height: 120,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        project.title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFFCC00),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        teamName,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFFCC00),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 10, right: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () async {
+                          final result = await showDialog(
+                            context: context,
+                            barrierDismissible: true,
+                            builder: (context) {
+                              return Dialog(
+                                backgroundColor: Colors.transparent,
+                                insetPadding: const EdgeInsets.symmetric(
+                                    horizontal: 40, vertical: 24),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                child: Padding(
+                                  padding: MediaQuery.of(context).viewInsets,
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 600,
+                                      minWidth: 300,
+                                    ),
+                                    child: SingleChildScrollView(
+                                      child: EditProjectForm(
+                                          activeProject: project),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+
+                          if (result == 'altered') {
+                            setState(() {}); // Refresh UI here after editing
+                          }
+                        },
+                        
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(
+                            color: Color(0xFFFFCC00),
+                            width: 2.0,
+                          ),
+                          foregroundColor: const Color(0xFFFFCC00),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Edit Info',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (project.tests == null) {
+                            await project.loadAllTestInfo();
+                          }
+                          if (!context.mounted) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  ResultsPage(activeProject: project),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFCC00),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Results',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF1D4076),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           );
         },
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final maxWidth = constraints.maxWidth;
-            final double cardWidth = maxWidth > 800
-                ? 800
-                : maxWidth * 0.01; // Dynamically adjust card width
-
-            return Container(
-              width: cardWidth,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3874CB), Color(0xFF183769)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      topRight: Radius.circular(12),
-                    ),
-                    child: Image.asset(
-                      bannerImage,
-                      width: double.infinity,
-                      height: 120,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          project.title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFFFCC00),
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          teamName,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFFFCC00),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 10,
-                      bottom: 10,
-                      right: 10,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              barrierDismissible: true,
-                              builder: (context) {
-                                return Dialog(
-                                  backgroundColor: Colors.transparent,
-                                  insetPadding: const EdgeInsets.symmetric(
-                                      horizontal: 40, vertical: 24),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
-                                  child: Padding(
-                                    padding: MediaQuery.of(context).viewInsets,
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 600,
-                                        minWidth: 300,
-                                      ),
-                                      child: SingleChildScrollView(
-                                        child:
-                                            EditProjectForm(activeProject: project),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                              color: Color(0xFFFFCC00),
-                              width: 2.0,
-                            ),
-                            foregroundColor: const Color(0xFFFFCC00),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Edit Info',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (project.tests == null) {
-                              await project.loadAllTestInfo();
-                            }
-                            if (!context.mounted) return;
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    ResultsPage(activeProject: project),
-                              ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFFCC00),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Results',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF1D4076),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 }

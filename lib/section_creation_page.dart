@@ -22,7 +22,7 @@ class _SectionCreationPageState extends State<SectionCreationPage> {
   LatLng _location = defaultLocation; // Default location
   bool _isLoading = true;
   String _directions =
-      "Create your section by marking two points by tapping the outside of the polygon area. Then click the check button to confirm.";
+      "Create your section by marking points by tapping outside of the polygon area. Then click the check button to confirm.";
   final Set<Polygon> _polygons = {}; // Set of polygons
   Set<Marker> _markers = {}; // Set of markers for points
   MapType _currentMapType = MapType.satellite; // Default map type
@@ -33,7 +33,6 @@ class _SectionCreationPageState extends State<SectionCreationPage> {
 
   bool _addPointsMode = true;
   bool _isHoveringOverButton = false;
-  bool _hasTwoPoints = false;
 
   @override
   void initState() {
@@ -68,8 +67,7 @@ class _SectionCreationPageState extends State<SectionCreationPage> {
   }
 
   void _polylineTap(LatLng point) {
-    // Prevent adding points if two points are already placed or if polyline is finalized
-    if (_hasTwoPoints || _polyline.isNotEmpty) return;
+    // Allow adding any number of points.
 
     final MarkerId markerId = MarkerId('marker_${point.toString()}');
     setState(() {
@@ -80,14 +78,13 @@ class _SectionCreationPageState extends State<SectionCreationPage> {
           draggable: true,
           onDragEnd: (newPosition) {
             setState(() {
-              // Update the marker's position after drag
               _markers = _markers.map((marker) {
                 if (marker.markerId == markerId) {
                   return marker.copyWith(positionParam: newPosition);
                 }
                 return marker;
-              }).toSet(); // Convert the list back to a Set
-              // Update the polyline
+              }).toSet();
+
               _polyline = {
                 Polyline(
                   polylineId: PolylineId('polyline_1'),
@@ -100,20 +97,16 @@ class _SectionCreationPageState extends State<SectionCreationPage> {
           },
         ),
       );
-      // If 2 points are placed, set the flag to true
-      if (_markers.length == 2) {
-        _hasTwoPoints = true; // Now no more points can be added
-        _directions =
-            'Move the points to your desired spots to create a polyline, then press the finalize button to create the polyline.';
-      }
+
+      _directions =
+          'Move the points to your desired spots to create a polyline, then press the finalize button to create the polyline.';
     });
     _currentPoint = point;
   }
 
   void _finalizePolyline() {
     setState(() {
-      if (_markers.length == 2) {
-        // Finalize the polyline and add to the set
+      if (_markers.length >= 2) {
         _polyline.add(
           Polyline(
             polylineId: PolylineId(
@@ -236,9 +229,8 @@ class _SectionCreationPageState extends State<SectionCreationPage> {
                                     _currentPoint = null;
                                     _polyline = {}; // Remove polyline
                                     _sectionSet = false;
-                                    _hasTwoPoints = false;
                                     _directions =
-                                        "Create your section by marking two points by tapping on the map outside of the polygon area. Then click the check to confirm.";
+                                        "Create your section by marking points by tapping on the map outside of the polygon area. Then click the check to confirm.";
                                   });
                                 },
                                 backgroundColor: Colors.red,
@@ -270,10 +262,11 @@ class _SectionCreationPageState extends State<SectionCreationPage> {
                               child: FloatingActionButton(
                                 tooltip: 'Finalize Polyline',
                                 heroTag: null,
-                                onPressed: _markers.length == 2
-                                    ? _finalizePolyline // Only enable if two markers are present
+                                onPressed: _markers.length >= 2
+                                    ? _finalizePolyline // Enable if 2 or more markers are present
                                     : null,
-                                backgroundColor: Colors.blue,
+                                backgroundColor:
+                                    _markers.length >= 2 ? Colors.blue : Colors.grey,
                                 child: Icon(
                                   Icons.check, // Checkmark icon
                                   size: 30,
@@ -328,7 +321,7 @@ class _SectionCreationPageState extends State<SectionCreationPage> {
                               ),
                               onPressed: (_isLoading ||
                                       _polyline.isEmpty ||
-                                      _polyline.first.points.length != 2)
+                                      _polyline.first.points.length < 2)
                                   ? null
                                   : () {
                                       try {
